@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Donor {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  total_donated     Int             @default(0)
+  balance_remaining Int             @default(0)
+  magic_token       String?         @unique
+  token_expires_at  DateTime?
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+  donations         Donation[]
+  reward_claims     RewardClaim[]
+  poll_votes        PollVote[]
+  fund_contributions FundContribution[]
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  tiltify_id  String   @unique
+  donor_id    String
+  amount_cents Int
+  donor_name  String?
+  comment     String?
+  created_at  DateTime @default(now())
+  donor       Donor    @relation(fields: [donor_id], references: [id])
+}
+
+model Reward {
+  id               String        @id @default(cuid())
+  title            String
+  description      String?
+  type             String        // DIGITAL | PHYSICAL | SHOUTOUT | CUSTOM
+  cost_cents       Int
+  quantity_total   Int?
+  quantity_claimed Int           @default(0)
+  is_active        Boolean       @default(true)
+  custom_type_label String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+  claims           RewardClaim[]
+}
+
+model RewardClaim {
+  id         String   @id @default(cuid())
+  reward_id  String
+  donor_id   String
+  status     String   @default("PENDING") // PENDING | FULFILLED
+  claim_data String?  // JSON string
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  reward     Reward   @relation(fields: [reward_id], references: [id])
+  donor      Donor    @relation(fields: [donor_id], references: [id])
+}
+
+model Poll {
+  id              String       @id @default(cuid())
+  title           String
+  description     String?
+  is_active       Boolean      @default(true)
+  ends_at         DateTime?
+  total_votes_cents Int        @default(0)
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+  options         PollOption[]
+  votes           PollVote[]
+}
+
+model PollOption {
+  id         String     @id @default(cuid())
+  poll_id    String
+  label      String
+  votes_cents Int       @default(0)
+  poll       Poll       @relation(fields: [poll_id], references: [id], onDelete: Cascade)
+  votes      PollVote[]
+}
+
+model PollVote {
+  id             String     @id @default(cuid())
+  poll_id        String
+  poll_option_id String
+  donor_id       String
+  amount_cents   Int
+  created_at     DateTime   @default(now())
+  poll           Poll       @relation(fields: [poll_id], references: [id])
+  poll_option    PollOption @relation(fields: [poll_option_id], references: [id])
+  donor          Donor      @relation(fields: [donor_id], references: [id])
+}
+
+model FundGoal {
+  id            String             @id @default(cuid())
+  title         String
+  description   String?
+  target_cents  Int
+  current_cents Int                @default(0)
+  is_active     Boolean            @default(true)
+  is_complete   Boolean            @default(false)
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
+  contributions FundContribution[]
+}
+
+model FundContribution {
+  id           String   @id @default(cuid())
+  goal_id      String
+  donor_id     String
+  amount_cents Int
+  created_at   DateTime @default(now())
+  goal         FundGoal @relation(fields: [goal_id], references: [id])
+  donor        Donor    @relation(fields: [donor_id], references: [id])
+}

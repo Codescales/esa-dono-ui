@@ -1,0 +1,60 @@
+import { Router } from 'express';
+import prisma from '../lib/prisma.js';
+import { donorAuth } from '../middleware/donorAuth.js';
+
+const router = Router();
+
+router.get('/', async (req, res) => {
+  const polls = await prisma.poll.findMany({
+    where: { is_active: true },
+    include: { options: { orderBy: { votes_cents: 'desc' } } },
+    orderBy: { created_at: 'desc' },
+  });
+  res.json(polls);
+});
+
+router.post('/:id/vote', donorAuth, async (req, res) => {
+  const { poll_option_id, amount_cents } = req.body;
+  if (!poll_option_id || !amount_cents || amount_cents < 100) {
+    return res.status(400).json({ error: 'poll_option_id and amount_cents (min 100) required' });
+  }
+
+  const poll = await prisma.poll.findUnique({ where: { id: req.params.id } });
+  if (!poll || !poll.is_active) return res.status(404).json({ error: 'Poll not found or inactive' });
+  if (poll.ends_at && new Date() > poll.ends_at) return res.status(400).json({ error: 'Poll has ended' });
+
+  const option = await prisma.pollOption.findUnique({ where: { id: poll_option_id } });
+  if (!option || option.poll_id !== poll.id) return res.status(404).json({ error: 'Option not found' });
+
+  const donor = req.donor;
+  if (donor.balance_remaining < amount_cents) {
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
+
+  await prisma.$transaction([
+    prisma.donor.update({
+      where: { id: donor.id },
+      data: { balance_remaining: { decrement: amount_cents } },
+    }),
+    prisma.pollVote.create({
+      data: {
+        poll_id: poll.id,
+        poll_option_id,
+        donor_id: donor.id,
+        amount_cents,
+      },
+    }),
+    prisma.pollOption.update({
+      where: { id: poll_option_id },
+      data: { votes_cents: { increment: amount_cents } },
+    }),
+    prisma.poll.update({
+      where: { id: poll.id },
+      data: { total_votes_cents: { increment: amount_cents } },
+    }),
+  ]);
+
+  res.json({ success: true });
+});
+
+export default router;

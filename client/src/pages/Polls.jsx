@@ -1,0 +1,99 @@
+import { useEffect, useState } from 'react';
+import { getPolls, votePoll } from '../api/polls.js';
+import LoadingSpinner from '../components/LoadingSpinner.jsx';
+import Card from '../components/Card.jsx';
+import Modal from '../components/Modal.jsx';
+import ProgressBar from '../components/ProgressBar.jsx';
+
+function fmt(cents) { return `$${(cents / 100).toFixed(2)}`; }
+
+export default function Polls() {
+  const [polls, setPolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [voting, setVoting] = useState(null); // { poll, option }
+  const [amount, setAmount] = useState('1.00');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const reload = () => getPolls().then(setPolls);
+  useEffect(() => { reload().finally(() => setLoading(false)); }, []);
+
+  const openVote = (poll, option) => {
+    setVoting({ poll, option });
+    setAmount('1.00');
+    setError('');
+    setSuccess('');
+  };
+
+  const handleVote = async () => {
+    setError('');
+    const cents = Math.round(parseFloat(amount) * 100);
+    if (isNaN(cents) || cents < 100) { setError('Minimum vote is $1.00'); return; }
+    try {
+      await votePoll(voting.poll.id, voting.option.id, cents);
+      setSuccess('Vote cast!');
+      reload();
+      setTimeout(() => { setVoting(null); setSuccess(''); }, 1500);
+    } catch (e) {
+      setError(e.response?.data?.error ?? 'Failed to cast vote.');
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <div className="max-w-3xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-6">Polls</h1>
+      {polls.map(poll => (
+        <Card key={poll.id} className="mb-4">
+          <h2 className="text-lg font-semibold mb-1">{poll.title}</h2>
+          {poll.description && <p className="text-gray-500 text-sm mb-3">{poll.description}</p>}
+          {poll.ends_at && <p className="text-xs text-gray-400 mb-2">Ends: {new Date(poll.ends_at).toLocaleString()}</p>}
+          <div className="space-y-3">
+            {poll.options.map(opt => (
+              <div key={opt.id}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-medium">{opt.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">{fmt(opt.votes_cents)}</span>
+                    <button
+                      onClick={() => openVote(poll, opt)}
+                      className="px-2 py-0.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
+                    >Vote</button>
+                  </div>
+                </div>
+                <ProgressBar value={opt.votes_cents} max={poll.total_votes_cents || 1} />
+              </div>
+            ))}
+            {poll.options.length === 0 && <p className="text-gray-400 text-sm">No options yet.</p>}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Total votes: {fmt(poll.total_votes_cents)}</p>
+        </Card>
+      ))}
+      {polls.length === 0 && <p className="text-gray-500">No active polls.</p>}
+
+      {voting && (
+        <Modal title={`Vote: ${voting.option.label}`} onClose={() => setVoting(null)}>
+          <p className="text-sm text-gray-600 mb-3">In poll: <strong>{voting.poll.title}</strong></p>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Amount ($1 = 1 vote)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="1"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {success && <p className="text-green-600 text-sm mb-2">{success}</p>}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setVoting(null)} className="px-4 py-2 border rounded text-sm">Cancel</button>
+            <button onClick={handleVote} className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">Cast Vote</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
