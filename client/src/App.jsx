@@ -11,6 +11,14 @@ import AdminRewards from './pages/admin/AdminRewards.jsx';
 import AdminPolls from './pages/admin/AdminPolls.jsx';
 import AdminGoals from './pages/admin/AdminGoals.jsx';
 import AdminDonations from './pages/admin/AdminDonations.jsx';
+import AdminSimulate from './pages/admin/AdminSimulate.jsx';
+import AdminBlockedWords from './pages/admin/AdminBlockedWords.jsx';
+import ModeratorLayout from './pages/moderator/ModeratorLayout.jsx';
+import ModeratorDashboard from './pages/moderator/ModeratorDashboard.jsx';
+import ModeratorPolls from './pages/moderator/ModeratorPolls.jsx';
+import ModeratorRewards from './pages/moderator/ModeratorRewards.jsx';
+import ModeratorGoals from './pages/moderator/ModeratorGoals.jsx';
+import ModeratorClaims from './pages/moderator/ModeratorClaims.jsx';
 
 export default function App() {
   return (
@@ -22,9 +30,18 @@ export default function App() {
           <Route path="polls" element={<AdminPolls />} />
           <Route path="goals" element={<AdminGoals />} />
           <Route path="donations" element={<AdminDonations />} />
+          <Route path="simulate" element={<AdminSimulate />} />
+          <Route path="blocked-words" element={<AdminBlockedWords />} />
+        </Route>
+        <Route path="/moderate" element={<ModeratorLayout />}>
+          <Route index element={<ModeratorDashboard />} />
+          <Route path="polls" element={<ModeratorPolls />} />
+          <Route path="rewards" element={<ModeratorRewards />} />
+          <Route path="goals" element={<ModeratorGoals />} />
+          <Route path="claims" element={<ModeratorClaims />} />
         </Route>
         <Route path="*" element={
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen">
             <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />

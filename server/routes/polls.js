@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
-import { spendLimit } from '../middleware/rateLimit.js';
+import { checkBlockedWords } from '../services/donation.js';
 
 const router = Router();
 
@@ -14,7 +14,49 @@ router.get('/', async (req, res) => {
   res.json(polls);
 });
 
-router.post('/:id/vote', spendLimit, donorAuth, async (req, res) => {
+// Submit a custom poll entry
+router.post('/:id/custom-entry', donorAuth, async (req, res) => {
+  try {
+    const { label } = req.body;
+    if (!label || !label.trim()) {
+      return res.status(400).json({ error: 'label is required' });
+    }
+
+    const poll = await prisma.poll.findUnique({ where: { id: req.params.id } });
+    if (!poll || !poll.is_active) return res.status(404).json({ error: 'Poll not found or inactive' });
+    if (!poll.allow_custom_entries) return res.status(400).json({ error: 'This poll does not allow custom entries' });
+    if (poll.ends_at && new Date() > poll.ends_at) return res.status(400).json({ error: 'Poll has ended' });
+
+    const trimmed = label.trim();
+
+    // Check character limit
+    if (poll.max_entry_chars && trimmed.length > poll.max_entry_chars) {
+      return res.status(400).json({ error: `Entry exceeds maximum of ${poll.max_entry_chars} characters` });
+    }
+
+    // Check blocked words
+    const blockedError = await checkBlockedWords(trimmed);
+    if (blockedError) {
+      return res.status(400).json({ error: blockedError });
+    }
+
+    const entry = await prisma.pollCustomEntry.create({
+      data: {
+        poll_id: poll.id,
+        donor_id: req.donor.id,
+        label: trimmed,
+        status: 'PENDING',
+      },
+    });
+
+    res.json({ success: true, entry: { id: entry.id, label: entry.label, status: entry.status } });
+  } catch (err) {
+    console.error('Custom entry error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/vote', donorAuth, async (req, res) => {
   const { poll_option_id, amount_cents } = req.body;
   if (!poll_option_id || !amount_cents || amount_cents < 100) {
     return res.status(400).json({ error: 'poll_option_id and amount_cents (min 100) required' });

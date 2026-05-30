@@ -1,7 +1,5 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import prisma from '../lib/prisma.js';
-import { sendMagicLink } from '../services/email.js';
 
 const router = Router();
 
@@ -47,43 +45,15 @@ router.post('/', async (req, res) => {
       return res.status(200).json({ received: true, skipped: 'missing email or id' });
     }
 
-    // Generate magic token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-    // Upsert donor
-    const donor = await prisma.donor.upsert({
-      where: { email },
-      update: {
-        total_donated: { increment: amountCents },
-        balance_remaining: { increment: amountCents },
-        magic_token: token,
-        token_expires_at: tokenExpiresAt,
-      },
-      create: {
-        email,
-        total_donated: amountCents,
-        balance_remaining: amountCents,
-        magic_token: token,
-        token_expires_at: tokenExpiresAt,
-      },
+    // Delegate to shared donation processor
+    const { processDonation } = await import('../services/donation.js');
+    await processDonation({
+      tiltifyId,
+      email,
+      donorName,
+      amountCents,
+      comment,
     });
-
-    // Upsert donation (idempotency)
-    await prisma.donation.upsert({
-      where: { tiltify_id: tiltifyId },
-      update: {},
-      create: {
-        tiltify_id: tiltifyId,
-        donor_id: donor.id,
-        amount_cents: amountCents,
-        donor_name: donorName,
-        comment,
-      },
-    });
-
-    // Fire-and-forget email
-    sendMagicLink(email, token).catch(err => console.error('Email error:', err));
 
     res.status(200).json({ received: true });
   } catch (err) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPolls, votePoll } from '../api/polls.js';
+import { getPolls, votePoll, submitCustomEntry } from '../api/polls.js';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import Card from '../components/Card.jsx';
 import Modal from '../components/Modal.jsx';
@@ -14,6 +14,10 @@ export default function Polls() {
   const [amount, setAmount] = useState('1.00');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [suggesting, setSuggesting] = useState(null); // poll for suggest modal
+  const [suggestLabel, setSuggestLabel] = useState('');
+  const [suggestError, setSuggestError] = useState('');
+  const [suggestSuccess, setSuggestSuccess] = useState('');
 
   const reload = () => getPolls().then(setPolls);
   useEffect(() => { reload().finally(() => setLoading(false)); }, []);
@@ -36,6 +40,25 @@ export default function Polls() {
       setTimeout(() => { setVoting(null); setSuccess(''); }, 1500);
     } catch (e) {
       setError(e.response?.data?.error ?? 'Failed to cast vote.');
+    }
+  };
+
+  const openSuggest = (poll) => {
+    setSuggesting(poll);
+    setSuggestLabel('');
+    setSuggestError('');
+    setSuggestSuccess('');
+  };
+
+  const handleSuggest = async () => {
+    setSuggestError('');
+    if (!suggestLabel.trim()) { setSuggestError('Please enter a suggestion'); return; }
+    try {
+      await submitCustomEntry(suggesting.id, suggestLabel.trim());
+      setSuggestSuccess('Submitted for approval!');
+      setTimeout(() => { setSuggesting(null); setSuggestSuccess(''); }, 2000);
+    } catch (e) {
+      setSuggestError(e.response?.data?.error ?? 'Failed to submit');
     }
   };
 
@@ -68,6 +91,14 @@ export default function Polls() {
             {poll.options.length === 0 && <p className="text-gray-400 text-sm">No options yet.</p>}
           </div>
           <p className="text-xs text-gray-400 mt-2">Total votes: {fmt(poll.total_votes_cents)}</p>
+          {poll.allow_custom_entries && (
+            <button
+              onClick={() => openSuggest(poll)}
+              className="mt-2 px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
+            >
+              + Suggest an Option
+            </button>
+          )}
         </Card>
       ))}
       {polls.length === 0 && <p className="text-gray-500">No active polls.</p>}
@@ -91,6 +122,36 @@ export default function Polls() {
           <div className="flex justify-end gap-2">
             <button onClick={() => setVoting(null)} className="px-4 py-2 border rounded text-sm">Cancel</button>
             <button onClick={handleVote} className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">Cast Vote</button>
+          </div>
+        </Modal>
+      )}
+
+      {suggesting && (
+        <Modal title="Suggest an Option" onClose={() => setSuggesting(null)}>
+          <p className="text-sm text-gray-600 mb-3">
+            Poll: <strong>{suggesting.title}</strong>
+          </p>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Your suggestion</label>
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Type your option..."
+              value={suggestLabel}
+              onChange={e => setSuggestLabel(e.target.value)}
+              maxLength={suggesting.max_entry_chars || undefined}
+              onKeyDown={e => e.key === 'Enter' && handleSuggest()}
+            />
+            {suggesting.max_entry_chars && (
+              <p className="text-xs text-gray-400 mt-1">
+                {suggestLabel.length}/{suggesting.max_entry_chars} characters
+              </p>
+            )}
+          </div>
+          {suggestError && <p className="text-red-600 text-sm mb-2">{suggestError}</p>}
+          {suggestSuccess && <p className="text-green-600 text-sm mb-2">{suggestSuccess}</p>}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setSuggesting(null)} className="px-4 py-2 border rounded text-sm">Cancel</button>
+            <button onClick={handleSuggest} className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">Submit for Approval</button>
           </div>
         </Modal>
       )}

@@ -3,10 +3,10 @@ export default function ProgressBar({ value, max, label }) {
   return (
     <div>
       {label && <div className="flex justify-between text-sm text-gray-600 mb-1">{label}</div>}
-      <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-4 rounded-full overflow-hidden border" style={{ background: 'rgba(20, 15, 36, 0.72)', borderColor: 'var(--esa-border)' }}>
         <div
-          className="h-full bg-purple-600 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--esa-purple), var(--esa-orange))' }}
         />
       </div>
     </div>

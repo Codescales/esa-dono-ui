@@ -14,12 +14,14 @@ model Donor {
   balance_remaining Int             @default(0)
   magic_token       String?         @unique
   token_expires_at  DateTime?
+  is_moderator      Boolean         @default(false)
   created_at        DateTime        @default(now())
   updated_at        DateTime        @updatedAt
   donations         Donation[]
   reward_claims     RewardClaim[]
   poll_votes        PollVote[]
   fund_contributions FundContribution[]
+  custom_entries    PollCustomEntry[]
 }
 
 model Donation {
@@ -61,25 +63,30 @@ model RewardClaim {
 }
 
 model Poll {
-  id              String       @id @default(cuid())
-  title           String
-  description     String?
-  is_active       Boolean      @default(true)
-  ends_at         DateTime?
-  total_votes_cents Int        @default(0)
-  created_at      DateTime     @default(now())
-  updated_at      DateTime     @updatedAt
-  options         PollOption[]
-  votes           PollVote[]
+  id                   String       @id @default(cuid())
+  title                String
+  description          String?
+  is_active            Boolean      @default(true)
+  ends_at              DateTime?
+  total_votes_cents    Int          @default(0)
+  allow_custom_entries Boolean      @default(false)
+  max_entry_chars      Int?
+  created_at           DateTime     @default(now())
+  updated_at           DateTime     @updatedAt
+  options              PollOption[]
+  votes                PollVote[]
+  custom_entries       PollCustomEntry[]
 }
 
 model PollOption {
-  id         String     @id @default(cuid())
-  poll_id    String
-  label      String
-  votes_cents Int       @default(0)
-  poll       Poll       @relation(fields: [poll_id], references: [id], onDelete: Cascade)
-  votes      PollVote[]
+  id              String          @id @default(cuid())
+  poll_id         String
+  label           String
+  votes_cents     Int             @default(0)
+  custom_entry_id String?         @unique
+  poll            Poll            @relation(fields: [poll_id], references: [id], onDelete: Cascade)
+  votes           PollVote[]
+  custom_entry    PollCustomEntry? @relation(fields: [custom_entry_id], references: [id])
 }
 
 model PollVote {
@@ -92,6 +99,23 @@ model PollVote {
   poll           Poll       @relation(fields: [poll_id], references: [id])
   poll_option    PollOption @relation(fields: [poll_option_id], references: [id])
   donor          Donor      @relation(fields: [donor_id], references: [id])
+}
+
+model PollCustomEntry {
+  id         String   @id @default(cuid())
+  poll_id    String
+  donor_id   String
+  label      String
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  created_at DateTime @default(now())
+  poll       Poll     @relation(fields: [poll_id], references: [id], onDelete: Cascade)
+  donor      Donor    @relation(fields: [donor_id], references: [id])
+  option     PollOption?
+}
+
+model BlockedWord {
+  id   String @id @default(cuid())
+  word String @unique
 }
 
 model FundGoal {

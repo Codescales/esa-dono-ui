@@ -7,6 +7,8 @@ const NAV = [
   { to: '/admin/polls', label: 'Polls' },
   { to: '/admin/goals', label: 'Goals' },
   { to: '/admin/donations', label: 'Donations & Claims' },
+  { to: '/admin/blocked-words', label: 'Blocked Words' },
+  { to: '/admin/simulate', label: 'Simulate' },
 ];
 
 export default function AdminLayout() {
@@ -30,8 +32,8 @@ export default function AdminLayout() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white shadow rounded-lg p-8 w-full max-w-sm">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="esa-panel rounded-lg p-8 w-full max-w-sm">
           <h1 className="text-xl font-bold mb-4">Admin Login</h1>
           <input
             type="password"
@@ -50,8 +52,8 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex">
-      <aside className="w-48 bg-gray-800 text-white flex flex-col p-4">
-        <div className="font-bold text-lg mb-6">Admin</div>
+      <aside className="w-52 bg-gray-800 text-white flex flex-col p-4">
+        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">Admin</div>
         <nav className="flex-1 space-y-1">
           {NAV.map(n => (
             <NavLink
@@ -68,7 +70,7 @@ export default function AdminLayout() {
         </nav>
         <button onClick={logout} className="text-xs text-gray-400 hover:text-white mt-4">Logout</button>
       </aside>
-      <main className="flex-1 p-8 bg-gray-50 overflow-auto">
+      <main className="flex-1 p-8 overflow-auto">
         <Outlet />
       </main>
     </div>

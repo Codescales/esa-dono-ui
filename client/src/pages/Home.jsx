@@ -30,13 +30,16 @@ export default function Home() {
     : 0;
 
   return (
-    <div className="max-w-2xl mx-auto p-8">
-      <h1 className="text-3xl font-bold text-purple-700 mb-2">{campaign.name ?? campaign.title ?? 'Campaign'}</h1>
-      {campaign.description && <p className="text-gray-600 mb-6">{campaign.description}</p>}
+    <div className="max-w-3xl mx-auto p-8">
+      <div className="text-center mb-8">
+        <p className="text-sm font-bold tracking-[0.35em] text-orange-300 uppercase mb-2">European Speedrunner Assembly</p>
+        <h1 className="text-4xl font-black text-purple-700 mb-2">{campaign.name ?? campaign.title ?? 'Campaign'}</h1>
+      </div>
+      {campaign.description && <p className="text-gray-600 mb-6 text-center">{campaign.description}</p>}
       {campaign.logo?.src && (
-        <img src={campaign.logo.src} alt="Campaign logo" className="w-48 mb-6 rounded" />
+        <img src={campaign.logo.src} alt="Campaign logo" className="w-48 mb-6 rounded mx-auto" />
       )}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="esa-panel rounded-lg p-6">
         <div className="flex justify-between mb-2">
           <span className="font-semibold text-gray-700">Raised</span>
           <span className="font-bold text-purple-700">{fmt(raised)} / {fmt(goal)}</span>

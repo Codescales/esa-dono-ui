@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { adminAuth } from '../middleware/adminAuth.js';
+import { processDonation } from '../services/donation.js';
 
 const router = Router();
 router.use(adminAuth);
@@ -79,6 +81,32 @@ router.delete('/rewards/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// Simulate donation
+router.post('/simulate-donation', async (req, res) => {
+  try {
+    const { email, donor_name, amount_cents, comment } = req.body;
+    if (!email || !amount_cents || amount_cents < 100) {
+      return res.status(400).json({ error: 'email and amount_cents (min 100) required' });
+    }
+    const tiltifyId = `sim-${crypto.randomUUID()}`;
+    const result = await processDonation({
+      tiltifyId,
+      email,
+      donorName: donor_name || 'Anonymous',
+      amountCents: amount_cents,
+      comment: comment || null,
+    });
+    res.json({
+      success: true,
+      token: result.token,
+      donor: { id: result.donor.id, email: result.donor.email, balance_remaining: result.donor.balance_remaining },
+    });
+  } catch (err) {
+    console.error('Simulate donation error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Polls CRUD
 router.get('/polls', async (req, res) => {
   res.json(await prisma.poll.findMany({
@@ -88,13 +116,15 @@ router.get('/polls', async (req, res) => {
 });
 
 router.post('/polls', async (req, res) => {
-  const { title, description, is_active, ends_at, options } = req.body;
+  const { title, description, is_active, ends_at, options, allow_custom_entries, max_entry_chars } = req.body;
   const poll = await prisma.poll.create({
     data: {
       title,
       description,
       is_active: is_active ?? true,
       ends_at: ends_at ? new Date(ends_at) : null,
+      allow_custom_entries: allow_custom_entries ?? false,
+      max_entry_chars: max_entry_chars ?? null,
       options: options?.length ? { create: options.map(o => ({ label: o.label })) } : undefined,
     },
     include: { options: true },
@@ -103,10 +133,15 @@ router.post('/polls', async (req, res) => {
 });
 
 router.put('/polls/:id', async (req, res) => {
-  const { title, description, is_active, ends_at } = req.body;
+  const { title, description, is_active, ends_at, allow_custom_entries, max_entry_chars } = req.body;
   const poll = await prisma.poll.update({
     where: { id: req.params.id },
-    data: { title, description, is_active, ends_at: ends_at ? new Date(ends_at) : null },
+    data: {
+      title, description, is_active,
+      ends_at: ends_at ? new Date(ends_at) : null,
+      allow_custom_entries: allow_custom_entries ?? false,
+      max_entry_chars: max_entry_chars ?? null,
+    },
     include: { options: true },
   });
   res.json(poll);
@@ -126,6 +161,29 @@ router.post('/polls/:id/options', async (req, res) => {
 
 router.delete('/polls/options/:id', async (req, res) => {
   await prisma.pollOption.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+});
+
+// Blocked Words
+router.get('/blocked-words', async (req, res) => {
+  const words = await prisma.blockedWord.findMany({ orderBy: { word: 'asc' } });
+  res.json(words);
+});
+
+router.post('/blocked-words', async (req, res) => {
+  const { word } = req.body;
+  if (!word || !word.trim()) return res.status(400).json({ error: 'word required' });
+  try {
+    const blocked = await prisma.blockedWord.create({ data: { word: word.trim().toLowerCase() } });
+    res.json(blocked);
+  } catch (e) {
+    if (e.code === 'P2002') return res.status(409).json({ error: 'Word already exists' });
+    throw e;
+  }
+});
+
+router.delete('/blocked-words/:id', async (req, res) => {
+  await prisma.blockedWord.delete({ where: { id: req.params.id } });
   res.json({ success: true });
 });
 

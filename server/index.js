@@ -8,6 +8,7 @@ import rewardsRouter from './routes/rewards.js';
 import pollsRouter from './routes/polls.js';
 import goalsRouter from './routes/goals.js';
 import adminRouter from './routes/admin.js';
+import moderatorRouter from './routes/moderator.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,5 +27,6 @@ app.use('/api/rewards', rewardsRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/moderator', moderatorRouter);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
