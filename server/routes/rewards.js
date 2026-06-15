@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
+import { spendLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
   res.json(rewards);
 });
 
-router.post('/:id/claim', donorAuth, async (req, res) => {
+router.post('/:id/claim', spendLimit, donorAuth, async (req, res) => {
   const reward = await prisma.reward.findUnique({ where: { id: req.params.id } });
   if (!reward || !reward.is_active) return res.status(404).json({ error: 'Reward not found' });
 
