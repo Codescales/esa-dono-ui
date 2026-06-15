@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
+import { spendLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
   res.json(goals);
 });
 
-router.post('/:id/contribute', donorAuth, async (req, res) => {
+router.post('/:id/contribute', spendLimit, donorAuth, async (req, res) => {
   const { amount_cents } = req.body;
   if (!amount_cents || amount_cents < 100) {
     return res.status(400).json({ error: 'amount_cents (min 100) required' });
