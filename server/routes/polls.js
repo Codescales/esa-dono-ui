@@ -23,15 +23,20 @@ router.post('/:id/custom-entry', donorAuth, async (req, res) => {
     }
 
     const poll = await prisma.poll.findUnique({ where: { id: req.params.id } });
-    if (!poll || !poll.is_active) return res.status(404).json({ error: 'Poll not found or inactive' });
-    if (!poll.allow_custom_entries) return res.status(400).json({ error: 'This poll does not allow custom entries' });
-    if (poll.ends_at && new Date() > poll.ends_at) return res.status(400).json({ error: 'Poll has ended' });
+    if (!poll || !poll.is_active)
+      return res.status(404).json({ error: 'Poll not found or inactive' });
+    if (!poll.allow_custom_entries)
+      return res.status(400).json({ error: 'This poll does not allow custom entries' });
+    if (poll.ends_at && new Date() > poll.ends_at)
+      return res.status(400).json({ error: 'Poll has ended' });
 
     const trimmed = label.trim();
 
     // Check character limit
     if (poll.max_entry_chars && trimmed.length > poll.max_entry_chars) {
-      return res.status(400).json({ error: `Entry exceeds maximum of ${poll.max_entry_chars} characters` });
+      return res
+        .status(400)
+        .json({ error: `Entry exceeds maximum of ${poll.max_entry_chars} characters` });
     }
 
     // Check blocked words
@@ -58,42 +63,46 @@ router.post('/:id/custom-entry', donorAuth, async (req, res) => {
 
 router.post('/:id/vote', spendLimit, donorAuth, async (req, res) => {
   const { poll_option_id, amount_cents } = req.body;
-  if (!poll_option_id || !amount_cents || amount_cents < 100) {
+  const cents = Number(amount_cents);
+  if (!poll_option_id || !Number.isInteger(cents) || cents < 100) {
     return res.status(400).json({ error: 'poll_option_id and amount_cents (min 100) required' });
   }
 
   const poll = await prisma.poll.findUnique({ where: { id: req.params.id } });
-  if (!poll || !poll.is_active) return res.status(404).json({ error: 'Poll not found or inactive' });
-  if (poll.ends_at && new Date() > poll.ends_at) return res.status(400).json({ error: 'Poll has ended' });
+  if (!poll || !poll.is_active)
+    return res.status(404).json({ error: 'Poll not found or inactive' });
+  if (poll.ends_at && new Date() > poll.ends_at)
+    return res.status(400).json({ error: 'Poll has ended' });
 
   const option = await prisma.pollOption.findUnique({ where: { id: poll_option_id } });
-  if (!option || option.poll_id !== poll.id) return res.status(404).json({ error: 'Option not found' });
+  if (!option || option.poll_id !== poll.id)
+    return res.status(404).json({ error: 'Option not found' });
 
   const donor = req.donor;
-  if (donor.balance_remaining < amount_cents) {
+  if (donor.balance_remaining < cents) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
 
   await prisma.$transaction([
     prisma.donor.update({
       where: { id: donor.id },
-      data: { balance_remaining: { decrement: amount_cents } },
+      data: { balance_remaining: { decrement: cents } },
     }),
     prisma.pollVote.create({
       data: {
         poll_id: poll.id,
         poll_option_id,
         donor_id: donor.id,
-        amount_cents,
+        amount_cents: cents,
       },
     }),
     prisma.pollOption.update({
       where: { id: poll_option_id },
-      data: { votes_cents: { increment: amount_cents } },
+      data: { votes_cents: { increment: cents } },
     }),
     prisma.poll.update({
       where: { id: poll.id },
-      data: { total_votes_cents: { increment: amount_cents } },
+      data: { total_votes_cents: { increment: cents } },
     }),
   ]);
 
