@@ -13,19 +13,27 @@ router.get('/stats', async (req, res) => {
     prisma.reward.count({ where: { is_active: true } }),
     prisma.fundGoal.count({ where: { is_active: true } }),
   ]);
-  res.json({ pending_entries: pendingEntries, active_polls: activePolls, total_rewards: totalRewards, total_goals: totalGoals });
+  res.json({
+    pending_entries: pendingEntries,
+    active_polls: activePolls,
+    total_rewards: totalRewards,
+    total_goals: totalGoals,
+  });
 });
 
 // Polls CRUD
 router.get('/polls', async (req, res) => {
-  res.json(await prisma.poll.findMany({
-    include: { options: true, custom_entries: true },
-    orderBy: { created_at: 'desc' },
-  }));
+  res.json(
+    await prisma.poll.findMany({
+      include: { options: true, custom_entries: true },
+      orderBy: { created_at: 'desc' },
+    }),
+  );
 });
 
 router.post('/polls', async (req, res) => {
-  const { title, description, is_active, ends_at, options, allow_custom_entries, max_entry_chars } = req.body;
+  const { title, description, is_active, ends_at, options, allow_custom_entries, max_entry_chars } =
+    req.body;
   const poll = await prisma.poll.create({
     data: {
       title,
@@ -34,7 +42,7 @@ router.post('/polls', async (req, res) => {
       ends_at: ends_at ? new Date(ends_at) : null,
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
-      options: options?.length ? { create: options.map(o => ({ label: o.label })) } : undefined,
+      options: options?.length ? { create: options.map((o) => ({ label: o.label })) } : undefined,
     },
     include: { options: true },
   });
@@ -42,11 +50,14 @@ router.post('/polls', async (req, res) => {
 });
 
 router.put('/polls/:id', async (req, res) => {
-  const { title, description, is_active, ends_at, allow_custom_entries, max_entry_chars } = req.body;
+  const { title, description, is_active, ends_at, allow_custom_entries, max_entry_chars } =
+    req.body;
   const poll = await prisma.poll.update({
     where: { id: req.params.id },
     data: {
-      title, description, is_active,
+      title,
+      description,
+      is_active,
       ends_at: ends_at ? new Date(ends_at) : null,
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
@@ -91,6 +102,9 @@ router.patch('/polls/custom-entries/:id', async (req, res) => {
 
   const entry = await prisma.pollCustomEntry.findUnique({ where: { id: req.params.id } });
   if (!entry) return res.status(404).json({ error: 'Entry not found' });
+  if (entry.status !== 'PENDING') {
+    return res.status(400).json({ error: 'Only pending entries can be moderated' });
+  }
 
   if (status === 'APPROVED') {
     // Create a PollOption from the approved entry
@@ -127,18 +141,36 @@ router.get('/rewards', async (req, res) => {
 });
 
 router.post('/rewards', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } = req.body;
+  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
+    req.body;
   const reward = await prisma.reward.create({
-    data: { title, description, type, cost_cents, quantity_total: quantity_total ?? null, is_active: is_active ?? true, custom_type_label },
+    data: {
+      title,
+      description,
+      type,
+      cost_cents,
+      quantity_total: quantity_total ?? null,
+      is_active: is_active ?? true,
+      custom_type_label,
+    },
   });
   res.json(reward);
 });
 
 router.put('/rewards/:id', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } = req.body;
+  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
+    req.body;
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
-    data: { title, description, type, cost_cents, quantity_total: quantity_total ?? null, is_active, custom_type_label },
+    data: {
+      title,
+      description,
+      type,
+      cost_cents,
+      quantity_total: quantity_total ?? null,
+      is_active,
+      custom_type_label,
+    },
   });
   res.json(reward);
 });
@@ -151,10 +183,20 @@ router.delete('/rewards/:id', async (req, res) => {
 // Claims
 router.get('/claims', async (req, res) => {
   const claims = await prisma.rewardClaim.findMany({
-    include: { reward: true, donor: true },
+    include: { reward: true, donor: { select: { email: true } } },
     orderBy: { created_at: 'desc' },
   });
-  res.json(claims.map(c => ({ ...c, claim_data: c.claim_data ? JSON.parse(c.claim_data) : null })));
+  res.json(
+    claims.map((c) => {
+      let parsed = null;
+      try {
+        parsed = c.claim_data ? JSON.parse(c.claim_data) : null;
+      } catch {
+        /* ignore */
+      }
+      return { ...c, claim_data: parsed };
+    }),
+  );
 });
 
 router.patch('/claims/:id', async (req, res) => {
@@ -165,7 +207,7 @@ router.patch('/claims/:id', async (req, res) => {
   const claim = await prisma.rewardClaim.update({
     where: { id: req.params.id },
     data: { status },
-    include: { reward: true, donor: true },
+    include: { reward: true, donor: { select: { email: true } } },
   });
   res.json(claim);
 });

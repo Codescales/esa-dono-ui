@@ -12,6 +12,7 @@ import AdminPolls from './pages/admin/AdminPolls.jsx';
 import AdminGoals from './pages/admin/AdminGoals.jsx';
 import AdminDonations from './pages/admin/AdminDonations.jsx';
 import AdminSimulate from './pages/admin/AdminSimulate.jsx';
+import AdminDonors from './pages/admin/AdminDonors.jsx';
 import AdminBlockedWords from './pages/admin/AdminBlockedWords.jsx';
 import ModeratorLayout from './pages/moderator/ModeratorLayout.jsx';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard.jsx';
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
+          <Route path="donors" element={<AdminDonors />} />
           <Route path="rewards" element={<AdminRewards />} />
           <Route path="polls" element={<AdminPolls />} />
           <Route path="goals" element={<AdminGoals />} />
@@ -40,18 +42,21 @@ export default function App() {
           <Route path="goals" element={<ModeratorGoals />} />
           <Route path="claims" element={<ModeratorClaims />} />
         </Route>
-        <Route path="*" element={
-          <div className="min-h-screen">
-            <Navbar />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/wallet" element={<MyWallet />} />
-              <Route path="/rewards" element={<Rewards />} />
-              <Route path="/polls" element={<Polls />} />
-              <Route path="/goals" element={<Goals />} />
-            </Routes>
-          </div>
-        } />
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen">
+              <Navbar />
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/wallet" element={<MyWallet />} />
+                <Route path="/rewards" element={<Rewards />} />
+                <Route path="/polls" element={<Polls />} />
+                <Route path="/goals" element={<Goals />} />
+              </Routes>
+            </div>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

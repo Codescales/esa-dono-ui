@@ -26,7 +26,7 @@ router.get('/stats', async (req, res) => {
 // Donations
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
-    include: { donor: true },
+    include: { donor: { select: { email: true } } },
     orderBy: { created_at: 'desc' },
   });
   res.json(donations);
@@ -35,10 +35,20 @@ router.get('/donations', async (req, res) => {
 // Claims
 router.get('/claims', async (req, res) => {
   const claims = await prisma.rewardClaim.findMany({
-    include: { reward: true, donor: true },
+    include: { reward: true, donor: { select: { email: true } } },
     orderBy: { created_at: 'desc' },
   });
-  res.json(claims.map(c => ({ ...c, claim_data: c.claim_data ? JSON.parse(c.claim_data) : null })));
+  res.json(
+    claims.map((c) => {
+      let parsed = null;
+      try {
+        parsed = c.claim_data ? JSON.parse(c.claim_data) : null;
+      } catch {
+        /* ignore */
+      }
+      return { ...c, claim_data: parsed };
+    }),
+  );
 });
 
 router.patch('/claims/:id', async (req, res) => {
@@ -49,7 +59,7 @@ router.patch('/claims/:id', async (req, res) => {
   const claim = await prisma.rewardClaim.update({
     where: { id: req.params.id },
     data: { status },
-    include: { reward: true, donor: true },
+    include: { reward: true, donor: { select: { email: true } } },
   });
   res.json(claim);
 });
@@ -60,18 +70,36 @@ router.get('/rewards', async (req, res) => {
 });
 
 router.post('/rewards', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } = req.body;
+  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
+    req.body;
   const reward = await prisma.reward.create({
-    data: { title, description, type, cost_cents, quantity_total: quantity_total ?? null, is_active: is_active ?? true, custom_type_label },
+    data: {
+      title,
+      description,
+      type,
+      cost_cents,
+      quantity_total: quantity_total ?? null,
+      is_active: is_active ?? true,
+      custom_type_label,
+    },
   });
   res.json(reward);
 });
 
 router.put('/rewards/:id', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } = req.body;
+  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
+    req.body;
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
-    data: { title, description, type, cost_cents, quantity_total: quantity_total ?? null, is_active, custom_type_label },
+    data: {
+      title,
+      description,
+      type,
+      cost_cents,
+      quantity_total: quantity_total ?? null,
+      is_active,
+      custom_type_label,
+    },
   });
   res.json(reward);
 });
@@ -85,7 +113,8 @@ router.delete('/rewards/:id', async (req, res) => {
 router.post('/simulate-donation', async (req, res) => {
   try {
     const { email, donor_name, amount_cents, comment } = req.body;
-    if (!email || !amount_cents || amount_cents < 100) {
+    const cents = Number(amount_cents);
+    if (!email || !Number.isInteger(cents) || cents < 100) {
       return res.status(400).json({ error: 'email and amount_cents (min 100) required' });
     }
     const tiltifyId = `sim-${crypto.randomUUID()}`;
@@ -93,13 +122,17 @@ router.post('/simulate-donation', async (req, res) => {
       tiltifyId,
       email,
       donorName: donor_name || 'Anonymous',
-      amountCents: amount_cents,
+      amountCents: cents,
       comment: comment || null,
     });
     res.json({
       success: true,
       token: result.token,
-      donor: { id: result.donor.id, email: result.donor.email, balance_remaining: result.donor.balance_remaining },
+      donor: {
+        id: result.donor.id,
+        email: result.donor.email,
+        balance_remaining: result.donor.balance_remaining,
+      },
     });
   } catch (err) {
     console.error('Simulate donation error:', err);
@@ -107,16 +140,265 @@ router.post('/simulate-donation', async (req, res) => {
   }
 });
 
+// Donor management
+router.get('/donors', async (req, res) => {
+  const { q, offset } = req.query;
+  const where = q ? { email: { contains: q } } : {};
+  const [donors, total] = await Promise.all([
+    prisma.donor.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 50,
+      skip: Number(offset) || 0,
+    }),
+    prisma.donor.count({ where }),
+  ]);
+  res.json({ donors, total });
+});
+
+router.get('/donors/:id', async (req, res) => {
+  const donor = await prisma.donor.findUnique({
+    where: { id: req.params.id },
+    select: {
+      id: true,
+      email: true,
+      total_donated: true,
+      balance_remaining: true,
+      is_moderator: true,
+      is_frozen: true,
+      created_at: true,
+      updated_at: true,
+      donations: { orderBy: { created_at: 'desc' }, take: 50 },
+      reward_claims: { orderBy: { created_at: 'desc' }, take: 50, include: { reward: true } },
+      poll_votes: { orderBy: { created_at: 'desc' }, take: 50 },
+      fund_contributions: { orderBy: { created_at: 'desc' }, take: 50, include: { goal: true } },
+      balance_adjustments: { orderBy: { created_at: 'desc' }, take: 50 },
+    },
+  });
+  if (!donor) return res.status(404).json({ error: 'Donor not found' });
+  res.json(donor);
+});
+
+router.post('/donors/:id/revoke-token', async (req, res) => {
+  const donor = await prisma.donor.update({
+    where: { id: req.params.id },
+    data: { magic_token: null, token_expires_at: null },
+  });
+  res.json({ success: true, email: donor.email });
+});
+
+router.post('/donors/:id/regenerate-token', async (req, res) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const donor = await prisma.donor.update({
+    where: { id: req.params.id },
+    data: { magic_token: token, token_expires_at: tokenExpiresAt },
+  });
+  res.json({ success: true, email: donor.email, magic_token: donor.magic_token });
+});
+
+router.post('/donors/:id/freeze', async (req, res) => {
+  const { frozen } = req.body;
+  if (typeof frozen !== 'boolean') return res.status(400).json({ error: 'frozen must be boolean' });
+  const donor = await prisma.donor.update({
+    where: { id: req.params.id },
+    data: { is_frozen: frozen },
+  });
+  res.json({ success: true, email: donor.email, is_frozen: donor.is_frozen });
+});
+
+router.post('/donors/:id/adjust-balance', async (req, res) => {
+  const { amount_cents, reason, type } = req.body;
+  const cents = Number(amount_cents);
+  if (!Number.isInteger(cents) || cents === 0) {
+    return res.status(400).json({ error: 'amount_cents must be a non-zero integer' });
+  }
+  if (!['REFUND', 'FREEZE_ZERO', 'MANUAL', 'CHARGEBACK'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid adjustment type' });
+  }
+  const donor = await prisma.donor.findUnique({ where: { id: req.params.id } });
+  if (!donor) return res.status(404).json({ error: 'Donor not found' });
+
+  const balanceAfter = donor.balance_remaining + cents;
+  if (balanceAfter < 0) {
+    return res.status(400).json({ error: 'Adjustment would result in negative balance' });
+  }
+
+  await prisma.$transaction([
+    prisma.donor.update({
+      where: { id: donor.id },
+      data: { balance_remaining: { increment: cents } },
+    }),
+    prisma.balanceAdjustment.create({
+      data: {
+        donor_id: donor.id,
+        amount_cents: cents,
+        balance_after_cents: balanceAfter,
+        type,
+        reason: reason || null,
+        created_by: 'admin',
+      },
+    }),
+  ]);
+
+  res.json({
+    success: true,
+    email: donor.email,
+    balance_before: donor.balance_remaining,
+    balance_after: balanceAfter,
+    adjustment: cents,
+  });
+});
+
+router.post('/donors/:id/reverse-spend', async (req, res) => {
+  const { spend_type, spend_id } = req.body;
+  if (!spend_type || !spend_id) {
+    return res.status(400).json({ error: 'spend_type and spend_id required' });
+  }
+
+  const donor = await prisma.donor.findUnique({ where: { id: req.params.id } });
+  if (!donor) return res.status(404).json({ error: 'Donor not found' });
+
+  if (spend_type === 'claim') {
+    const claim = await prisma.rewardClaim.findUnique({
+      where: { id: spend_id },
+      include: { reward: true },
+    });
+    if (!claim || claim.donor_id !== donor.id)
+      return res.status(404).json({ error: 'Claim not found' });
+    if (claim.status === 'REVERSED')
+      return res.status(400).json({ error: 'Claim already reversed' });
+    if (claim.status === 'FULFILLED')
+      return res
+        .status(400)
+        .json({ error: 'Cannot reverse fulfilled claim; mark it as PENDING first' });
+
+    const refundCents = claim.reward.cost_cents;
+
+    await prisma.$transaction([
+      prisma.donor.update({
+        where: { id: donor.id },
+        data: { balance_remaining: { increment: refundCents } },
+      }),
+      prisma.rewardClaim.update({
+        where: { id: claim.id },
+        data: { status: 'REVERSED', reversed_at: new Date(), reversed_by: 'admin' },
+      }),
+      prisma.reward.update({
+        where: { id: claim.reward_id },
+        data: { quantity_claimed: { decrement: 1 } },
+      }),
+      prisma.balanceAdjustment.create({
+        data: {
+          donor_id: donor.id,
+          amount_cents: refundCents,
+          balance_after_cents: donor.balance_remaining + refundCents,
+          type: 'REFUND',
+          reason: 'Reversed reward claim',
+          reference_id: claim.id,
+          created_by: 'admin',
+        },
+      }),
+    ]);
+  } else if (spend_type === 'vote') {
+    const vote = await prisma.pollVote.findUnique({ where: { id: spend_id } });
+    if (!vote || vote.donor_id !== donor.id)
+      return res.status(404).json({ error: 'Vote not found' });
+    if (vote.reversed_at) return res.status(400).json({ error: 'Vote already reversed' });
+
+    await prisma.$transaction([
+      prisma.donor.update({
+        where: { id: donor.id },
+        data: { balance_remaining: { increment: vote.amount_cents } },
+      }),
+      prisma.pollVote.update({
+        where: { id: vote.id },
+        data: { reversed_at: new Date(), reversed_by: 'admin' },
+      }),
+      prisma.pollOption.update({
+        where: { id: vote.poll_option_id },
+        data: { votes_cents: { decrement: vote.amount_cents } },
+      }),
+      prisma.poll.update({
+        where: { id: vote.poll_id },
+        data: { total_votes_cents: { decrement: vote.amount_cents } },
+      }),
+      prisma.balanceAdjustment.create({
+        data: {
+          donor_id: donor.id,
+          amount_cents: vote.amount_cents,
+          balance_after_cents: donor.balance_remaining + vote.amount_cents,
+          type: 'REFUND',
+          reason: 'Reversed poll vote',
+          reference_id: vote.id,
+          created_by: 'admin',
+        },
+      }),
+    ]);
+  } else if (spend_type === 'contribution') {
+    const contrib = await prisma.fundContribution.findUnique({ where: { id: spend_id } });
+    if (!contrib || contrib.donor_id !== donor.id)
+      return res.status(404).json({ error: 'Contribution not found' });
+    if (contrib.reversed_at)
+      return res.status(400).json({ error: 'Contribution already reversed' });
+
+    const goal = await prisma.fundGoal.findUnique({ where: { id: contrib.goal_id } });
+    const newTotal = goal ? goal.current_cents - contrib.amount_cents : 0;
+
+    await prisma.$transaction([
+      prisma.donor.update({
+        where: { id: donor.id },
+        data: { balance_remaining: { increment: contrib.amount_cents } },
+      }),
+      prisma.fundContribution.update({
+        where: { id: contrib.id },
+        data: { reversed_at: new Date(), reversed_by: 'admin' },
+      }),
+      ...(goal
+        ? [
+            prisma.fundGoal.update({
+              where: { id: goal.id },
+              data: {
+                current_cents: { decrement: contrib.amount_cents },
+                is_complete: newTotal <= 0 ? false : undefined,
+              },
+            }),
+          ]
+        : []),
+      prisma.balanceAdjustment.create({
+        data: {
+          donor_id: donor.id,
+          amount_cents: contrib.amount_cents,
+          balance_after_cents: donor.balance_remaining + contrib.amount_cents,
+          type: 'REFUND',
+          reason: 'Reversed fund contribution',
+          reference_id: contrib.id,
+          created_by: 'admin',
+        },
+      }),
+    ]);
+  } else {
+    return res
+      .status(400)
+      .json({ error: 'Invalid spend_type. Must be claim, vote, or contribution' });
+  }
+
+  res.json({ success: true });
+});
+
 // Polls CRUD
 router.get('/polls', async (req, res) => {
-  res.json(await prisma.poll.findMany({
-    include: { options: true },
-    orderBy: { created_at: 'desc' },
-  }));
+  res.json(
+    await prisma.poll.findMany({
+      include: { options: true },
+      orderBy: { created_at: 'desc' },
+    }),
+  );
 });
 
 router.post('/polls', async (req, res) => {
-  const { title, description, is_active, ends_at, options, allow_custom_entries, max_entry_chars } = req.body;
+  const { title, description, is_active, ends_at, options, allow_custom_entries, max_entry_chars } =
+    req.body;
   const poll = await prisma.poll.create({
     data: {
       title,
@@ -125,7 +407,7 @@ router.post('/polls', async (req, res) => {
       ends_at: ends_at ? new Date(ends_at) : null,
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
-      options: options?.length ? { create: options.map(o => ({ label: o.label })) } : undefined,
+      options: options?.length ? { create: options.map((o) => ({ label: o.label })) } : undefined,
     },
     include: { options: true },
   });
@@ -133,11 +415,14 @@ router.post('/polls', async (req, res) => {
 });
 
 router.put('/polls/:id', async (req, res) => {
-  const { title, description, is_active, ends_at, allow_custom_entries, max_entry_chars } = req.body;
+  const { title, description, is_active, ends_at, allow_custom_entries, max_entry_chars } =
+    req.body;
   const poll = await prisma.poll.update({
     where: { id: req.params.id },
     data: {
-      title, description, is_active,
+      title,
+      description,
+      is_active,
       ends_at: ends_at ? new Date(ends_at) : null,
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,

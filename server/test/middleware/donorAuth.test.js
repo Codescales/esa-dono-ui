@@ -61,9 +61,33 @@ describe('donorAuth middleware', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Token expired' });
   });
 
+  it('returns 403 when donor is frozen', async () => {
+    const futureDate = new Date(Date.now() + 100000);
+    prisma.donor.findUnique.mockResolvedValue({
+      id: 'donor-1',
+      email: 'frozen@example.com',
+      token_expires_at: futureDate,
+      is_frozen: true,
+    });
+    const req = { query: { token: 'frozen-token' } };
+    const res = createRes();
+    const next = vi.fn();
+
+    await donorAuth(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Account frozen' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('calls next() and sets req.donor for valid token', async () => {
     const futureDate = new Date(Date.now() + 100000);
-    const donor = { id: 'donor-1', email: 'test@example.com', token_expires_at: futureDate };
+    const donor = {
+      id: 'donor-1',
+      email: 'test@example.com',
+      token_expires_at: futureDate,
+      is_frozen: false,
+    };
     prisma.donor.findUnique.mockResolvedValue(donor);
     const req = { query: { token: 'valid-token' } };
     const res = createRes();

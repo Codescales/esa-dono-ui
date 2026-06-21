@@ -15,12 +15,14 @@ model Donor {
   magic_token       String?         @unique
   token_expires_at  DateTime?
   is_moderator      Boolean         @default(false)
+  is_frozen         Boolean         @default(false)
   created_at        DateTime        @default(now())
   updated_at        DateTime        @updatedAt
   donations         Donation[]
   reward_claims     RewardClaim[]
   poll_votes        PollVote[]
   fund_contributions FundContribution[]
+  balance_adjustments BalanceAdjustment[]
   custom_entries    PollCustomEntry[]
 }
 
@@ -54,8 +56,10 @@ model RewardClaim {
   id         String   @id @default(cuid())
   reward_id  String
   donor_id   String
-  status     String   @default("PENDING") // PENDING | FULFILLED
+  status     String   @default("PENDING") // PENDING | FULFILLED | REVERSED
   claim_data String?  // JSON string
+  reversed_at DateTime?
+  reversed_by String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   reward     Reward   @relation(fields: [reward_id], references: [id])
@@ -95,6 +99,8 @@ model PollVote {
   poll_option_id String
   donor_id       String
   amount_cents   Int
+  reversed_at    DateTime?
+  reversed_by    String?
   created_at     DateTime   @default(now())
   poll           Poll       @relation(fields: [poll_id], references: [id])
   poll_option    PollOption @relation(fields: [poll_option_id], references: [id])
@@ -136,7 +142,22 @@ model FundContribution {
   goal_id      String
   donor_id     String
   amount_cents Int
+  reversed_at  DateTime?
+  reversed_by  String?
   created_at   DateTime @default(now())
   goal         FundGoal @relation(fields: [goal_id], references: [id])
   donor        Donor    @relation(fields: [donor_id], references: [id])
+}
+
+model BalanceAdjustment {
+  id                String   @id @default(cuid())
+  donor_id          String
+  amount_cents      Int
+  balance_after_cents Int
+  type              String   // REFUND | FREEZE_ZERO | MANUAL | CHARGEBACK
+  reason            String?
+  reference_id      String?  // id of the reversed claim/vote/contribution
+  created_by        String   @default("admin")
+  created_at        DateTime @default(now())
+  donor             Donor    @relation(fields: [donor_id], references: [id])
 }

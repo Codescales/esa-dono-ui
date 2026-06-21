@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', end: true },
+  { to: '/admin/donors', label: 'Donors' },
   { to: '/admin/rewards', label: 'Rewards' },
   { to: '/admin/polls', label: 'Polls' },
   { to: '/admin/goals', label: 'Goals' },
@@ -19,7 +20,10 @@ export default function AdminLayout() {
   const isLoggedIn = !!key;
 
   const login = () => {
-    if (!input.trim()) { setError('Enter API key'); return; }
+    if (!input.trim()) {
+      setError('Enter API key');
+      return;
+    }
     localStorage.setItem('admin_key', input.trim());
     setKey(input.trim());
     setError('');
@@ -40,11 +44,16 @@ export default function AdminLayout() {
             placeholder="Enter admin API key"
             className="w-full border rounded px-3 py-2 mb-3 text-sm"
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && login()}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && login()}
           />
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-          <button onClick={login} className="w-full bg-purple-600 text-white rounded py-2 hover:bg-purple-700">Login</button>
+          <button
+            onClick={login}
+            className="w-full bg-purple-600 text-white rounded py-2 hover:bg-purple-700"
+          >
+            Login
+          </button>
         </div>
       </div>
     );
@@ -53,9 +62,11 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen flex">
       <aside className="w-52 bg-gray-800 text-white flex flex-col p-4">
-        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">Admin</div>
+        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">
+          Admin
+        </div>
         <nav className="flex-1 space-y-1">
-          {NAV.map(n => (
+          {NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -68,7 +79,9 @@ export default function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <button onClick={logout} className="text-xs text-gray-400 hover:text-white mt-4">Logout</button>
+        <button onClick={logout} className="text-xs text-gray-400 hover:text-white mt-4">
+          Logout
+        </button>
       </aside>
       <main className="flex-1 p-8 overflow-auto">
         <Outlet />
