@@ -2,4 +2,6 @@ node_modules
 .env
 client/dist
 server/prisma/dev.db
+server/prisma/dev.db-journal
+coverage
 .claude

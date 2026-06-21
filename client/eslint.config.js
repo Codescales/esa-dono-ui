@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default [
+  { ignores: ['dist/'] },
   js.configs.recommended,
   {
     plugins: {
@@ -30,6 +31,8 @@ export default [
         it: 'readonly',
         expect: 'readonly',
         vi: 'readonly',
+        Event: 'readonly',
+        fetch: 'readonly',
       },
       parserOptions: {
         ecmaFeatures: { jsx: true },

@@ -2,18 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
-vi.mock('../../lib/prisma.js', () => ({
-  default: {
-    donor: { upsert: vi.fn() },
-    donation: { upsert: vi.fn() },
-  },
+vi.mock('../../services/donation.js', () => ({
+  processDonation: vi.fn(),
 }));
 
-vi.mock('../../services/email.js', () => ({
-  sendMagicLink: vi.fn().mockResolvedValue(undefined),
-}));
-
-import prisma from '../../lib/prisma.js';
+import { processDonation } from '../../services/donation.js';
 import webhookRouter from '../../routes/webhook.js';
 
 function createApp() {
@@ -42,12 +35,11 @@ describe('POST /api/webhooks/tiltify', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
+    expect(processDonation).not.toHaveBeenCalled();
   });
 
   it('processes a valid donation.completed event', async () => {
-    const donor = { id: 'donor-1', email: 'donor@example.com' };
-    prisma.donor.upsert.mockResolvedValue(donor);
-    prisma.donation.upsert.mockResolvedValue({});
+    processDonation.mockResolvedValue({ donor: { id: 'donor-1' } });
 
     const payload = {
       meta: { event_type: 'donation.completed' },
@@ -67,16 +59,13 @@ describe('POST /api/webhooks/tiltify', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
-    expect(prisma.donor.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { email: 'donor@example.com' },
-      }),
-    );
-    expect(prisma.donation.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tiltify_id: '12345' },
-      }),
-    );
+    expect(processDonation).toHaveBeenCalledWith({
+      tiltifyId: '12345',
+      email: 'donor@example.com',
+      donorName: 'Test Donor',
+      amountCents: 2500,
+      comment: 'Great cause!',
+    });
   });
 
   it('skips when email is missing', async () => {
@@ -95,6 +84,7 @@ describe('POST /api/webhooks/tiltify', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.skipped).toBe('missing email or id');
+    expect(processDonation).not.toHaveBeenCalled();
   });
 
   it('validates HMAC signature when secret is set', async () => {
@@ -103,7 +93,7 @@ describe('POST /api/webhooks/tiltify', () => {
 
     const payload = JSON.stringify({
       meta: { event_type: 'donation.completed' },
-      data: { id: '12345' },
+      data: { id: '12345', donor_email: 'donor@test.com', amount: { value: '10.00' } },
     });
 
     const timestamp = Date.now().toString();
@@ -118,6 +108,7 @@ describe('POST /api/webhooks/tiltify', () => {
       .send(payload);
 
     expect(res.status).toBe(200);
+    expect(processDonation).toHaveBeenCalled();
   });
 
   it('rejects invalid HMAC signature', async () => {
@@ -131,5 +122,6 @@ describe('POST /api/webhooks/tiltify', () => {
       .send(JSON.stringify({ meta: { event_type: 'donation.completed' }, data: {} }));
 
     expect(res.status).toBe(401);
+    expect(processDonation).not.toHaveBeenCalled();
   });
 });
