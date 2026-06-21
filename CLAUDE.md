@@ -56,7 +56,7 @@ Set `MODERATOR_EMAILS` env var to a comma-separated list of emails. When a donat
 
 1. HMAC-SHA256 verify (`x-tiltify-signature` + `x-tiltify-timestamp`). Skipped if `TILTIFY_WEBHOOK_SECRET` is unset (useful for local testing).
 2. Ack all non-`donation.completed` events with 200.
-3. Delegates to `processDonation()` in `server/services/donation.js` — upserts donor (credits balance, rotates magic token, sets `is_moderator` if email in `MODERATOR_EMAILS`), upserts donation by `tiltify_id` (idempotency), fire-and-forget sendMagicLink.
+3. Delegates to `processDonation()` in `server/services/donation.js` — upserts donor (credits balance, extends token TTL without rotating, sets `is_moderator` only when matching), creates donation (P2002 = duplicate → no-op), fire-and-forget sendMagicLink.
 
 ### Balance mutations
 
@@ -76,17 +76,17 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 
 ## Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API |
-| `TILTIFY_CAMPAIGN_ID` | Campaign to proxy from Tiltify |
-| `TILTIFY_WEBHOOK_SECRET` | HMAC secret; omit to disable signature checking locally |
-| `ADMIN_API_KEY` | Sent as `X-Admin-Key` from admin UI |
-| `MODERATOR_EMAILS` | Comma-separated emails auto-promoted to moderator on donation |
-| `SMTP_*` / `EMAIL_FROM` | Nodemailer config |
-| `APP_BASE_URL` | Base URL for magic links in emails (e.g. `http://localhost:5173`) |
-| `PORT` | Server port, default `3001` |
-| `DATABASE_URL` | Prisma DB URL, e.g. `file:./dev.db` |
+| Variable                                      | Purpose                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API                                   |
+| `TILTIFY_CAMPAIGN_ID`                         | Campaign to proxy from Tiltify                                    |
+| `TILTIFY_WEBHOOK_SECRET`                      | HMAC secret; omit to disable signature checking locally           |
+| `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI                               |
+| `MODERATOR_EMAILS`                            | Comma-separated emails auto-promoted to moderator on donation     |
+| `SMTP_*` / `EMAIL_FROM`                       | Nodemailer config                                                 |
+| `APP_BASE_URL`                                | Base URL for magic links in emails (e.g. `http://localhost:5173`) |
+| `PORT`                                        | Server port, default `3001`                                       |
+| `DATABASE_URL`                                | Prisma DB URL, e.g. `file:./dev.db`                               |
 
 ## Local Webhook Testing
 

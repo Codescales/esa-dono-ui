@@ -6,58 +6,67 @@ import { sendMagicLink } from './email.js';
  * Shared donation processing — used by both the Tiltify webhook
  * and the admin simulation endpoint.
  *
- * @returns {{ donor, token }}
+ * Idempotent: if tiltifyId already exists, returns { duplicate: true }
+ * without crediting balance or sending email.
+ *
+ * Stable token: existing donors keep their magic_token (not rotated).
+ * Only new donors get a fresh token. TTL is extended on repeat donations.
+ *
+ * @returns {{ donor, token }} | {{ duplicate: true }}
  */
 export async function processDonation({ tiltifyId, email, donorName, amountCents, comment }) {
-  // Generate magic token
-  const token = crypto.randomBytes(32).toString('hex');
-  const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const normalizedEmail = email.trim().toLowerCase();
 
-  // Check moderator eligibility
   const moderatorEmails = (process.env.MODERATOR_EMAILS || '')
     .split(',')
-    .map(e => e.trim().toLowerCase());
-  const isModerator = moderatorEmails.includes(email.toLowerCase());
+    .map((e) => e.trim().toLowerCase());
+  const isModerator = moderatorEmails.includes(normalizedEmail);
 
-  // Upsert donor
-  const data = {
-    total_donated: { increment: amountCents },
-    balance_remaining: { increment: amountCents },
-    magic_token: token,
-    token_expires_at: tokenExpiresAt,
-    is_moderator: isModerator,
-  };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  const donor = await prisma.donor.upsert({
-    where: { email },
-    update: data,
-    create: {
-      email,
-      total_donated: amountCents,
-      balance_remaining: amountCents,
-      magic_token: token,
-      token_expires_at: tokenExpiresAt,
-      is_moderator: isModerator,
-    },
-  });
+      const donor = await tx.donor.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          total_donated: { increment: amountCents },
+          balance_remaining: { increment: amountCents },
+          token_expires_at: tokenExpiresAt,
+          ...(isModerator ? { is_moderator: true } : {}),
+        },
+        create: {
+          email: normalizedEmail,
+          total_donated: amountCents,
+          balance_remaining: amountCents,
+          magic_token: token,
+          token_expires_at: tokenExpiresAt,
+          is_moderator: isModerator,
+        },
+      });
 
-  // Upsert donation (idempotency)
-  await prisma.donation.upsert({
-    where: { tiltify_id: tiltifyId },
-    update: {},
-    create: {
-      tiltify_id: tiltifyId,
-      donor_id: donor.id,
-      amount_cents: amountCents,
-      donor_name: donorName,
-      comment,
-    },
-  });
+      await tx.donation.create({
+        data: {
+          tiltify_id: tiltifyId,
+          donor_id: donor.id,
+          amount_cents: amountCents,
+          donor_name: donorName,
+          comment,
+        },
+      });
 
-  // Fire-and-forget email
-  sendMagicLink(email, token).catch(err => console.error('Email error:', err));
+      sendMagicLink(normalizedEmail, donor.magic_token).catch((err) =>
+        console.error('Email error:', err),
+      );
 
-  return { donor, token };
+      return { donor, token: donor.magic_token };
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      return { duplicate: true };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -71,7 +80,7 @@ export async function checkBlockedWords(text) {
 
   // Split by word boundaries, extract only word char sequences
   const words = text.toLowerCase().match(/\b\w+\b/g) || [];
-  const lowerBlocked = new Set(blockedWords.map(w => w.word.toLowerCase()));
+  const lowerBlocked = new Set(blockedWords.map((w) => w.word.toLowerCase()));
 
   for (const word of words) {
     if (lowerBlocked.has(word)) {
