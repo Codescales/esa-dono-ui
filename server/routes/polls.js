@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
+import { spendLimit } from '../middleware/rateLimit.js';
 import { checkBlockedWords } from '../services/donation.js';
 
 const router = Router();
@@ -14,7 +15,6 @@ router.get('/', async (req, res) => {
   res.json(polls);
 });
 
-// Submit a custom poll entry
 router.post('/:id/custom-entry', donorAuth, async (req, res) => {
   try {
     const { label } = req.body;
@@ -56,7 +56,7 @@ router.post('/:id/custom-entry', donorAuth, async (req, res) => {
   }
 });
 
-router.post('/:id/vote', donorAuth, async (req, res) => {
+router.post('/:id/vote', spendLimit, donorAuth, async (req, res) => {
   const { poll_option_id, amount_cents } = req.body;
   if (!poll_option_id || !amount_cents || amount_cents < 100) {
     return res.status(400).json({ error: 'poll_option_id and amount_cents (min 100) required' });
