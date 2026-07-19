@@ -33,6 +33,11 @@ LABEL org.opencontainers.image.title="esa-dono-ui-frontend" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="ESA"
 
+# Patch OS packages to fix CVEs in the base image (e.g. libcrypto3/OpenSSL)
+USER root
+RUN apk upgrade --no-cache
+USER nginx
+
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/client/dist /usr/share/nginx/html
 
