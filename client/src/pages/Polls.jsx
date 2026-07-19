@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { getPolls, votePoll } from '../api/polls.js';
+import { getPolls, votePoll, submitCustomEntry } from '../api/polls.js';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import Card from '../components/Card.jsx';
 import Modal from '../components/Modal.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
 
-function fmt(cents) { return `$${(cents / 100).toFixed(2)}`; }
+function fmt(cents) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 export default function Polls() {
   const [polls, setPolls] = useState([]);
@@ -14,9 +16,15 @@ export default function Polls() {
   const [amount, setAmount] = useState('1.00');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [suggesting, setSuggesting] = useState(null); // poll for suggest modal
+  const [suggestLabel, setSuggestLabel] = useState('');
+  const [suggestError, setSuggestError] = useState('');
+  const [suggestSuccess, setSuggestSuccess] = useState('');
 
   const reload = () => getPolls().then(setPolls);
-  useEffect(() => { reload().finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    reload().finally(() => setLoading(false));
+  }, []);
 
   const openVote = (poll, option) => {
     setVoting({ poll, option });
@@ -28,14 +36,45 @@ export default function Polls() {
   const handleVote = async () => {
     setError('');
     const cents = Math.round(parseFloat(amount) * 100);
-    if (isNaN(cents) || cents < 100) { setError('Minimum vote is $1.00'); return; }
+    if (isNaN(cents) || cents < 100) {
+      setError('Minimum vote is $1.00');
+      return;
+    }
     try {
       await votePoll(voting.poll.id, voting.option.id, cents);
       setSuccess('Vote cast!');
       reload();
-      setTimeout(() => { setVoting(null); setSuccess(''); }, 1500);
+      setTimeout(() => {
+        setVoting(null);
+        setSuccess('');
+      }, 1500);
     } catch (e) {
       setError(e.response?.data?.error ?? 'Failed to cast vote.');
+    }
+  };
+
+  const openSuggest = (poll) => {
+    setSuggesting(poll);
+    setSuggestLabel('');
+    setSuggestError('');
+    setSuggestSuccess('');
+  };
+
+  const handleSuggest = async () => {
+    setSuggestError('');
+    if (!suggestLabel.trim()) {
+      setSuggestError('Please enter a suggestion');
+      return;
+    }
+    try {
+      await submitCustomEntry(suggesting.id, suggestLabel.trim());
+      setSuggestSuccess('Submitted for approval!');
+      setTimeout(() => {
+        setSuggesting(null);
+        setSuggestSuccess('');
+      }, 2000);
+    } catch (e) {
+      setSuggestError(e.response?.data?.error ?? 'Failed to submit');
     }
   };
 
@@ -44,13 +83,17 @@ export default function Polls() {
   return (
     <div className="max-w-3xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Polls</h1>
-      {polls.map(poll => (
+      {polls.map((poll) => (
         <Card key={poll.id} className="mb-4">
           <h2 className="text-lg font-semibold mb-1">{poll.title}</h2>
           {poll.description && <p className="text-gray-500 text-sm mb-3">{poll.description}</p>}
-          {poll.ends_at && <p className="text-xs text-gray-400 mb-2">Ends: {new Date(poll.ends_at).toLocaleString()}</p>}
+          {poll.ends_at && (
+            <p className="text-xs text-gray-400 mb-2">
+              Ends: {new Date(poll.ends_at).toLocaleString()}
+            </p>
+          )}
           <div className="space-y-3">
-            {poll.options.map(opt => (
+            {poll.options.map((opt) => (
               <div key={opt.id}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium">{opt.label}</span>
@@ -59,7 +102,9 @@ export default function Polls() {
                     <button
                       onClick={() => openVote(poll, opt)}
                       className="px-2 py-0.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
-                    >Vote</button>
+                    >
+                      Vote
+                    </button>
                   </div>
                 </div>
                 <ProgressBar value={opt.votes_cents} max={poll.total_votes_cents || 1} />
@@ -68,13 +113,23 @@ export default function Polls() {
             {poll.options.length === 0 && <p className="text-gray-400 text-sm">No options yet.</p>}
           </div>
           <p className="text-xs text-gray-400 mt-2">Total votes: {fmt(poll.total_votes_cents)}</p>
+          {poll.allow_custom_entries && (
+            <button
+              onClick={() => openSuggest(poll)}
+              className="mt-2 px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
+            >
+              + Suggest an Option
+            </button>
+          )}
         </Card>
       ))}
       {polls.length === 0 && <p className="text-gray-500">No active polls.</p>}
 
       {voting && (
         <Modal title={`Vote: ${voting.option.label}`} onClose={() => setVoting(null)}>
-          <p className="text-sm text-gray-600 mb-3">In poll: <strong>{voting.poll.title}</strong></p>
+          <p className="text-sm text-gray-600 mb-3">
+            In poll: <strong>{voting.poll.title}</strong>
+          </p>
           <div className="mb-3">
             <label className="block text-sm font-medium mb-1">Amount ($1 = 1 vote)</label>
             <input
@@ -83,14 +138,61 @@ export default function Polls() {
               min="1"
               className="w-full border rounded px-3 py-2 text-sm"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
           {success && <p className="text-green-600 text-sm mb-2">{success}</p>}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setVoting(null)} className="px-4 py-2 border rounded text-sm">Cancel</button>
-            <button onClick={handleVote} className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">Cast Vote</button>
+            <button onClick={() => setVoting(null)} className="px-4 py-2 border rounded text-sm">
+              Cancel
+            </button>
+            <button
+              onClick={handleVote}
+              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+            >
+              Cast Vote
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {suggesting && (
+        <Modal title="Suggest an Option" onClose={() => setSuggesting(null)}>
+          <p className="text-sm text-gray-600 mb-3">
+            Poll: <strong>{suggesting.title}</strong>
+          </p>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Your suggestion</label>
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Type your option..."
+              value={suggestLabel}
+              onChange={(e) => setSuggestLabel(e.target.value)}
+              maxLength={suggesting.max_entry_chars || undefined}
+              onKeyDown={(e) => e.key === 'Enter' && handleSuggest()}
+            />
+            {suggesting.max_entry_chars && (
+              <p className="text-xs text-gray-400 mt-1">
+                {suggestLabel.length}/{suggesting.max_entry_chars} characters
+              </p>
+            )}
+          </div>
+          {suggestError && <p className="text-red-600 text-sm mb-2">{suggestError}</p>}
+          {suggestSuccess && <p className="text-green-600 text-sm mb-2">{suggestSuccess}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setSuggesting(null)}
+              className="px-4 py-2 border rounded text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSuggest}
+              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+            >
+              Submit for Approval
+            </button>
           </div>
         </Modal>
       )}

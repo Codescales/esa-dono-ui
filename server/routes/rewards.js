@@ -32,7 +32,9 @@ router.post('/:id/claim', spendLimit, donorAuth, async (req, res) => {
   if (reward.type === 'PHYSICAL') {
     const { name, address, city, country } = claimData;
     if (!name || !address || !city || !country) {
-      return res.status(400).json({ error: 'Physical rewards require name, address, city, country' });
+      return res
+        .status(400)
+        .json({ error: 'Physical rewards require name, address, city, country' });
     }
   }
 

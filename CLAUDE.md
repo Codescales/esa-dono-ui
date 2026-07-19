@@ -20,9 +20,44 @@ cd server && npx prisma generate
 
 # DB studio
 cd server && npx prisma studio
+
+# Tests (vitest, per-workspace configs — run from root)
+npm run test:ci          # lint-free CI run (junit reporter)
+npm test                 # all workspace tests
+npm run test --workspace server   # server only
+npm run test --workspace client   # client only
 ```
 
-No test runner is configured.
+Note: run tests via the npm scripts above (per-workspace vitest configs). Running
+`npx vitest` from the repo root uses the wrong environment and will fail.
+
+## Docker Deployment
+
+Two production images (mirrors the esa-waypoint split backend/frontend pattern):
+
+- **`Dockerfile.backend`** — Express + Prisma API. Multi-stage:
+  - `test` target: full dev deps + source, entrypoint runs `scripts/run-tests.mjs` (used by CI `container-test`).
+  - `runtime` target: production API. Applies `prisma migrate deploy` on startup via `docker-entrypoint.backend.sh`, runs non-root, SQLite lives in the `/data` volume (`DATABASE_URL=file:/data/dono.db`), health check on `/api/health`.
+- **`Dockerfile.frontend`** — builds the Vite SPA and serves it via `nginx-unprivileged` on port 8080. `nginx.conf` (templated to `default.conf.template`) does SPA fallback and proxies `/api/` → `http://backend:3001`. Uses the built-in `15-local-resolvers` script (`NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`) so DNS resolution works on both Docker and Podman.
+
+```bash
+# Local full stack (needs ADMIN_API_KEY at minimum)
+ADMIN_API_KEY=change-me docker compose up --build
+# Frontend on http://localhost:8080 (proxies /api to backend). SQLite persisted in the dono-data volume.
+```
+
+### Verify the containers actually run
+
+After building, always confirm the stack _functions_ — not just that the images build. `scripts/smoke-test.sh` boots the compose stack and asserts: backend health through the nginx proxy, SPA index + client-route fallback, admin-auth enforcement (401/200), an end-to-end donation simulation (proves migrations + DB writes), and volume persistence across a backend restart. It always tears the stack down on exit.
+
+```bash
+ADMIN_API_KEY=change-me FRONTEND_PORT=18080 ./scripts/smoke-test.sh
+```
+
+The CI `container-test` job runs this against the freshly built runtime images, and `docker-publish.yml` runs it against the just-pushed `:latest` images after the Trivy gate.
+
+Images publish to `ghcr.io/codescales/esa-dono-ui/{backend,frontend}` via
+`.github/workflows/docker-publish.yml` (buildx multiarch amd64/arm64 + Trivy CRITICAL gate) on push to `main`.
 
 ## Bootstrap
 
@@ -41,17 +76,22 @@ npm workspaces monorepo: `server/` (Express + Prisma + SQLite) and `client/` (Re
 - `server/index.js` — Express entry point. The Tiltify webhook route **must** be mounted before `express.json()` because it needs the raw body buffer for HMAC verification.
 - `server/lib/prisma.js` — Prisma singleton using `globalThis` cache to survive hot reloads.
 - `server/services/tiltify.js` — OAuth2 client-credentials token fetch with in-memory cache (refreshed ~60s before expiry). Calls Tiltify v5 API.
+- `server/services/donation.js` — Shared `processDonation()` (upserts donor + donation, sends magic link) used by both webhook and simulation. Also exports `checkBlockedWords()` for custom poll entry validation.
 - `server/services/email.js` — Nodemailer magic link sender; called fire-and-forget from the webhook handler.
 - `server/middleware/adminAuth.js` — Checks `X-Admin-Key` header against `ADMIN_API_KEY` env var.
 - `server/middleware/donorAuth.js` — Resolves `?token=` query param to a `Donor` record; sets `req.donor`.
+- `server/middleware/moderatorAuth.js` — Chains `donorAuth` then checks `req.donor.is_moderator`. Moderator access via magic link, no separate API key.
+- `server/routes/moderator.js` — Moderator CRUD for polls, rewards, goals, claims, and custom entry approval.
+
+### Moderator Setup
+
+Set `MODERATOR_EMAILS` env var to a comma-separated list of emails. When a donation webhook fires for a matching email, the donor gets `is_moderator: true`. Moderators access their dashboard via their magic link — the Navbar shows a "Moderate" link when `is_moderator` is true. Moderators can CRUD polls/rewards/goals, view/fulfill claims, and approve custom poll entries. They cannot access `/api/admin/*` routes (require `X-Admin-Key`).
 
 ### Webhook flow (`server/routes/webhook.js`)
 
 1. HMAC-SHA256 verify (`x-tiltify-signature` + `x-tiltify-timestamp`). Skipped if `TILTIFY_WEBHOOK_SECRET` is unset (useful for local testing).
 2. Ack all non-`donation.completed` events with 200.
-3. `prisma.donor.upsert` by email — credits `balance_remaining` and rotates `magic_token` (30-day TTL).
-4. `prisma.donation.upsert` by `tiltify_id` — idempotency guard against duplicate deliveries.
-5. Fire-and-forget `sendMagicLink`.
+3. Delegates to `processDonation()` in `server/services/donation.js` — upserts donor (credits balance, extends token TTL without rotating, sets `is_moderator` only when matching), creates donation (P2002 = duplicate → no-op), fire-and-forget sendMagicLink.
 
 ### Balance mutations
 
@@ -61,6 +101,7 @@ All balance changes (reward claims, poll votes, goal contributions) use `prisma.
 
 - `client/src/api/client.js` — axios instance that auto-attaches `?token=` from `localStorage.donor_token` to every request.
 - `client/src/api/admin.js` — separate axios instance that auto-attaches `X-Admin-Key` from `localStorage.admin_key`.
+- `client/src/api/moderator.js` — axios instance that auto-attaches `?token=` from `localStorage.donor_token` for moderator routes.
 - `client/src/pages/MyWallet.jsx` — reads `?token=` from the URL on mount and persists it to localStorage.
 - `client/src/pages/admin/AdminLayout.jsx` — renders a key-entry gate if `localStorage.admin_key` is absent; logout clears the key.
 
@@ -70,16 +111,17 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 
 ## Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API |
-| `TILTIFY_CAMPAIGN_ID` | Campaign to proxy from Tiltify |
-| `TILTIFY_WEBHOOK_SECRET` | HMAC secret; omit to disable signature checking locally |
-| `ADMIN_API_KEY` | Sent as `X-Admin-Key` from admin UI |
-| `SMTP_*` / `EMAIL_FROM` | Nodemailer config |
-| `APP_BASE_URL` | Base URL for magic links in emails (e.g. `http://localhost:5173`) |
-| `PORT` | Server port, default `3001` |
-| `DATABASE_URL` | Prisma DB URL, e.g. `file:./dev.db` |
+| Variable                                      | Purpose                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API                                   |
+| `TILTIFY_CAMPAIGN_ID`                         | Campaign to proxy from Tiltify                                    |
+| `TILTIFY_WEBHOOK_SECRET`                      | HMAC secret; omit to disable signature checking locally           |
+| `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI                               |
+| `MODERATOR_EMAILS`                            | Comma-separated emails auto-promoted to moderator on donation     |
+| `SMTP_*` / `EMAIL_FROM`                       | Nodemailer config                                                 |
+| `APP_BASE_URL`                                | Base URL for magic links in emails (e.g. `http://localhost:5173`) |
+| `PORT`                                        | Server port, default `3001`                                       |
+| `DATABASE_URL`                                | Prisma DB URL, e.g. `file:./dev.db`                               |
 
 ## Local Webhook Testing
 
@@ -88,3 +130,26 @@ ngrok http 3001
 # Register https://<ngrok-url>/api/webhooks/tiltify in Tiltify dashboard
 # Omit TILTIFY_WEBHOOK_SECRET during dev to skip signature verification
 ```
+
+### Simulate Donations (no real money)
+
+**Option A — Admin UI:** Visit `/admin/simulate`, fill in donor email + amount, click "Simulate Donation". Copy the generated magic link to access the donor wallet.
+
+**Option B — curl (full webhook path):** When `TILTIFY_WEBHOOK_SECRET` is unset, HMAC verification is skipped. POST directly:
+
+```bash
+curl -X POST http://localhost:3001/api/webhooks/tiltify \
+  -H "Content-Type: application/json" \
+  -d '{"meta":{"event_type":"donation.completed"},"data":{"id":"test-123","donor_email":"test@example.com","donor_name":"Test","amount":{"value":"10.00"},"comment":"test"}}'
+```
+
+**Option C — Admin API:** `POST /api/admin/simulate-donation` with `X-Admin-Key` header:
+
+```bash
+curl -X POST http://localhost:3001/api/admin/simulate-donation \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: change-me" \
+  -d '{"email":"test@example.com","amount_cents":1000}'
+```
+
+Returns `{ success: true, token, donor }`. Use the token to build a magic link: `http://localhost:5173/wallet?token=<token>`.

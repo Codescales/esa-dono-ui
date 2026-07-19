@@ -15,7 +15,8 @@ router.get('/', async (req, res) => {
 
 router.post('/:id/contribute', spendLimit, donorAuth, async (req, res) => {
   const { amount_cents } = req.body;
-  if (!amount_cents || amount_cents < 100) {
+  const cents = Number(amount_cents);
+  if (!Number.isInteger(cents) || cents < 100) {
     return res.status(400).json({ error: 'amount_cents (min 100) required' });
   }
 
@@ -25,29 +26,29 @@ router.post('/:id/contribute', spendLimit, donorAuth, async (req, res) => {
   }
 
   const donor = req.donor;
-  if (donor.balance_remaining < amount_cents) {
+  if (donor.balance_remaining < cents) {
     return res.status(400).json({ error: 'Insufficient balance' });
   }
 
-  const newTotal = goal.current_cents + amount_cents;
+  const newTotal = goal.current_cents + cents;
   const isComplete = newTotal >= goal.target_cents;
 
   await prisma.$transaction([
     prisma.donor.update({
       where: { id: donor.id },
-      data: { balance_remaining: { decrement: amount_cents } },
+      data: { balance_remaining: { decrement: cents } },
     }),
     prisma.fundContribution.create({
       data: {
         goal_id: goal.id,
         donor_id: donor.id,
-        amount_cents,
+        amount_cents: cents,
       },
     }),
     prisma.fundGoal.update({
       where: { id: goal.id },
       data: {
-        current_cents: { increment: amount_cents },
+        current_cents: { increment: cents },
         is_complete: isComplete,
       },
     }),
