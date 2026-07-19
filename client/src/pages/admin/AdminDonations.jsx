@@ -29,26 +29,38 @@ export default function AdminDonations() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Donations & Claims</h1>
+      <h1 className="font-display text-4xl lowercase mb-4">donations & claims</h1>
       <div className="flex gap-2 mb-4">
         {['donations', 'claims'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded text-sm font-medium ${tab === t ? 'bg-purple-600 text-white' : 'bg-white border'}`}
+            className="btrl-button"
+            style={
+              tab !== t
+                ? {
+                    background: 'transparent',
+                    border: '2px solid rgba(239,238,236,.15)',
+                    textShadow: 'none',
+                  }
+                : {}
+            }
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t}
           </button>
         ))}
       </div>
 
       {tab === 'donations' && (
         <div className="overflow-x-auto">
-          <table className="w-full bg-white rounded shadow text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                {['Donor', 'Email', 'Amount', 'Comment', 'Date'].map((h) => (
-                  <th key={h} className="text-left px-4 py-2">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: 'rgba(239,238,236,.03)' }}>
+                {['donor', 'email', 'amount', 'comment', 'date'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55"
+                  >
                     {h}
                   </th>
                 ))}
@@ -56,12 +68,16 @@ export default function AdminDonations() {
             </thead>
             <tbody>
               {donations.map((d) => (
-                <tr key={d.id} className="border-t">
-                  <td className="px-4 py-2">{d.donor_name ?? '-'}</td>
-                  <td className="px-4 py-2">{d.donor?.email ?? '-'}</td>
-                  <td className="px-4 py-2 font-medium">{fmt(d.amount_cents)}</td>
-                  <td className="px-4 py-2 text-gray-500">{d.comment ?? '-'}</td>
-                  <td className="px-4 py-2 text-gray-400">
+                <tr key={d.id} style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                  <td className="px-4 py-2 font-data text-off-white">{d.donor_name ?? '-'}</td>
+                  <td className="px-4 py-2 font-data text-off-white/55">{d.donor?.email ?? '-'}</td>
+                  <td className="px-4 py-2 font-data font-bold text-off-white">
+                    {fmt(d.amount_cents)}
+                  </td>
+                  <td className="px-4 py-2 font-body text-sm text-off-white/55">
+                    {d.comment ?? '-'}
+                  </td>
+                  <td className="px-4 py-2 font-data text-off-white/55">
                     {new Date(d.created_at).toLocaleDateString()}
                   </td>
                 </tr>
@@ -73,11 +89,14 @@ export default function AdminDonations() {
 
       {tab === 'claims' && (
         <div className="overflow-x-auto">
-          <table className="w-full bg-white rounded shadow text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                {['Donor', 'Reward', 'Status', 'Data', 'Date', 'Action'].map((h) => (
-                  <th key={h} className="text-left px-4 py-2">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: 'rgba(239,238,236,.03)' }}>
+                {['donor', 'reward', 'status', 'data', 'date', 'action'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55"
+                  >
                     {h}
                   </th>
                 ))}
@@ -85,28 +104,38 @@ export default function AdminDonations() {
             </thead>
             <tbody>
               {claims.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-4 py-2">{c.donor?.email ?? '-'}</td>
-                  <td className="px-4 py-2">{c.reward?.title ?? '-'}</td>
+                <tr key={c.id} style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                  <td className="px-4 py-2 font-data text-off-white">{c.donor?.email ?? '-'}</td>
+                  <td className="px-4 py-2 font-data text-off-white">{c.reward?.title ?? '-'}</td>
                   <td className="px-4 py-2">
                     <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${c.status === 'FULFILLED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}
+                      className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold"
+                      style={{
+                        background:
+                          c.status === 'FULFILLED'
+                            ? 'rgba(92,189,125,.16)'
+                            : 'rgba(208,152,70,.16)',
+                        color: c.status === 'FULFILLED' ? 'var(--green)' : 'var(--d-yellow)',
+                      }}
                     >
                       {c.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500 max-w-xs truncate">
+                  <td className="px-4 py-2 font-body text-sm text-off-white/55 max-w-xs truncate">
                     {c.claim_data ? JSON.stringify(c.claim_data) : '-'}
                   </td>
-                  <td className="px-4 py-2 text-gray-400">
+                  <td className="px-4 py-2 font-data text-off-white/55">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2">
                     <button
                       onClick={() => toggleFulfilled(c)}
-                      className={`text-xs px-2 py-1 rounded ${c.status === 'FULFILLED' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                      className="font-mono text-[10px] tracking-wider uppercase"
+                      style={{
+                        color: c.status === 'FULFILLED' ? 'var(--d-yellow)' : 'var(--green)',
+                      }}
                     >
-                      {c.status === 'FULFILLED' ? 'Mark Pending' : 'Mark Fulfilled'}
+                      {c.status === 'FULFILLED' ? 'mark pending' : 'mark fulfilled'}
                     </button>
                   </td>
                 </tr>

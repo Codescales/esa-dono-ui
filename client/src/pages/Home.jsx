@@ -17,7 +17,12 @@ export default function Home() {
       .catch(() => setError('Failed to load campaign data.'));
   }, []);
 
-  if (error) return <div className="p-8 text-red-600">{error}</div>;
+  if (error)
+    return (
+      <div className="p-8" style={{ color: 'var(--red)' }}>
+        {error}
+      </div>
+    );
   if (!campaign) return <LoadingSpinner />;
 
   const raised = campaign.amount_raised?.value
@@ -34,28 +39,30 @@ export default function Home() {
   return (
     <div className="max-w-3xl mx-auto p-8">
       <div className="text-center mb-8">
-        <p className="text-sm font-bold tracking-[0.35em] text-orange-300 uppercase mb-2">
+        <p className="font-mono text-[10px] font-bold tracking-[0.35em] uppercase text-d-yellow mb-2">
           European Speedrunner Assembly
         </p>
-        <h1 className="text-4xl font-black text-purple-700 mb-2">
+        <h1 className="font-display text-5xl lowercase text-off-white mb-2">
           {campaign.name ?? campaign.title ?? 'Campaign'}
         </h1>
       </div>
       {campaign.description && (
-        <p className="text-gray-600 mb-6 text-center">{campaign.description}</p>
+        <p className="text-off-white/55 mb-6 text-center font-body text-sm">
+          {campaign.description}
+        </p>
       )}
       {campaign.logo?.src && (
-        <img src={campaign.logo.src} alt="Campaign logo" className="w-48 mb-6 rounded mx-auto" />
+        <img src={campaign.logo.src} alt="Campaign logo" className="w-48 mb-6 rounded-sm mx-auto" />
       )}
-      <div className="esa-panel rounded-lg p-6">
+      <div className="btrl-panel p-6">
         <div className="flex justify-between mb-2">
-          <span className="font-semibold text-gray-700">Raised</span>
-          <span className="font-bold text-purple-700">
+          <span className="font-data font-bold text-sm text-off-white/55">raised</span>
+          <span className="font-data font-bold text-sm text-d-yellow">
             {fmt(raised)} / {fmt(goal)}
           </span>
         </div>
         <ProgressBar value={raised} max={goal} />
-        <p className="text-center text-sm text-gray-500 mt-2">
+        <p className="text-center font-data text-sm text-off-white/55 mt-2">
           {goal > 0 ? `${Math.round((raised / goal) * 100)}% of goal` : ''}
         </p>
       </div>

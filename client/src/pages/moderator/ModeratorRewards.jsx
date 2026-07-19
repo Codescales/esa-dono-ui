@@ -68,12 +68,9 @@ export default function ModeratorRewards() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Rewards</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Reward
+        <h1 className="font-display text-4xl lowercase">rewards</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new reward
         </button>
       </div>
 
@@ -82,12 +79,12 @@ export default function ModeratorRewards() {
           <Card key={r.id}>
             <div className="flex justify-between">
               <div>
-                <h2 className="font-semibold">{r.title}</h2>
-                <p className="text-sm text-gray-500">
-                  {r.type} · {fmt(r.cost_cents)}
+                <h2 className="font-data font-bold text-lg text-off-white">{r.title}</h2>
+                <p className="font-data text-sm text-off-white/55">
+                  {r.type} &middot; {fmt(r.cost_cents)}
                 </p>
                 {r.quantity_total && (
-                  <p className="text-xs text-gray-400">
+                  <p className="font-data text-xs text-off-white/55">
                     {r.quantity_claimed}/{r.quantity_total} claimed
                   </p>
                 )}
@@ -95,15 +92,16 @@ export default function ModeratorRewards() {
               <div className="flex gap-2">
                 <button
                   onClick={() => openEdit(r)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
-                  Edit
+                  edit
                 </button>
                 <button
                   onClick={() => handleDelete(r.id)}
-                  className="text-red-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Delete
+                  delete
                 </button>
               </div>
             </div>
@@ -113,7 +111,7 @@ export default function ModeratorRewards() {
 
       {modal && (
         <Modal
-          title={modal === 'create' ? 'New Reward' : 'Edit Reward'}
+          title={modal === 'create' ? 'new reward' : 'edit reward'}
           onClose={() => setModal(null)}
         >
           {[
@@ -121,18 +119,20 @@ export default function ModeratorRewards() {
             { key: 'description', label: 'Description' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Type</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">type</label>
             <select
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.type}
               onChange={(e) => setForm((d) => ({ ...d, type: e.target.value }))}
             >
@@ -145,30 +145,34 @@ export default function ModeratorRewards() {
           </div>
           {form.type === 'CUSTOM' && (
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">Custom Type Label</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                custom type label
+              </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form.custom_type_label ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, custom_type_label: e.target.value }))}
               />
             </div>
           )}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Cost (cents)</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              cost (cents)
+            </label>
             <input
               type="number"
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.cost_cents}
               onChange={(e) => setForm((d) => ({ ...d, cost_cents: e.target.value }))}
             />
           </div>
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">
-              Quantity Total (blank = unlimited)
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              quantity total (blank = unlimited)
             </label>
             <input
               type="number"
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.quantity_total ?? ''}
               onChange={(e) => setForm((d) => ({ ...d, quantity_total: e.target.value }))}
             />
@@ -180,20 +184,21 @@ export default function ModeratorRewards() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="modreward_active" className="text-sm">
-              Active
+            <label htmlFor="modreward_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>

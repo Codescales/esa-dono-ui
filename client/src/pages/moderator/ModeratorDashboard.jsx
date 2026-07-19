@@ -18,28 +18,32 @@ export default function ModeratorDashboard() {
 
   if (loading) return <LoadingSpinner />;
   if (error || !stats) {
-    return <p className="text-red-600 text-sm">{error || 'No data available.'}</p>;
+    return (
+      <p className="font-body text-sm" style={{ color: 'var(--red)' }}>
+        {error || 'No data available.'}
+      </p>
+    );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Moderator Dashboard</h1>
+      <h1 className="font-display text-4xl lowercase mb-6">moderator dashboard</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
-          <div className="text-2xl font-bold text-purple-600">{stats.pending_entries}</div>
-          <div className="text-sm text-gray-500">Pending Entries</div>
+          <div className="font-display text-3xl text-d-yellow">{stats.pending_entries}</div>
+          <div className="font-data text-sm text-off-white/55">pending entries</div>
         </Card>
         <Card>
-          <div className="text-2xl font-bold text-purple-600">{stats.active_polls}</div>
-          <div className="text-sm text-gray-500">Active Polls</div>
+          <div className="font-display text-3xl text-d-yellow">{stats.active_polls}</div>
+          <div className="font-data text-sm text-off-white/55">active polls</div>
         </Card>
         <Card>
-          <div className="text-2xl font-bold text-purple-600">{stats.total_rewards}</div>
-          <div className="text-sm text-gray-500">Active Rewards</div>
+          <div className="font-display text-3xl text-d-yellow">{stats.total_rewards}</div>
+          <div className="font-data text-sm text-off-white/55">active rewards</div>
         </Card>
         <Card>
-          <div className="text-2xl font-bold text-purple-600">{stats.total_goals}</div>
-          <div className="text-sm text-gray-500">Active Goals</div>
+          <div className="font-display text-3xl text-d-yellow">{stats.total_goals}</div>
+          <div className="font-data text-sm text-off-white/55">active goals</div>
         </Card>
       </div>
     </div>

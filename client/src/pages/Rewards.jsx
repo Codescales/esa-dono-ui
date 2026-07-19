@@ -64,9 +64,12 @@ export default function Rewards() {
 
   return (
     <div className="max-w-4xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">Rewards</h1>
+      <h1 className="font-display text-4xl lowercase mb-6">rewards</h1>
       {!localStorage.getItem('donor_token') && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4 text-yellow-800 text-sm">
+        <div
+          className="p-3 mb-4 rounded-sm text-sm"
+          style={{ background: 'rgba(208,152,70,.16)', color: 'var(--d-yellow)' }}
+        >
           Visit your wallet link from email to claim rewards.
         </div>
       )}
@@ -75,63 +78,81 @@ export default function Rewards() {
           <Card key={r.id}>
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="font-semibold text-lg">{r.title}</h3>
-                {r.description && <p className="text-gray-500 text-sm mt-1">{r.description}</p>}
+                <h3 className="font-data font-bold text-lg text-off-white">{r.title}</h3>
+                {r.description && (
+                  <p className="font-body text-sm text-off-white/55 mt-1">{r.description}</p>
+                )}
                 <div className="flex gap-2 mt-2">
-                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                  <span
+                    className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm"
+                    style={{ background: 'rgba(115,78,158,.3)', color: 'var(--off-white)' }}
+                  >
                     {r.type}
                   </span>
                   {r.quantity_total !== null && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    <span
+                      className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm"
+                      style={{
+                        background: 'rgba(239,238,236,.08)',
+                        color: 'rgba(239,238,236,.55)',
+                      }}
+                    >
                       {r.quantity_total - r.quantity_claimed} left
                     </span>
                   )}
                 </div>
               </div>
               <div className="text-right ml-4">
-                <p className="font-bold text-purple-700">{fmt(r.cost_cents)}</p>
+                <p className="font-display text-2xl text-d-yellow">{fmt(r.cost_cents)}</p>
                 <button
                   onClick={() => openClaim(r)}
                   disabled={r.quantity_total !== null && r.quantity_claimed >= r.quantity_total}
-                  className="mt-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btrl-button mt-2"
                 >
                   {r.quantity_total !== null && r.quantity_claimed >= r.quantity_total
-                    ? 'Sold Out'
-                    : 'Claim'}
+                    ? 'sold out'
+                    : 'claim'}
                 </button>
               </div>
             </div>
           </Card>
         ))}
-        {rewards.length === 0 && <p className="text-gray-500 col-span-2">No rewards available.</p>}
+        {rewards.length === 0 && (
+          <p className="font-body text-sm text-off-white/55 col-span-2">No rewards available.</p>
+        )}
       </div>
 
       {selected && (
-        <Modal title={`Claim: ${selected.title}`} onClose={() => setSelected(null)}>
+        <Modal title={`claim: ${selected.title}`} onClose={() => setSelected(null)}>
           {fields.map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
                 {f.label}
                 {f.required && ' *'}
               </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={formData[f.key] ?? ''}
                 onChange={(e) => setFormData((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-          {success && <p className="text-green-600 text-sm mb-2">{success}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
+          {success && (
+            <p className="text-sm mb-2" style={{ color: 'var(--green)' }}>
+              {success}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setSelected(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setSelected(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleClaim}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Claim for {fmt(selected.cost_cents)}
+            <button onClick={handleClaim} className="btrl-button">
+              claim for {fmt(selected.cost_cents)}
             </button>
           </div>
         </Modal>

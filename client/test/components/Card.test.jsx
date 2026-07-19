@@ -11,14 +11,13 @@ describe('Card', () => {
   it('applies default classes', () => {
     const { container } = render(<Card>Test</Card>);
     const div = container.firstChild;
-    expect(div.className).toContain('esa-panel');
-    expect(div.className).toContain('rounded-lg');
+    expect(div.className).toContain('btrl-panel');
   });
 
   it('merges custom className', () => {
     const { container } = render(<Card className="custom-class">Test</Card>);
     const div = container.firstChild;
     expect(div.className).toContain('custom-class');
-    expect(div.className).toContain('esa-panel');
+    expect(div.className).toContain('btrl-panel');
   });
 });

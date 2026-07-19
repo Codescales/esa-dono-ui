@@ -34,72 +34,98 @@ export default function Navbar() {
 
   return (
     <nav
-      className="text-white px-6 py-4 flex items-center gap-6 border-b"
+      className="flex items-center gap-6 px-6 py-4 border-b"
       style={{
-        background:
-          'linear-gradient(90deg, var(--esa-bg-deep), var(--esa-purple), var(--esa-bg-deep))',
-        borderColor: 'var(--esa-border)',
+        background: 'var(--dark-gray)',
+        borderColor: 'rgba(239,238,236,.08)',
       }}
     >
-      <Link to="/" className="font-black text-lg tracking-widest uppercase text-orange-300">
-        ESA Dono
+      <Link
+        to="/"
+        className="font-display text-2xl tracking-wide text-off-white no-underline lowercase"
+      >
+        esa dono
       </Link>
       <NavLink
         to="/"
         end
-        className={({ isActive }) => (isActive ? 'underline' : 'hover:underline')}
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
       >
-        Home
+        home
       </NavLink>
       <NavLink
         to="/wallet"
-        className={({ isActive }) => (isActive ? 'underline' : 'hover:underline')}
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
       >
-        My Wallet
+        wallet
       </NavLink>
       <NavLink
         to="/rewards"
-        className={({ isActive }) => (isActive ? 'underline' : 'hover:underline')}
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
       >
-        Rewards
+        rewards
       </NavLink>
       <NavLink
         to="/polls"
-        className={({ isActive }) => (isActive ? 'underline' : 'hover:underline')}
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
       >
-        Polls
+        polls
       </NavLink>
       <NavLink
         to="/goals"
-        className={({ isActive }) => (isActive ? 'underline' : 'hover:underline')}
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
       >
-        Goals
+        goals
       </NavLink>
       <div className="ml-auto flex items-center gap-4">
         {donor && (
           <div className="hidden lg:flex flex-col text-right leading-tight">
-            <span className="text-xs uppercase tracking-widest text-purple-200">Logged in as</span>
-            <span className="text-sm font-semibold">
-              {donor.email} · {fmt(donor.balance_remaining)}
+            <span className="font-mono text-[10px] tracking-widest uppercase text-d-yellow">
+              logged in as
+            </span>
+            <span className="font-data font-bold text-sm text-off-white">
+              {donor.email} &middot; {fmt(donor.balance_remaining)}
             </span>
           </div>
         )}
         {donor?.is_moderator && (
-          <NavLink to="/moderate" className="text-purple-200 hover:text-white text-sm">
-            Moderate
+          <NavLink
+            to="/moderate"
+            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+          >
+            moderate
           </NavLink>
         )}
         {donor ? (
-          <button onClick={logout} className="text-purple-200 hover:text-white text-sm">
-            Logout
+          <button
+            onClick={logout}
+            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+          >
+            logout
           </button>
         ) : (
-          <NavLink to="/wallet" className="text-purple-200 hover:text-white text-sm">
-            Login
+          <NavLink
+            to="/wallet"
+            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+          >
+            login
           </NavLink>
         )}
-        <NavLink to="/admin" className="text-purple-200 hover:text-white text-sm">
-          Admin
+        <NavLink
+          to="/admin"
+          className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+        >
+          admin
         </NavLink>
       </div>
     </nav>

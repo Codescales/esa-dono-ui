@@ -60,12 +60,9 @@ export default function AdminGoals() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Fund Goals</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Goal
+        <h1 className="font-display text-4xl lowercase">fund goals</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new goal
         </button>
       </div>
 
@@ -74,31 +71,37 @@ export default function AdminGoals() {
           <Card key={g.id}>
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h2 className="font-semibold">{g.title}</h2>
-                {g.description && <p className="text-gray-500 text-sm">{g.description}</p>}
+                <h2 className="font-data font-bold text-lg text-off-white">{g.title}</h2>
+                {g.description && (
+                  <p className="font-body text-sm text-off-white/55">{g.description}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {g.is_complete && (
-                  <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">
-                    Complete
+                  <span
+                    className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
+                    style={{ background: 'rgba(92,189,125,.16)', color: 'var(--green)' }}
+                  >
+                    complete
                   </span>
                 )}
                 <button
                   onClick={() => openEdit(g)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
-                  Edit
+                  edit
                 </button>
                 <button
                   onClick={() => handleDelete(g.id)}
-                  className="text-red-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Delete
+                  delete
                 </button>
               </div>
             </div>
             <ProgressBar value={g.current_cents} max={g.target_cents} />
-            <div className="flex justify-between text-sm text-gray-500 mt-1">
+            <div className="flex justify-between font-data text-sm text-off-white/55 mt-1">
               <span>{fmt(g.current_cents)}</span>
               <span>{fmt(g.target_cents)}</span>
             </div>
@@ -107,17 +110,19 @@ export default function AdminGoals() {
       </div>
 
       {modal && (
-        <Modal title={modal === 'create' ? 'New Goal' : 'Edit Goal'} onClose={() => setModal(null)}>
+        <Modal title={modal === 'create' ? 'new goal' : 'edit goal'} onClose={() => setModal(null)}>
           {[
             { key: 'title', label: 'Title' },
             { key: 'description', label: 'Description' },
             { key: 'target_cents', label: 'Target (cents)', type: 'number' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
                 type={f.type ?? 'text'}
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
@@ -130,8 +135,8 @@ export default function AdminGoals() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="goal_active" className="text-sm">
-              Active
+            <label htmlFor="goal_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
           {modal !== 'create' && (
@@ -142,21 +147,22 @@ export default function AdminGoals() {
                 checked={form.is_complete ?? false}
                 onChange={(e) => setForm((d) => ({ ...d, is_complete: e.target.checked }))}
               />
-              <label htmlFor="goal_complete" className="text-sm">
-                Mark Complete
+              <label htmlFor="goal_complete" className="font-data text-sm text-off-white">
+                mark complete
               </label>
             </div>
           )}
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>

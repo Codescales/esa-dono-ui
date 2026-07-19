@@ -25,10 +25,14 @@ function WalletLogin({ message, onLogin }) {
 
   return (
     <div className="max-w-xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-4">Access Your Wallet</h1>
+      <h1 className="font-display text-4xl lowercase mb-4">access your wallet</h1>
       <Card>
-        {message && <p className="text-red-600 text-sm mb-4">{message}</p>}
-        <div className="space-y-3 text-sm text-gray-500 mb-5">
+        {message && (
+          <p className="text-sm mb-4" style={{ color: 'var(--red)' }}>
+            {message}
+          </p>
+        )}
+        <div className="space-y-3 font-body text-sm text-off-white/55 mb-5">
           <p>
             Your wallet is unlocked by the magic link emailed after each donation. There are no
             passwords or account signups.
@@ -40,20 +44,23 @@ function WalletLogin({ message, onLogin }) {
           <p>Paste either the entire email link or just the token below.</p>
         </div>
 
-        <label className="block text-sm font-medium mb-1">Magic link or token</label>
+        <label className="block font-data font-bold text-sm mb-1 text-off-white">
+          magic link or token
+        </label>
         <input
-          className="w-full border rounded px-3 py-2 text-sm mb-2"
+          className="w-full px-3 py-2 text-sm mb-2"
           placeholder="https://.../wallet?token=..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
-        {formError && <p className="text-red-600 text-sm mb-3">{formError}</p>}
-        <button
-          onClick={submit}
-          className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-        >
-          Open Wallet
+        {formError && (
+          <p className="text-sm mb-3" style={{ color: 'var(--red)' }}>
+            {formError}
+          </p>
+        )}
+        <button onClick={submit} className="btrl-button">
+          open wallet
         </button>
       </Card>
     </div>
@@ -114,63 +121,74 @@ export default function MyWallet() {
   return (
     <div className="max-w-2xl mx-auto p-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">My Wallet</h1>
-        <button onClick={handleLogout} className="text-sm text-purple-200 hover:text-white">
-          Logout
+        <h1 className="font-display text-4xl lowercase">my wallet</h1>
+        <button
+          onClick={handleLogout}
+          className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+        >
+          logout
         </button>
       </div>
       <Card className="mb-6">
         <div className="flex justify-between gap-4">
           <div>
-            <p className="text-gray-500 text-sm">Logged in as</p>
-            <p className="font-medium break-all">{donor.email}</p>
+            <p className="font-data text-sm text-off-white/55">logged in as</p>
+            <p className="font-body font-medium break-all text-off-white">{donor.email}</p>
             {donor.is_moderator && (
-              <p className="text-xs text-orange-300 mt-1">Moderator access enabled</p>
+              <p className="font-data text-xs text-d-yellow mt-1">moderator access enabled</p>
             )}
           </div>
           <div className="text-right">
-            <p className="text-gray-500 text-sm">Available Balance</p>
-            <p className="text-2xl font-bold text-purple-700">{fmt(donor.balance_remaining)}</p>
+            <p className="font-data text-sm text-off-white/55">available balance</p>
+            <p className="font-display text-3xl text-d-yellow">{fmt(donor.balance_remaining)}</p>
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t flex gap-8">
-          <div>
-            <p className="text-gray-500 text-sm">Total Donated</p>
-            <p className="font-medium">{fmt(donor.total_donated)}</p>
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+          <div className="flex gap-8">
+            <div>
+              <p className="font-data text-sm text-off-white/55">total donated</p>
+              <p className="font-data font-bold text-off-white">{fmt(donor.total_donated)}</p>
+            </div>
           </div>
         </div>
       </Card>
 
-      <h2 className="text-xl font-semibold mb-3">Donation History</h2>
+      <h2 className="font-display text-3xl lowercase mb-3">donation history</h2>
       {donor.donations.length === 0 ? (
-        <p className="text-gray-500">No donations yet.</p>
+        <p className="font-body text-sm text-off-white/55">No donations yet.</p>
       ) : (
         <div className="space-y-2 mb-6">
           {donor.donations.map((d) => (
             <Card key={d.id} className="flex justify-between items-center">
               <div>
-                <p className="font-medium">{fmt(d.amount_cents)}</p>
-                {d.comment && <p className="text-gray-500 text-sm">{d.comment}</p>}
+                <p className="font-data font-bold text-off-white">{fmt(d.amount_cents)}</p>
+                {d.comment && <p className="font-body text-sm text-off-white/55">{d.comment}</p>}
               </div>
-              <p className="text-gray-400 text-sm">{new Date(d.created_at).toLocaleDateString()}</p>
+              <p className="font-data text-sm text-off-white/55">
+                {new Date(d.created_at).toLocaleDateString()}
+              </p>
             </Card>
           ))}
         </div>
       )}
 
-      <h2 className="text-xl font-semibold mb-3">My Claims</h2>
+      <h2 className="font-display text-3xl lowercase mb-3">my claims</h2>
       {donor.reward_claims.length === 0 ? (
-        <p className="text-gray-500">No reward claims yet.</p>
+        <p className="font-body text-sm text-off-white/55">No reward claims yet.</p>
       ) : (
         <div className="space-y-2">
           {donor.reward_claims.map((c) => (
             <Card key={c.id} className="flex justify-between items-center">
               <div>
-                <p className="font-medium">{c.reward.title}</p>
-                <p className="text-sm text-gray-500">{fmt(c.reward.cost_cents)}</p>
+                <p className="font-data font-bold text-off-white">{c.reward.title}</p>
+                <p className="font-data text-sm text-off-white/55">{fmt(c.reward.cost_cents)}</p>
               </div>
               <span
-                className={`text-sm font-semibold px-2 py-1 rounded ${c.status === 'FULFILLED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}
+                className={`font-data text-xs font-bold px-2 py-1 rounded-sm ${c.status === 'FULFILLED' ? 'text-green' : 'text-d-yellow'}`}
+                style={{
+                  background:
+                    c.status === 'FULFILLED' ? 'rgba(92,189,125,.16)' : 'rgba(208,152,70,.16)',
+                }}
               >
                 {c.status}
               </span>

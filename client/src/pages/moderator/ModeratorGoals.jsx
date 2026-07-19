@@ -57,12 +57,9 @@ export default function ModeratorGoals() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Fund Goals</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Goal
+        <h1 className="font-display text-4xl lowercase">fund goals</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new goal
         </button>
       </div>
 
@@ -71,24 +68,25 @@ export default function ModeratorGoals() {
           <Card key={g.id}>
             <div className="flex justify-between">
               <div className="flex-1">
-                <h2 className="font-semibold">{g.title}</h2>
-                <p className="text-sm text-gray-500">
-                  {fmt(g.current_cents)} / {fmt(g.target_cents)} {g.is_complete && '· Complete'}
+                <h2 className="font-data font-bold text-lg text-off-white">{g.title}</h2>
+                <p className="font-data text-sm text-off-white/55">
+                  {fmt(g.current_cents)} / {fmt(g.target_cents)} {g.is_complete && '· complete'}
                 </p>
                 <ProgressBar value={g.current_cents} max={g.target_cents} />
               </div>
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => openEdit(g)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
-                  Edit
+                  edit
                 </button>
                 <button
                   onClick={() => handleDelete(g.id)}
-                  className="text-red-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Delete
+                  delete
                 </button>
               </div>
             </div>
@@ -97,25 +95,29 @@ export default function ModeratorGoals() {
       </div>
 
       {modal && (
-        <Modal title={modal === 'create' ? 'New Goal' : 'Edit Goal'} onClose={() => setModal(null)}>
+        <Modal title={modal === 'create' ? 'new goal' : 'edit goal'} onClose={() => setModal(null)}>
           {[
             { key: 'title', label: 'Title' },
             { key: 'description', label: 'Description' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Target (cents)</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              target (cents)
+            </label>
             <input
               type="number"
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.target_cents}
               onChange={(e) => setForm((d) => ({ ...d, target_cents: e.target.value }))}
             />
@@ -128,8 +130,8 @@ export default function ModeratorGoals() {
                 checked={form.is_complete}
                 onChange={(e) => setForm((d) => ({ ...d, is_complete: e.target.checked }))}
               />
-              <label htmlFor="modgoal_complete" className="text-sm">
-                Complete
+              <label htmlFor="modgoal_complete" className="font-data text-sm text-off-white">
+                complete
               </label>
             </div>
           )}
@@ -140,20 +142,21 @@ export default function ModeratorGoals() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="modgoal_active" className="text-sm">
-              Active
+            <label htmlFor="modgoal_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>

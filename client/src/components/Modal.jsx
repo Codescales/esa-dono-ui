@@ -12,12 +12,15 @@ export default function Modal({ title, onClose, children }) {
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="esa-panel rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-orange-300">{title}</h2>
+      <div className="btrl-panel max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div
+          className="flex items-center justify-between p-4"
+          style={{ borderBottom: '1px solid rgba(239,238,236,.08)' }}
+        >
+          <h2 className="font-display text-2xl lowercase text-off-white">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-white text-2xl leading-none"
+            className="text-off-white/55 hover:text-off-white text-2xl leading-none"
           >
             &times;
           </button>

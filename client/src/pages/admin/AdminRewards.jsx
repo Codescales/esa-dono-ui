@@ -21,7 +21,7 @@ const EMPTY = {
 export default function AdminRewards() {
   const [rewards, setRewards] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null); // null | 'create' | reward object
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
 
@@ -72,21 +72,21 @@ export default function AdminRewards() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Rewards</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Reward
+        <h1 className="font-display text-4xl lowercase">rewards</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new reward
         </button>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full bg-white rounded shadow text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              {['Title', 'Type', 'Cost', 'Qty', 'Active', 'Actions'].map((h) => (
-                <th key={h} className="text-left px-4 py-2">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: 'rgba(239,238,236,.03)' }}>
+              {['title', 'type', 'cost', 'qty', 'active', 'actions'].map((h) => (
+                <th
+                  key={h}
+                  className="text-left px-4 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55"
+                >
                   {h}
                 </th>
               ))}
@@ -94,27 +94,34 @@ export default function AdminRewards() {
           </thead>
           <tbody>
             {rewards.map((r) => (
-              <tr key={r.id} className="border-t">
-                <td className="px-4 py-2 font-medium">{r.title}</td>
+              <tr key={r.id} style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                <td className="px-4 py-2 font-data font-bold text-off-white">{r.title}</td>
                 <td className="px-4 py-2">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
+                  <span
+                    className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm"
+                    style={{ background: 'rgba(115,78,158,.3)', color: 'var(--off-white)' }}
+                  >
                     {r.type}
                   </span>
                 </td>
-                <td className="px-4 py-2">{fmt(r.cost_cents)}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 font-data text-off-white">{fmt(r.cost_cents)}</td>
+                <td className="px-4 py-2 font-data text-off-white/55">
                   {r.quantity_total ?? '∞'} ({r.quantity_claimed} claimed)
                 </td>
-                <td className="px-4 py-2">{r.is_active ? '✓' : '✗'}</td>
+                <td className="px-4 py-2 font-data text-off-white/55">{r.is_active ? '✓' : '✗'}</td>
                 <td className="px-4 py-2 flex gap-2">
-                  <button onClick={() => openEdit(r)} className="text-blue-600 hover:underline">
-                    Edit
+                  <button
+                    onClick={() => openEdit(r)}
+                    className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
+                  >
+                    edit
                   </button>
                   <button
                     onClick={() => handleDelete(r.id)}
-                    className="text-red-600 hover:underline"
+                    className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                    style={{ color: 'var(--red)' }}
                   >
-                    Delete
+                    delete
                   </button>
                 </td>
               </tr>
@@ -125,7 +132,7 @@ export default function AdminRewards() {
 
       {modal && (
         <Modal
-          title={modal === 'create' ? 'New Reward' : 'Edit Reward'}
+          title={modal === 'create' ? 'new reward' : 'edit reward'}
           onClose={() => setModal(null)}
         >
           {[
@@ -136,19 +143,21 @@ export default function AdminRewards() {
             { key: 'custom_type_label', label: 'Custom Label (CUSTOM type)', type: 'text' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
                 type={f.type}
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Type</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">type</label>
             <select
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.type}
               onChange={(e) => setForm((d) => ({ ...d, type: e.target.value }))}
             >
@@ -164,20 +173,21 @@ export default function AdminRewards() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="is_active" className="text-sm">
-              Active
+            <label htmlFor="is_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>

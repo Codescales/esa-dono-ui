@@ -36,45 +36,50 @@ export default function AdminBlockedWords() {
 
   return (
     <div className="max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Blocked Words</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <h1 className="font-display text-4xl lowercase mb-6">blocked words</h1>
+      <p className="font-body text-sm text-off-white/55 mb-4">
         Words in this list are blocked from custom poll entries. Whole-word, case-insensitive
         matching.
       </p>
 
       <div className="flex gap-2 mb-4">
         <input
-          className="flex-1 border rounded px-3 py-2 text-sm"
+          className="flex-1 px-3 py-2 text-sm"
           placeholder="Add a word..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addWord()}
         />
-        <button
-          onClick={addWord}
-          className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-        >
-          Add
+        <button onClick={addWord} className="btrl-button">
+          add
         </button>
       </div>
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+      {error && (
+        <p className="text-sm mb-3" style={{ color: 'var(--red)' }}>
+          {error}
+        </p>
+      )}
 
       {words.length === 0 ? (
-        <p className="text-gray-400 text-sm">No blocked words yet.</p>
+        <p className="font-body text-sm text-off-white/55">No blocked words yet.</p>
       ) : (
         <Card>
           <div className="space-y-1">
             {words.map((w) => (
               <div
                 key={w.id}
-                className="flex justify-between items-center text-sm py-1 px-2 rounded hover:bg-gray-50"
+                className="flex justify-between items-center text-sm py-1 px-2 rounded-sm"
+                style={{ background: 'rgba(239,238,236,.03)' }}
               >
-                <span className="font-mono text-red-700">{w.word}</span>
+                <span className="font-mono text-sm" style={{ color: 'var(--red)' }}>
+                  {w.word}
+                </span>
                 <button
                   onClick={() => deleteWord(w.id)}
-                  className="text-red-500 text-xs hover:underline"
+                  className="font-mono text-[10px] hover:underline"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Remove
+                  remove
                 </button>
               </div>
             ))}

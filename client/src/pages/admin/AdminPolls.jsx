@@ -88,12 +88,9 @@ export default function AdminPolls() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Polls</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Poll
+        <h1 className="font-display text-4xl lowercase">polls</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new poll
         </button>
       </div>
 
@@ -102,22 +99,27 @@ export default function AdminPolls() {
           <Card key={poll.id}>
             <div className="flex justify-between">
               <div>
-                <h2 className="font-semibold">{poll.title}</h2>
-                {poll.description && <p className="text-gray-500 text-sm">{poll.description}</p>}
-                <p className="text-xs text-gray-400">Total votes: {fmt(poll.total_votes_cents)}</p>
+                <h2 className="font-data font-bold text-lg text-off-white">{poll.title}</h2>
+                {poll.description && (
+                  <p className="font-body text-sm text-off-white/55">{poll.description}</p>
+                )}
+                <p className="font-data text-xs text-off-white/55">
+                  total votes: {fmt(poll.total_votes_cents)}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => openEdit(poll)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
-                  Edit
+                  edit
                 </button>
                 <button
                   onClick={() => handleDelete(poll.id)}
-                  className="text-red-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Delete
+                  delete
                 </button>
               </div>
             </div>
@@ -125,22 +127,24 @@ export default function AdminPolls() {
               {poll.options.map((opt) => (
                 <div
                   key={opt.id}
-                  className="flex justify-between items-center text-sm bg-gray-50 px-2 py-1 rounded"
+                  className="flex justify-between items-center text-sm px-2 py-1 rounded-sm"
+                  style={{ background: 'rgba(239,238,236,.03)' }}
                 >
-                  <span>
+                  <span className="font-data text-off-white">
                     {opt.label} ({fmt(opt.votes_cents)})
                   </span>
                   <button
                     onClick={() => deleteOption(opt.id)}
-                    className="text-red-500 text-xs hover:underline"
+                    className="font-mono text-[10px] hover:underline"
+                    style={{ color: 'var(--red)' }}
                   >
-                    Remove
+                    remove
                   </button>
                 </div>
               ))}
               <div className="flex gap-2 mt-2">
                 <input
-                  className="flex-1 border rounded px-2 py-1 text-sm"
+                  className="flex-1 px-2 py-1 text-sm"
                   placeholder="New option..."
                   value={newOption}
                   onChange={(e) => setNewOption(e.target.value)}
@@ -148,9 +152,9 @@ export default function AdminPolls() {
                 />
                 <button
                   onClick={() => addOption(poll.id)}
-                  className="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300"
+                  className="btrl-button btrl-button-ghost text-sm"
                 >
-                  Add
+                  add
                 </button>
               </div>
             </div>
@@ -159,25 +163,29 @@ export default function AdminPolls() {
       </div>
 
       {modal && (
-        <Modal title={modal === 'create' ? 'New Poll' : 'Edit Poll'} onClose={() => setModal(null)}>
+        <Modal title={modal === 'create' ? 'new poll' : 'edit poll'} onClose={() => setModal(null)}>
           {[
             { key: 'title', label: 'Title' },
             { key: 'description', label: 'Description' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Ends At (optional)</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              ends at (optional)
+            </label>
             <input
               type="datetime-local"
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.ends_at ?? ''}
               onChange={(e) => setForm((d) => ({ ...d, ends_at: e.target.value }))}
             />
@@ -189,8 +197,8 @@ export default function AdminPolls() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="poll_active" className="text-sm">
-              Active
+            <label htmlFor="poll_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
           <div className="mb-3 flex items-center gap-2">
@@ -200,34 +208,35 @@ export default function AdminPolls() {
               checked={form.allow_custom_entries || false}
               onChange={(e) => setForm((d) => ({ ...d, allow_custom_entries: e.target.checked }))}
             />
-            <label htmlFor="poll_custom" className="text-sm">
-              Allow custom entries
+            <label htmlFor="poll_custom" className="font-data text-sm text-off-white">
+              allow custom entries
             </label>
           </div>
           {form.allow_custom_entries && (
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                Max entry characters (optional)
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                max entry characters (optional)
               </label>
               <input
                 type="number"
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form.max_entry_chars ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, max_entry_chars: e.target.value }))}
                 placeholder="No limit"
               />
             </div>
           )}
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>

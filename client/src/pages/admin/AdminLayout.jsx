@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 const NAV = [
-  { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/donors', label: 'Donors' },
-  { to: '/admin/rewards', label: 'Rewards' },
-  { to: '/admin/polls', label: 'Polls' },
-  { to: '/admin/goals', label: 'Goals' },
-  { to: '/admin/donations', label: 'Donations & Claims' },
-  { to: '/admin/blocked-words', label: 'Blocked Words' },
-  { to: '/admin/simulate', label: 'Simulate' },
+  { to: '/admin', label: 'dashboard', end: true },
+  { to: '/admin/donors', label: 'donors' },
+  { to: '/admin/rewards', label: 'rewards' },
+  { to: '/admin/polls', label: 'polls' },
+  { to: '/admin/goals', label: 'goals' },
+  { to: '/admin/donations', label: 'donations & claims' },
+  { to: '/admin/blocked-words', label: 'blocked words' },
+  { to: '/admin/simulate', label: 'simulate' },
 ];
 
 export default function AdminLayout() {
@@ -37,22 +37,23 @@ export default function AdminLayout() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="esa-panel rounded-lg p-8 w-full max-w-sm">
-          <h1 className="text-xl font-bold mb-4">Admin Login</h1>
+        <div className="btrl-panel p-8 w-full max-w-sm">
+          <h1 className="font-display text-3xl lowercase mb-4">admin login</h1>
           <input
             type="password"
             placeholder="Enter admin API key"
-            className="w-full border rounded px-3 py-2 mb-3 text-sm"
+            className="w-full px-3 py-2 mb-3 text-sm"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && login()}
           />
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-          <button
-            onClick={login}
-            className="w-full bg-purple-600 text-white rounded py-2 hover:bg-purple-700"
-          >
-            Login
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
+          <button onClick={login} className="btrl-button w-full">
+            login
           </button>
         </div>
       </div>
@@ -61,10 +62,11 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex">
-      <aside className="w-52 bg-gray-800 text-white flex flex-col p-4">
-        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">
-          Admin
-        </div>
+      <aside
+        className="w-52 flex flex-col p-4"
+        style={{ background: 'var(--dark-gray)', borderRight: '1px solid rgba(239,238,236,.08)' }}
+      >
+        <div className="font-display text-2xl mb-6 lowercase text-d-yellow">admin</div>
         <nav className="flex-1 space-y-1">
           {NAV.map((n) => (
             <NavLink
@@ -72,15 +74,19 @@ export default function AdminLayout() {
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                `block px-3 py-2 rounded text-sm ${isActive ? 'bg-purple-600' : 'hover:bg-gray-700'}`
+                `block px-3 py-2 rounded-sm font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
               }
+              style={({ isActive }) => (isActive ? { background: 'var(--grad)' } : {})}
             >
               {n.label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={logout} className="text-xs text-gray-400 hover:text-white mt-4">
-          Logout
+        <button
+          onClick={logout}
+          className="font-mono text-[10px] tracking-wider uppercase text-off-white/55 hover:text-off-white mt-4 text-left"
+        >
+          logout
         </button>
       </aside>
       <main className="flex-1 p-8 overflow-auto">

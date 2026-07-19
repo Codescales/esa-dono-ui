@@ -18,24 +18,24 @@ export default function AdminDashboard() {
       .catch(() => setError('Failed to load stats.'));
   }, []);
 
-  if (error) return <p className="text-red-600">{error}</p>;
+  if (error) return <p style={{ color: 'var(--red)' }}>{error}</p>;
   if (!stats) return <LoadingSpinner />;
 
   const cards = [
-    { label: 'Total Raised', value: fmt(stats.total_raised_cents) },
-    { label: 'Donors', value: stats.donors },
-    { label: 'Donations', value: stats.donations },
-    { label: 'Reward Claims', value: stats.claims },
+    { label: 'total raised', value: fmt(stats.total_raised_cents) },
+    { label: 'donors', value: stats.donors },
+    { label: 'donations', value: stats.donations },
+    { label: 'reward claims', value: stats.claims },
   ];
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="font-display text-4xl lowercase mb-6">dashboard</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {cards.map((c) => (
           <Card key={c.label} className="text-center">
-            <p className="text-gray-500 text-sm">{c.label}</p>
-            <p className="text-2xl font-bold text-purple-700 mt-1">{c.value}</p>
+            <p className="font-data text-sm text-off-white/55">{c.label}</p>
+            <p className="font-display text-3xl text-d-yellow mt-1">{c.value}</p>
           </Card>
         ))}
       </div>

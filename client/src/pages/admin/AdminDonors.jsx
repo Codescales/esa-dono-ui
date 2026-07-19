@@ -98,30 +98,34 @@ export default function AdminDonors() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Donors</h1>
+      <h1 className="font-display text-4xl lowercase mb-6">donors</h1>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && (
+        <p className="mb-4" style={{ color: 'var(--red)' }}>
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-3 mb-6">
         <input
-          className="border rounded px-3 py-2 text-sm flex-1"
+          className="px-3 py-2 text-sm flex-1"
           placeholder="Search by email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && searchDonors()}
         />
-        <button
-          onClick={searchDonors}
-          className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700"
-        >
-          Search
+        <button onClick={searchDonors} className="btrl-button">
+          search
         </button>
         {search && (
-          <button onClick={clearSearch} className="text-gray-500 text-sm hover:text-gray-700">
-            Clear
+          <button
+            onClick={clearSearch}
+            className="font-data text-sm text-off-white/55 hover:text-off-white"
+          >
+            clear
           </button>
         )}
-        <span className="text-sm text-gray-500 self-center">
+        <span className="font-data text-sm text-off-white/55 self-center">
           {total} donor{total !== 1 ? 's' : ''}
         </span>
       </div>
@@ -132,18 +136,25 @@ export default function AdminDonors() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className={`${selected ? 'hidden lg:block' : ''} lg:col-span-1`}>
             <div className="space-y-2">
-              {donors.length === 0 && <p className="text-gray-500 text-sm">No donors found.</p>}
+              {donors.length === 0 && (
+                <p className="font-body text-sm text-off-white/55">No donors found.</p>
+              )}
               {donors.map((d) => (
                 <button
                   key={d.id}
                   onClick={() => openWallet(d)}
-                  className={`w-full text-left esa-panel rounded-lg p-3 hover:bg-opacity-80 transition ${selected?.id === d.id ? 'ring-2 ring-purple-500' : ''}`}
+                  className={`w-full text-left btrl-panel p-3 transition ${selected?.id === d.id ? 'ring-2' : ''}`}
+                  style={selected?.id === d.id ? { ringColor: 'var(--d-yellow)' } : {}}
                 >
-                  <p className="font-medium text-sm truncate">{d.email}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {fmt(d.total_donated)} donated · {fmt(d.balance_remaining)} balance
+                  <p className="font-data font-bold text-sm truncate text-off-white">{d.email}</p>
+                  <p className="font-data text-xs text-off-white/55 mt-1">
+                    {fmt(d.total_donated)} donated &middot; {fmt(d.balance_remaining)} balance
                   </p>
-                  {d.is_frozen && <span className="text-xs text-red-400 font-medium">FROZEN</span>}
+                  {d.is_frozen && (
+                    <span className="font-data text-xs font-bold" style={{ color: 'var(--red)' }}>
+                      frozen
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -152,12 +163,12 @@ export default function AdminDonors() {
           {selected && (
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">{wallet?.email || 'Loading...'}</h2>
+                <h2 className="font-display text-3xl lowercase">{wallet?.email || 'Loading...'}</h2>
                 <button
                   onClick={closeWallet}
-                  className="text-sm text-gray-500 hover:text-gray-700 lg:hidden"
+                  className="font-data text-sm text-off-white/55 hover:text-off-white lg:hidden"
                 >
-                  Close
+                  close
                 </button>
               </div>
 
@@ -167,74 +178,90 @@ export default function AdminDonors() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <Card className="text-center">
-                      <p className="text-xs text-gray-500">Total Donated</p>
-                      <p className="text-lg font-bold">{fmt(wallet.total_donated)}</p>
+                      <p className="font-data text-xs text-off-white/55">total donated</p>
+                      <p className="font-display text-2xl text-d-yellow">
+                        {fmt(wallet.total_donated)}
+                      </p>
                     </Card>
                     <Card className="text-center">
-                      <p className="text-xs text-gray-500">Balance</p>
-                      <p className="text-lg font-bold">{fmt(wallet.balance_remaining)}</p>
+                      <p className="font-data text-xs text-off-white/55">balance</p>
+                      <p className="font-display text-2xl text-d-yellow">
+                        {fmt(wallet.balance_remaining)}
+                      </p>
                     </Card>
                     <Card className="text-center">
-                      <p className="text-xs text-gray-500">Moderator</p>
-                      <p className="text-lg font-bold">{wallet.is_moderator ? 'Yes' : 'No'}</p>
+                      <p className="font-data text-xs text-off-white/55">moderator</p>
+                      <p className="font-display text-2xl text-d-yellow">
+                        {wallet.is_moderator ? 'yes' : 'no'}
+                      </p>
                     </Card>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={handleFreeze}
-                      className={`px-3 py-1.5 rounded text-sm ${wallet.is_frozen ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                      className="btrl-button"
+                      style={{ background: wallet.is_frozen ? 'var(--green)' : 'var(--red)' }}
                     >
-                      {wallet.is_frozen ? 'Unfreeze' : 'Freeze'}
+                      {wallet.is_frozen ? 'unfreeze' : 'freeze'}
                     </button>
-                    <button
-                      onClick={handleRevoke}
-                      className="px-3 py-1.5 rounded text-sm bg-gray-600 text-white hover:bg-gray-700"
-                    >
-                      Revoke Token
+                    <button onClick={handleRevoke} className="btrl-button btrl-button-purple">
+                      revoke token
                     </button>
-                    <button
-                      onClick={handleRegen}
-                      className="px-3 py-1.5 rounded text-sm bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      Regenerate Token
+                    <button onClick={handleRegen} className="btrl-button btrl-button-purple">
+                      regenerate token
                     </button>
                     <button
                       onClick={() => setModal({ type: 'adjust' })}
-                      className="px-3 py-1.5 rounded text-sm bg-yellow-600 text-white hover:bg-yellow-700"
+                      className="btrl-button btrl-button-accent"
                     >
-                      Adjust Balance
+                      adjust balance
                     </button>
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-lg mt-6 mb-3">Spend History</h3>
+                    <h3 className="font-display text-2xl lowercase mt-6 mb-3">spend history</h3>
 
                     {wallet.reward_claims?.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-2">Reward Claims</h4>
+                        <h4 className="font-data text-sm font-bold text-off-white/55 mb-2">
+                          reward claims
+                        </h4>
                         <div className="space-y-2">
                           {wallet.reward_claims.map((c) => (
                             <div
                               key={c.id}
-                              className="esa-panel rounded-lg p-3 flex justify-between items-center text-sm"
+                              className="btrl-panel p-3 flex justify-between items-center text-sm"
                             >
                               <div>
-                                <span className="font-medium">{c.reward?.title || 'Unknown'}</span>
+                                <span className="font-data font-bold text-off-white">
+                                  {c.reward?.title || 'Unknown'}
+                                </span>
                                 <span
-                                  className={`ml-2 text-xs px-1.5 py-0.5 rounded ${c.status === 'FULFILLED' ? 'bg-green-100 text-green-700' : c.status === 'REVERSED' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}
+                                  className={`ml-2 font-mono text-[10px] px-1.5 py-0.5 rounded-sm ${c.status === 'FULFILLED' ? 'text-green' : c.status === 'REVERSED' ? 'text-red' : 'text-d-yellow'}`}
+                                  style={{
+                                    background:
+                                      c.status === 'FULFILLED'
+                                        ? 'rgba(92,189,125,.16)'
+                                        : c.status === 'REVERSED'
+                                          ? 'rgba(252,28,103,.18)'
+                                          : 'rgba(208,152,70,.16)',
+                                  }}
                                 >
                                   {c.status}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span>-{fmt(c.reward?.cost_cents || 0)}</span>
+                                <span className="font-data text-off-white/55">
+                                  -{fmt(c.reward?.cost_cents || 0)}
+                                </span>
                                 {c.status !== 'REVERSED' && (
                                   <button
                                     onClick={() => handleReverse('claim', c.id)}
-                                    className="text-xs text-red-600 hover:underline"
+                                    className="font-mono text-[10px] hover:underline"
+                                    style={{ color: 'var(--red)' }}
                                   >
-                                    Reverse
+                                    reverse
                                   </button>
                                 )}
                               </div>
@@ -246,25 +273,35 @@ export default function AdminDonors() {
 
                     {wallet.poll_votes?.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-2">Poll Votes</h4>
+                        <h4 className="font-data text-sm font-bold text-off-white/55 mb-2">
+                          poll votes
+                        </h4>
                         <div className="space-y-2">
                           {wallet.poll_votes.map((v) => (
                             <div
                               key={v.id}
-                              className="esa-panel rounded-lg p-3 flex justify-between items-center text-sm"
+                              className="btrl-panel p-3 flex justify-between items-center text-sm"
                             >
                               <div>
-                                <span>Vote · {fmt(v.amount_cents)}</span>
+                                <span className="font-data text-off-white">
+                                  vote &middot; {fmt(v.amount_cents)}
+                                </span>
                                 {v.reversed_at && (
-                                  <span className="ml-2 text-xs text-red-600">(REVERSED)</span>
+                                  <span
+                                    className="ml-2 font-mono text-[10px]"
+                                    style={{ color: 'var(--red)' }}
+                                  >
+                                    (reversed)
+                                  </span>
                                 )}
                               </div>
                               {!v.reversed_at && (
                                 <button
                                   onClick={() => handleReverse('vote', v.id)}
-                                  className="text-xs text-red-600 hover:underline"
+                                  className="font-mono text-[10px] hover:underline"
+                                  style={{ color: 'var(--red)' }}
                                 >
-                                  Reverse
+                                  reverse
                                 </button>
                               )}
                             </div>
@@ -275,29 +312,35 @@ export default function AdminDonors() {
 
                     {wallet.fund_contributions?.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-2">
-                          Fund Contributions
+                        <h4 className="font-data text-sm font-bold text-off-white/55 mb-2">
+                          fund contributions
                         </h4>
                         <div className="space-y-2">
                           {wallet.fund_contributions.map((c) => (
                             <div
                               key={c.id}
-                              className="esa-panel rounded-lg p-3 flex justify-between items-center text-sm"
+                              className="btrl-panel p-3 flex justify-between items-center text-sm"
                             >
                               <div>
-                                <span>
-                                  {c.goal?.title || 'Unknown'} · {fmt(c.amount_cents)}
+                                <span className="font-data text-off-white">
+                                  {c.goal?.title || 'Unknown'} &middot; {fmt(c.amount_cents)}
                                 </span>
                                 {c.reversed_at && (
-                                  <span className="ml-2 text-xs text-red-600">(REVERSED)</span>
+                                  <span
+                                    className="ml-2 font-mono text-[10px]"
+                                    style={{ color: 'var(--red)' }}
+                                  >
+                                    (reversed)
+                                  </span>
                                 )}
                               </div>
                               {!c.reversed_at && (
                                 <button
                                   onClick={() => handleReverse('contribution', c.id)}
-                                  className="text-xs text-red-600 hover:underline"
+                                  className="font-mono text-[10px] hover:underline"
+                                  style={{ color: 'var(--red)' }}
                                 >
-                                  Reverse
+                                  reverse
                                 </button>
                               )}
                             </div>
@@ -309,31 +352,40 @@ export default function AdminDonors() {
                     {!wallet.reward_claims?.length &&
                       !wallet.poll_votes?.length &&
                       !wallet.fund_contributions?.length && (
-                        <p className="text-sm text-gray-500">No spend history.</p>
+                        <p className="font-body text-sm text-off-white/55">No spend history.</p>
                       )}
                   </div>
 
                   {wallet.balance_adjustments?.length > 0 && (
                     <div>
-                      <h3 className="font-bold text-lg mt-6 mb-3">Balance Adjustments</h3>
+                      <h3 className="font-display text-2xl lowercase mt-6 mb-3">
+                        balance adjustments
+                      </h3>
                       <div className="space-y-2">
                         {wallet.balance_adjustments.map((a) => (
                           <div
                             key={a.id}
-                            className="esa-panel rounded-lg p-3 flex justify-between items-center text-sm"
+                            className="btrl-panel p-3 flex justify-between items-center text-sm"
                           >
                             <div>
                               <span
-                                className={`font-medium ${a.amount_cents > 0 ? 'text-green-600' : 'text-red-600'}`}
+                                className="font-data font-bold"
+                                style={{
+                                  color: a.amount_cents > 0 ? 'var(--green)' : 'var(--red)',
+                                }}
                               >
                                 {a.amount_cents > 0 ? '+' : ''}
                                 {fmt(a.amount_cents)}
                               </span>
-                              <span className="ml-2 text-gray-500">{a.type}</span>
-                              {a.reason && <span className="ml-2 text-gray-400">— {a.reason}</span>}
+                              <span className="ml-2 font-data text-off-white/55">{a.type}</span>
+                              {a.reason && (
+                                <span className="ml-2 font-body text-off-white/55">
+                                  &mdash; {a.reason}
+                                </span>
+                              )}
                             </div>
-                            <span className="text-xs text-gray-400">
-                              Balance: {fmt(a.balance_after_cents)}
+                            <span className="font-mono text-xs text-off-white/55">
+                              balance: {fmt(a.balance_after_cents)}
                             </span>
                           </div>
                         ))}
@@ -348,7 +400,7 @@ export default function AdminDonors() {
       )}
 
       {modal?.type === 'adjust' && (
-        <Modal title="Adjust Balance" onClose={() => setModal(null)}>
+        <Modal title="adjust balance" onClose={() => setModal(null)}>
           <AdjustBalanceForm onSubmit={handleAdjust} onCancel={() => setModal(null)} />
         </Modal>
       )}
@@ -382,9 +434,11 @@ function AdjustBalanceForm({ onSubmit, onCancel }) {
   return (
     <div className="space-y-3 text-sm">
       <div>
-        <label className="block font-medium mb-1">Amount (dollars, negative for deduction)</label>
+        <label className="block font-data font-bold mb-1 text-off-white">
+          amount (dollars, negative for deduction)
+        </label>
         <input
-          className="border rounded px-3 py-2 w-full"
+          className="px-3 py-2 w-full"
           type="number"
           step="0.01"
           placeholder="e.g. 10.00"
@@ -393,12 +447,8 @@ function AdjustBalanceForm({ onSubmit, onCancel }) {
         />
       </div>
       <div>
-        <label className="block font-medium mb-1">Type</label>
-        <select
-          className="border rounded px-3 py-2 w-full"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        >
+        <label className="block font-data font-bold mb-1 text-off-white">type</label>
+        <select className="px-3 py-2 w-full" value={type} onChange={(e) => setType(e.target.value)}>
           <option value="MANUAL">Manual</option>
           <option value="REFUND">Refund</option>
           <option value="FREEZE_ZERO">Freeze Zero</option>
@@ -406,25 +456,21 @@ function AdjustBalanceForm({ onSubmit, onCancel }) {
         </select>
       </div>
       <div>
-        <label className="block font-medium mb-1">Reason (optional)</label>
+        <label className="block font-data font-bold mb-1 text-off-white">reason (optional)</label>
         <input
-          className="border rounded px-3 py-2 w-full"
+          className="px-3 py-2 w-full"
           placeholder="Why?"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
       </div>
-      {err && <p className="text-red-600">{err}</p>}
+      {err && <p style={{ color: 'var(--red)' }}>{err}</p>}
       <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="px-4 py-2 rounded text-gray-600 hover:bg-gray-100">
-          Cancel
+        <button onClick={onCancel} className="btrl-button btrl-button-outline">
+          cancel
         </button>
-        <button
-          onClick={submit}
-          disabled={submitting}
-          className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-        >
-          {submitting ? 'Saving...' : 'Save'}
+        <button onClick={submit} disabled={submitting} className="btrl-button">
+          {submitting ? 'saving...' : 'save'}
         </button>
       </div>
     </div>

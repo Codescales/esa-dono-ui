@@ -23,7 +23,7 @@ export default function ModeratorPolls() {
   const [form, setForm] = useState(EMPTY);
   const [newOption, setNewOption] = useState('');
   const [error, setError] = useState('');
-  const [entriesPanel, setEntriesPanel] = useState(null); // poll id for entries sub-view
+  const [entriesPanel, setEntriesPanel] = useState(null);
   const [entries, setEntries] = useState([]);
 
   const reload = () => moderatorClient.get('/polls').then((r) => setPolls(r.data));
@@ -94,7 +94,6 @@ export default function ModeratorPolls() {
   const handleApproveReject = async (entryId, status) => {
     await moderatorClient.patch(`/polls/custom-entries/${entryId}`, { status });
     await reload();
-    // Reload the entries list
     if (entriesPanel) {
       const { data } = await moderatorClient.get(`/polls/${entriesPanel}/custom-entries`);
       setEntries(data);
@@ -109,12 +108,9 @@ export default function ModeratorPolls() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Polls</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-        >
-          + New Poll
+        <h1 className="font-display text-4xl lowercase">polls</h1>
+        <button onClick={openCreate} className="btrl-button">
+          + new poll
         </button>
       </div>
 
@@ -123,50 +119,54 @@ export default function ModeratorPolls() {
           <Card key={poll.id}>
             <div className="flex justify-between">
               <div>
-                <h2 className="font-semibold">{poll.title}</h2>
-                {poll.description && <p className="text-gray-500 text-sm">{poll.description}</p>}
-                <p className="text-xs text-gray-400">
-                  Total votes: {fmt(poll.total_votes_cents)}
-                  {poll.allow_custom_entries && ' · Custom entries allowed'}
+                <h2 className="font-data font-bold text-lg text-off-white">{poll.title}</h2>
+                {poll.description && (
+                  <p className="font-body text-sm text-off-white/55">{poll.description}</p>
+                )}
+                <p className="font-data text-xs text-off-white/55">
+                  total votes: {fmt(poll.total_votes_cents)}
+                  {poll.allow_custom_entries && ' · custom entries allowed'}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => openEdit(poll)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
-                  Edit
+                  edit
                 </button>
                 <button
                   onClick={() => handleDelete(poll.id)}
-                  className="text-red-600 text-sm hover:underline"
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--red)' }}
                 >
-                  Delete
+                  delete
                 </button>
               </div>
             </div>
 
-            {/* Options */}
             <div className="mt-3 space-y-1">
               {poll.options.map((opt) => (
                 <div
                   key={opt.id}
-                  className="flex justify-between items-center text-sm bg-gray-50 px-2 py-1 rounded"
+                  className="flex justify-between items-center text-sm px-2 py-1 rounded-sm"
+                  style={{ background: 'rgba(239,238,236,.03)' }}
                 >
-                  <span>
+                  <span className="font-data text-off-white">
                     {opt.label} ({fmt(opt.votes_cents)}){opt.custom_entry_id ? ' · custom' : ''}
                   </span>
                   <button
                     onClick={() => deleteOption(opt.id)}
-                    className="text-red-500 text-xs hover:underline"
+                    className="font-mono text-[10px] hover:underline"
+                    style={{ color: 'var(--red)' }}
                   >
-                    Remove
+                    remove
                   </button>
                 </div>
               ))}
               <div className="flex gap-2 mt-2">
                 <input
-                  className="flex-1 border rounded px-2 py-1 text-sm"
+                  className="flex-1 px-2 py-1 text-sm"
                   placeholder="New option..."
                   value={newOption}
                   onChange={(e) => setNewOption(e.target.value)}
@@ -174,49 +174,65 @@ export default function ModeratorPolls() {
                 />
                 <button
                   onClick={() => addOption(poll.id)}
-                  className="px-3 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300"
+                  className="btrl-button btrl-button-ghost text-sm"
                 >
-                  Add
+                  add
                 </button>
               </div>
             </div>
 
-            {/* Pending entries */}
             {poll.allow_custom_entries && (
               <button
                 onClick={() => loadEntries(poll.id)}
-                className="mt-3 text-sm text-purple-600 hover:underline"
+                className="mt-3 font-data text-sm text-d-yellow hover:text-off-white"
               >
                 {pendingCount(poll) > 0
-                  ? `${pendingCount(poll)} Pending Entries`
-                  : 'Custom Entries'}
+                  ? `${pendingCount(poll)} pending entries`
+                  : 'custom entries'}
               </button>
             )}
 
-            {/* Entries sub-panel */}
             {entriesPanel === poll.id && (
-              <div className="mt-3 border-t pt-3">
-                <h4 className="text-sm font-semibold mb-2">Custom Entries</h4>
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                <h4 className="font-data font-bold text-sm mb-2 text-off-white">custom entries</h4>
                 {entries.length === 0 ? (
-                  <p className="text-gray-400 text-xs">No entries yet.</p>
+                  <p className="font-body text-xs text-off-white/55">No entries yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {entries.map((e) => (
                       <div
                         key={e.id}
-                        className={`flex justify-between items-center text-sm p-2 rounded ${e.status === 'PENDING' ? 'bg-yellow-50' : e.status === 'APPROVED' ? 'bg-green-50' : 'bg-red-50'}`}
+                        className="flex justify-between items-center text-sm p-2 rounded-sm"
+                        style={{
+                          background:
+                            e.status === 'PENDING'
+                              ? 'rgba(208,152,70,.16)'
+                              : e.status === 'APPROVED'
+                                ? 'rgba(92,189,125,.16)'
+                                : 'rgba(252,28,103,.18)',
+                        }}
                       >
                         <div>
                           <span
-                            className={e.status === 'REJECTED' ? 'line-through text-gray-400' : ''}
+                            className={`font-data ${e.status === 'REJECTED' ? 'line-through text-off-white/55' : 'text-off-white'}`}
                           >
                             {e.label}
                           </span>
-                          <span className="text-xs text-gray-400 ml-2">{e.donor?.email}</span>
+                          <span className="font-data text-xs text-off-white/55 ml-2">
+                            {e.donor?.email}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-xs px-2 py-0.5 rounded ${e.status === 'PENDING' ? 'bg-yellow-200 text-yellow-800' : e.status === 'APPROVED' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}
+                            className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold"
+                            style={{
+                              color:
+                                e.status === 'PENDING'
+                                  ? 'var(--d-yellow)'
+                                  : e.status === 'APPROVED'
+                                    ? 'var(--green)'
+                                    : 'var(--red)',
+                            }}
                           >
                             {e.status}
                           </span>
@@ -224,15 +240,17 @@ export default function ModeratorPolls() {
                             <>
                               <button
                                 onClick={() => handleApproveReject(e.id, 'APPROVED')}
-                                className="text-green-600 text-xs hover:underline"
+                                className="font-mono text-[10px] hover:underline"
+                                style={{ color: 'var(--green)' }}
                               >
-                                Approve
+                                approve
                               </button>
                               <button
                                 onClick={() => handleApproveReject(e.id, 'REJECTED')}
-                                className="text-red-600 text-xs hover:underline"
+                                className="font-mono text-[10px] hover:underline"
+                                style={{ color: 'var(--red)' }}
                               >
-                                Reject
+                                reject
                               </button>
                             </>
                           )}
@@ -247,27 +265,30 @@ export default function ModeratorPolls() {
         ))}
       </div>
 
-      {/* Create/Edit Modal */}
       {modal && (
-        <Modal title={modal === 'create' ? 'New Poll' : 'Edit Poll'} onClose={() => setModal(null)}>
+        <Modal title={modal === 'create' ? 'new poll' : 'edit poll'} onClose={() => setModal(null)}>
           {[
             { key: 'title', label: 'Title' },
             { key: 'description', label: 'Description' },
           ].map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                {f.label}
+              </label>
               <input
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form[f.key] ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           <div className="mb-3">
-            <label className="block text-sm font-medium mb-1">Ends At (optional)</label>
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              ends at (optional)
+            </label>
             <input
               type="datetime-local"
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full px-3 py-2 text-sm"
               value={form.ends_at ?? ''}
               onChange={(e) => setForm((d) => ({ ...d, ends_at: e.target.value }))}
             />
@@ -279,8 +300,8 @@ export default function ModeratorPolls() {
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="modpoll_active" className="text-sm">
-              Active
+            <label htmlFor="modpoll_active" className="font-data text-sm text-off-white">
+              active
             </label>
           </div>
           <div className="mb-3 flex items-center gap-2">
@@ -290,34 +311,35 @@ export default function ModeratorPolls() {
               checked={form.allow_custom_entries || false}
               onChange={(e) => setForm((d) => ({ ...d, allow_custom_entries: e.target.checked }))}
             />
-            <label htmlFor="modpoll_custom" className="text-sm">
-              Allow custom entries
+            <label htmlFor="modpoll_custom" className="font-data text-sm text-off-white">
+              allow custom entries
             </label>
           </div>
           {form.allow_custom_entries && (
             <div className="mb-3">
-              <label className="block text-sm font-medium mb-1">
-                Max entry characters (optional)
+              <label className="block font-data font-bold text-sm mb-1 text-off-white">
+                max entry characters (optional)
               </label>
               <input
                 type="number"
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full px-3 py-2 text-sm"
                 value={form.max_entry_chars ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, max_entry_chars: e.target.value }))}
                 placeholder="No limit"
               />
             </div>
           )}
-          {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+          {error && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setModal(null)} className="px-4 py-2 border rounded text-sm">
-              Cancel
+            <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
+              cancel
             </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Save
+            <button onClick={handleSave} className="btrl-button">
+              save
             </button>
           </div>
         </Modal>
