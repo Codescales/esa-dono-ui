@@ -32,9 +32,9 @@ trap cleanup EXIT
 fail() {
   echo "FAIL: $*" >&2
   echo "----- backend logs -----" >&2
-  $COMPOSE logs backend 2>&1 | tail -40 >&2 || true
+  $COMPOSE logs dono-backend 2>&1 | tail -40 >&2 || true
   echo "----- frontend logs -----" >&2
-  $COMPOSE logs frontend 2>&1 | tail -40 >&2 || true
+  $COMPOSE logs dono-frontend 2>&1 | tail -40 >&2 || true
   exit 1
 }
 
@@ -80,7 +80,7 @@ echo "    $resp"
 echo "$resp" | grep -q '"success":true' || fail "simulate-donation did not succeed: $resp"
 
 echo "==> 7. Volume persistence across backend restart"
-$COMPOSE restart backend >/dev/null 2>&1
+$COMPOSE restart dono-backend >/dev/null 2>&1
 wait_for "${BASE}/api/health" 200 30 || fail "backend did not recover after restart"
 stats="$(curl -s -H "X-Admin-Key: ${ADMIN_API_KEY}" "${BASE}/api/admin/stats")"
 echo "    $stats"
