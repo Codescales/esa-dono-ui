@@ -2,5 +2,14 @@
 # but never executed in production — not an exploitable attack surface.
 CVE-2026-47429
 
-# zlib1g: status will_not_fix upstream (Debian won't patch this CVE in bookworm)
+# zlib1g: status will_not_fix upstream (Debian won't patch in bookworm)
 CVE-2023-45853
+
+# perl-base: no fix available (status: affected / fix_deferred) as of 2026-07-19
+CVE-2026-13221
+CVE-2026-42496
+CVE-2026-8376
+
+# Go stdlib vulnerabilities in the Trivy scanner binary itself — not in our image
+CVE-2024-24790
+CVE-2025-68121
