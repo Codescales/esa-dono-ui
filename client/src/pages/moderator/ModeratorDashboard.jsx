@@ -6,12 +6,20 @@ import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 export default function ModeratorDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    moderatorClient.get('/stats').then(r => setStats(r.data)).finally(() => setLoading(false));
+    moderatorClient
+      .get('/stats')
+      .then((r) => setStats(r.data))
+      .catch(() => setError('Unable to load moderator stats. Your access may have expired.'))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSpinner />;
+  if (error || !stats) {
+    return <p className="text-red-600 text-sm">{error || 'No data available.'}</p>;
+  }
 
   return (
     <div>

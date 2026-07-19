@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.7
+# Backend image for esa-dono-ui (Express + Prisma API server).
+#
+# Targets:
+#   test    - full dev deps + source, entrypoint runs scripts/run-tests.mjs (CI/distributed testing)
+#   runtime - production API server, prod-only deps, non-root, migrates on start
+#
+# Build:
+#   docker build -f Dockerfile.backend --target runtime -t esa-dono-ui/backend:latest .
+#   docker build -f Dockerfile.backend --target test    -t esa-dono-ui/backend:test    .
+
+# ---------- Base ----------
+FROM docker.io/node:20-slim AS base
+
+LABEL org.opencontainers.image.title="esa-dono-ui-backend" \
+      org.opencontainers.image.description="ESA charity donation platform API (Tiltify integration)" \
+      org.opencontainers.image.source="https://github.com/Codescales/esa-dono-ui" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="ESA"
+
+ENV NPM_CONFIG_LOGLEVEL=warn \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    CI=true
+
+# openssl is required by Prisma engines; ca-certificates for outbound HTTPS (Tiltify/SMTP)
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 1001 dono \
+ && useradd  --system --uid 1001 --gid dono --home /app --shell /sbin/nologin dono
+
+WORKDIR /app
+
+# ---------- Dependencies (cached layer, includes dev deps) ----------
+FROM base AS deps
+
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
+COPY client/package.json ./client/
+
+RUN --mount=type=cache,target=/root/.npm,id=npm \
+    npm ci --no-audit --no-fund --include=dev
+
+# ---------- Test target (distributed testing / CI) ----------
+FROM deps AS test
+
+ENV NODE_ENV=test \
+    PATH="/app/node_modules/.bin:${PATH}"
+
+COPY --chown=dono:dono . .
+
+RUN DATABASE_URL="file:./dev.db" npx prisma generate --schema=./server/prisma/schema.prisma
+
+USER dono
+ENTRYPOINT ["node", "scripts/run-tests.mjs"]
+
+# ---------- Runtime (production API) ----------
+FROM deps AS runtime
+
+ENV NODE_ENV=production \
+    PORT=3001 \
+    DATABASE_URL="file:/data/dono.db"
+
+# Only the server, prisma schema, and shared root files are needed at runtime.
+COPY --chown=dono:dono server ./server
+COPY --chown=dono:dono package.json package-lock.json ./
+COPY --chown=dono:dono docker-entrypoint.backend.sh /usr/local/bin/docker-entrypoint.sh
+
+# Note: dev deps are kept because the Prisma CLI (a devDependency) is required at
+# startup to run `prisma migrate deploy`. Generated client + CLI both live in node_modules.
+RUN DATABASE_URL="file:./dev.db" npx prisma generate --schema=./server/prisma/schema.prisma \
+ && chmod +x /usr/local/bin/docker-entrypoint.sh \
+ && mkdir -p /data && chown dono:dono /data
+
+VOLUME ["/data"]
+USER dono
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "server/index.js"]

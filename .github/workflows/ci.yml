@@ -75,27 +75,45 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Containerfile
+          file: ./Dockerfile.backend
           target: test
-          tags: dono-ui:test
+          tags: esa-dono-ui-backend:test
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Verify runtime target builds
+      - name: Build backend runtime image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Containerfile
+          file: ./Dockerfile.backend
           target: runtime
+          tags: ghcr.io/codescales/esa-dono-ui/backend:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          tags: ghcr.io/codescales/esa-dono-ui/frontend:latest
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run tests in container
-        run: docker run --rm dono-ui:test
+        run: docker run --rm esa-dono-ui-backend:test
 
       - name: Run CI mode in container
-        run: docker run --rm -e MODE=ci dono-ui:test
+        run: docker run --rm -e MODE=ci esa-dono-ui-backend:test
+
+      - name: Smoke-test running containers
+        env:
+          ADMIN_API_KEY: smoke-test-key
+          FRONTEND_PORT: '18080'
+        run: ./scripts/smoke-test.sh
 
   gitleaks:
     name: Secret Scanning

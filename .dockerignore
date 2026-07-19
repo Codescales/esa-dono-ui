@@ -1,5 +1,39 @@
+# Dependencies
 node_modules
 server/node_modules
 client/node_modules
+
+# Build output
+client/dist
+client/build
+
+# Local databases
 server/dev.db
+server/prisma/dev.db
+**/*.db
+**/*.db-journal
+data
+
+# Env & secrets
 .env
+.env.*
+!.env.example
+
+# VCS / CI / editor
+.git
+.github
+.gitignore
+.vscode
+.idea
+.claude
+
+# Docs & scratch
+docs
+*.md
+!CLAUDE.md
+AGENTS*.md
+
+# Misc
+npm-debug.log*
+coverage
+.DS_Store

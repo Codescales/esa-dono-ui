@@ -20,9 +20,44 @@ cd server && npx prisma generate
 
 # DB studio
 cd server && npx prisma studio
+
+# Tests (vitest, per-workspace configs — run from root)
+npm run test:ci          # lint-free CI run (junit reporter)
+npm test                 # all workspace tests
+npm run test --workspace server   # server only
+npm run test --workspace client   # client only
 ```
 
-No test runner is configured.
+Note: run tests via the npm scripts above (per-workspace vitest configs). Running
+`npx vitest` from the repo root uses the wrong environment and will fail.
+
+## Docker Deployment
+
+Two production images (mirrors the esa-waypoint split backend/frontend pattern):
+
+- **`Dockerfile.backend`** — Express + Prisma API. Multi-stage:
+  - `test` target: full dev deps + source, entrypoint runs `scripts/run-tests.mjs` (used by CI `container-test`).
+  - `runtime` target: production API. Applies `prisma migrate deploy` on startup via `docker-entrypoint.backend.sh`, runs non-root, SQLite lives in the `/data` volume (`DATABASE_URL=file:/data/dono.db`), health check on `/api/health`.
+- **`Dockerfile.frontend`** — builds the Vite SPA and serves it via `nginx-unprivileged` on port 8080. `nginx.conf` (templated to `default.conf.template`) does SPA fallback and proxies `/api/` → `http://backend:3001`. Uses the built-in `15-local-resolvers` script (`NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`) so DNS resolution works on both Docker and Podman.
+
+```bash
+# Local full stack (needs ADMIN_API_KEY at minimum)
+ADMIN_API_KEY=change-me docker compose up --build
+# Frontend on http://localhost:8080 (proxies /api to backend). SQLite persisted in the dono-data volume.
+```
+
+### Verify the containers actually run
+
+After building, always confirm the stack _functions_ — not just that the images build. `scripts/smoke-test.sh` boots the compose stack and asserts: backend health through the nginx proxy, SPA index + client-route fallback, admin-auth enforcement (401/200), an end-to-end donation simulation (proves migrations + DB writes), and volume persistence across a backend restart. It always tears the stack down on exit.
+
+```bash
+ADMIN_API_KEY=change-me FRONTEND_PORT=18080 ./scripts/smoke-test.sh
+```
+
+The CI `container-test` job runs this against the freshly built runtime images, and `docker-publish.yml` runs it against the just-pushed `:latest` images after the Trivy gate.
+
+Images publish to `ghcr.io/codescales/esa-dono-ui/{backend,frontend}` via
+`.github/workflows/docker-publish.yml` (buildx multiarch amd64/arm64 + Trivy CRITICAL gate) on push to `main`.
 
 ## Bootstrap
 
