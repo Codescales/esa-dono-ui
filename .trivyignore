@@ -1,0 +1,6 @@
+# vitest is a devDependency present in the image (needed for prisma CLI at runtime)
+# but never executed in production — not an exploitable attack surface.
+CVE-2026-47429
+
+# zlib1g: status will_not_fix upstream (Debian won't patch this CVE in bookworm)
+CVE-2023-45853
