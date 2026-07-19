@@ -20,7 +20,10 @@ router.post('/', async (req, res) => {
         .digest('hex');
       const sigBuffer = Buffer.from(signature);
       const expectedBuffer = Buffer.from(expectedSig);
-      if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      if (
+        sigBuffer.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+      ) {
         return res.status(401).json({ error: 'Invalid signature' });
       }
     }
@@ -28,7 +31,10 @@ router.post('/', async (req, res) => {
     const payload = JSON.parse(rawBody.toString());
 
     // Acknowledge non-donation events
-    if (payload.meta?.event_type !== 'donation.completed' && payload.type !== 'donation.completed') {
+    if (
+      payload.meta?.event_type !== 'donation.completed' &&
+      payload.type !== 'donation.completed'
+    ) {
       return res.status(200).json({ received: true });
     }
 
@@ -37,7 +43,7 @@ router.post('/', async (req, res) => {
     const email = donation.donor_email ?? donation.campaign_donation?.donor?.email;
     const donorName = donation.donor_name ?? donation.campaign_donation?.donor?.name ?? 'Anonymous';
     const amountCents = Math.round(
-      parseFloat(donation.amount?.value ?? donation.amount ?? 0) * 100
+      parseFloat(donation.amount?.value ?? donation.amount ?? 0) * 100,
     );
     const comment = donation.comment ?? donation.campaign_donation?.comment ?? null;
 

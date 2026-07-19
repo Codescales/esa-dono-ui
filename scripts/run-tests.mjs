@@ -24,7 +24,9 @@ function run(cmd, args, opts = {}) {
       stdio: 'inherit',
       env: { ...process.env, ...(opts.env || {}) },
     });
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} exited ${code}`))));
+    child.on('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} exited ${code}`)),
+    );
     child.on('error', reject);
   });
 }
@@ -44,8 +46,10 @@ async function main() {
 
   if (MODE === 'ci') {
     await run('npm', ['run', 'lint']);
-    if (TARGET === 'both' || TARGET === 'server') await run('npm', ['run', 'test', '--workspace', 'server']);
-    if (TARGET === 'both' || TARGET === 'client') await run('npm', ['run', 'test', '--workspace', 'client']);
+    if (TARGET === 'both' || TARGET === 'server')
+      await run('npm', ['run', 'test', '--workspace', 'server']);
+    if (TARGET === 'both' || TARGET === 'client')
+      await run('npm', ['run', 'test', '--workspace', 'client']);
     if (TARGET === 'both') await run('npm', ['run', 'build']);
     console.log('[container] CI complete');
     return;

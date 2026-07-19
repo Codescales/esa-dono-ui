@@ -26,7 +26,7 @@ export async function getCampaign() {
   const token = await getAccessToken();
   const res = await fetch(
     `https://v5api.tiltify.com/api/public/campaigns/${process.env.TILTIFY_CAMPAIGN_ID}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) throw new Error(`Tiltify campaign fetch failed: ${res.status}`);
   const data = await res.json();

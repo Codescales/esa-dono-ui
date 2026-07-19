@@ -4,7 +4,9 @@ import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import Card from '../components/Card.jsx';
 import Modal from '../components/Modal.jsx';
 
-function fmt(cents) { return `$${(cents / 100).toFixed(2)}`; }
+function fmt(cents) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 const FIELDS = {
   PHYSICAL: [
@@ -26,7 +28,9 @@ export default function Rewards() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    getRewards().then(setRewards).finally(() => setLoading(false));
+    getRewards()
+      .then(setRewards)
+      .finally(() => setLoading(false));
   }, []);
 
   const openClaim = (reward) => {
@@ -41,14 +45,19 @@ export default function Rewards() {
     try {
       await claimReward(selected.id, formData);
       setSuccess('Reward claimed successfully!');
-      setTimeout(() => { setSelected(null); setSuccess(''); }, 2000);
+      setTimeout(() => {
+        setSelected(null);
+        setSuccess('');
+      }, 2000);
     } catch (e) {
       setError(e.response?.data?.error ?? 'Failed to claim reward.');
     }
   };
 
   const fields = selected
-    ? (FIELDS[selected.type] ?? [{ key: 'data', label: selected.custom_type_label ?? 'Additional Info', required: false }])
+    ? (FIELDS[selected.type] ?? [
+        { key: 'data', label: selected.custom_type_label ?? 'Additional Info', required: false },
+      ])
     : [];
 
   if (loading) return <LoadingSpinner />;
@@ -62,14 +71,16 @@ export default function Rewards() {
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {rewards.map(r => (
+        {rewards.map((r) => (
           <Card key={r.id}>
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 <h3 className="font-semibold text-lg">{r.title}</h3>
                 {r.description && <p className="text-gray-500 text-sm mt-1">{r.description}</p>}
                 <div className="flex gap-2 mt-2">
-                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{r.type}</span>
+                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                    {r.type}
+                  </span>
                   {r.quantity_total !== null && (
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                       {r.quantity_total - r.quantity_claimed} left
@@ -84,7 +95,9 @@ export default function Rewards() {
                   disabled={r.quantity_total !== null && r.quantity_claimed >= r.quantity_total}
                   className="mt-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {r.quantity_total !== null && r.quantity_claimed >= r.quantity_total ? 'Sold Out' : 'Claim'}
+                  {r.quantity_total !== null && r.quantity_claimed >= r.quantity_total
+                    ? 'Sold Out'
+                    : 'Claim'}
                 </button>
               </div>
             </div>
@@ -95,21 +108,29 @@ export default function Rewards() {
 
       {selected && (
         <Modal title={`Claim: ${selected.title}`} onClose={() => setSelected(null)}>
-          {fields.map(f => (
+          {fields.map((f) => (
             <div key={f.key} className="mb-3">
-              <label className="block text-sm font-medium mb-1">{f.label}{f.required && ' *'}</label>
+              <label className="block text-sm font-medium mb-1">
+                {f.label}
+                {f.required && ' *'}
+              </label>
               <input
                 className="w-full border rounded px-3 py-2 text-sm"
                 value={formData[f.key] ?? ''}
-                onChange={e => setFormData(d => ({ ...d, [f.key]: e.target.value }))}
+                onChange={(e) => setFormData((d) => ({ ...d, [f.key]: e.target.value }))}
               />
             </div>
           ))}
           {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
           {success && <p className="text-green-600 text-sm mb-2">{success}</p>}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setSelected(null)} className="px-4 py-2 border rounded text-sm">Cancel</button>
-            <button onClick={handleClaim} className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">
+            <button onClick={() => setSelected(null)} className="px-4 py-2 border rounded text-sm">
+              Cancel
+            </button>
+            <button
+              onClick={handleClaim}
+              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+            >
               Claim for {fmt(selected.cost_cents)}
             </button>
           </div>

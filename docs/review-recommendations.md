@@ -201,7 +201,7 @@ If `/api/moderator/stats` returns 401/403, `stats` remains null, loading becomes
 Current update sets:
 
 ```js
-is_moderator: isModerator
+is_moderator: isModerator;
 ```
 
 If a donor is already a moderator but later removed from `MODERATOR_EMAILS`, their next donation demotes them.
@@ -268,7 +268,7 @@ Admin can add `"bad word"`, but the checker tokenizes submitted text into indivi
 Current regex:
 
 ```js
-/\b\w+\b/g
+/\b\w+\b/g;
 ```
 
 This may not behave well for accented characters or non-English scripts.

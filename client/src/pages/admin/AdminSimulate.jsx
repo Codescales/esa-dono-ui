@@ -12,7 +12,10 @@ export default function AdminSimulate() {
     setError('');
     setResult(null);
     const cents = Math.round(parseFloat(form.amount) * 100);
-    if (isNaN(cents) || cents < 100) { setError('Minimum amount is $1.00'); return; }
+    if (isNaN(cents) || cents < 100) {
+      setError('Minimum amount is $1.00');
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await adminClient.post('/simulate-donation', {
@@ -36,8 +39,8 @@ export default function AdminSimulate() {
       <h1 className="text-2xl font-bold mb-6">Simulate Donation</h1>
       <Card className="mb-4">
         <p className="text-sm text-gray-500 mb-4">
-          Creates a simulated donation without processing real money through Tiltify.
-          The donor receives a magic link and balance exactly as if they donated via Tiltify.
+          Creates a simulated donation without processing real money through Tiltify. The donor
+          receives a magic link and balance exactly as if they donated via Tiltify.
         </p>
 
         <div className="space-y-3">
@@ -48,7 +51,7 @@ export default function AdminSimulate() {
               className="w-full border rounded px-3 py-2 text-sm"
               placeholder="donor@example.com"
               value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
           </div>
           <div>
@@ -57,7 +60,7 @@ export default function AdminSimulate() {
               className="w-full border rounded px-3 py-2 text-sm"
               placeholder="Anonymous"
               value={form.donor_name}
-              onChange={e => setForm(f => ({ ...f, donor_name: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, donor_name: e.target.value }))}
             />
           </div>
           <div>
@@ -68,7 +71,7 @@ export default function AdminSimulate() {
               min="1"
               className="w-full border rounded px-3 py-2 text-sm"
               value={form.amount}
-              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
             />
           </div>
           <div>
@@ -77,7 +80,7 @@ export default function AdminSimulate() {
               className="w-full border rounded px-3 py-2 text-sm"
               placeholder="Optional comment"
               value={form.comment}
-              onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, comment: e.target.value }))}
             />
           </div>
         </div>
@@ -96,7 +99,9 @@ export default function AdminSimulate() {
       {result && (
         <Card className="border-green-300 bg-green-50">
           <h2 className="font-semibold text-green-800 mb-2">Donation created!</h2>
-          <p className="text-sm text-green-700">Balance: ${(result.donor.balance_remaining / 100).toFixed(2)}</p>
+          <p className="text-sm text-green-700">
+            Balance: ${(result.donor.balance_remaining / 100).toFixed(2)}
+          </p>
           <div className="mt-3">
             <label className="block text-sm font-medium mb-1">Magic Link:</label>
             <div className="flex gap-2">

@@ -3,14 +3,18 @@ import moderatorClient from '../../api/moderator.js';
 import Card from '../../components/Card.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner.jsx';
 
-function fmt(cents) { return `$${(cents / 100).toFixed(2)}`; }
+function fmt(cents) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 export default function ModeratorClaims() {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const reload = () => moderatorClient.get('/claims').then(r => setClaims(r.data));
-  useEffect(() => { reload().finally(() => setLoading(false)); }, []);
+  const reload = () => moderatorClient.get('/claims').then((r) => setClaims(r.data));
+  useEffect(() => {
+    reload().finally(() => setLoading(false));
+  }, []);
 
   const toggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'PENDING' ? 'FULFILLED' : 'PENDING';
@@ -25,7 +29,7 @@ export default function ModeratorClaims() {
       <h1 className="text-2xl font-bold mb-6">Claims</h1>
 
       <div className="space-y-4">
-        {claims.map(c => (
+        {claims.map((c) => (
           <Card key={c.id}>
             <div className="flex justify-between items-start">
               <div>
@@ -39,7 +43,9 @@ export default function ModeratorClaims() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded ${c.status === 'FULFILLED' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${c.status === 'FULFILLED' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}
+                >
                   {c.status}
                 </span>
                 <button

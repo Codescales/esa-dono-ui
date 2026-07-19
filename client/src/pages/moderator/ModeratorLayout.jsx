@@ -12,9 +12,11 @@ export default function ModeratorLayout() {
   return (
     <div className="min-h-screen flex">
       <aside className="w-52 bg-gray-800 text-white flex flex-col p-4">
-        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">Moderator</div>
+        <div className="font-black text-lg mb-6 tracking-widest uppercase text-orange-300">
+          Moderator
+        </div>
         <nav className="flex-1 space-y-1">
-          {NAV.map(n => (
+          {NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
