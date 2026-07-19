@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
 import { spendLimit } from '../middleware/rateLimit.js';
 import { checkBlockedWords } from '../services/donation.js';
+import { votePollTx } from '../services/spend.js';
 
 const router = Router();
 
@@ -62,51 +63,16 @@ router.post('/:id/custom-entry', donorAuth, async (req, res) => {
 });
 
 router.post('/:id/vote', spendLimit, donorAuth, async (req, res) => {
-  const { poll_option_id, amount_cents } = req.body;
-  const cents = Number(amount_cents);
-  if (!poll_option_id || !Number.isInteger(cents) || cents < 100) {
-    return res.status(400).json({ error: 'poll_option_id and amount_cents (min 100) required' });
+  try {
+    const { poll_option_id, amount_cents } = req.body;
+    await prisma.$transaction(async (tx) => {
+      await votePollTx(tx, req.donor.id, req.params.id, poll_option_id, Number(amount_cents));
+    });
+    res.json({ success: true });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ error: err.message });
   }
-
-  const poll = await prisma.poll.findUnique({ where: { id: req.params.id } });
-  if (!poll || !poll.is_active)
-    return res.status(404).json({ error: 'Poll not found or inactive' });
-  if (poll.ends_at && new Date() > poll.ends_at)
-    return res.status(400).json({ error: 'Poll has ended' });
-
-  const option = await prisma.pollOption.findUnique({ where: { id: poll_option_id } });
-  if (!option || option.poll_id !== poll.id)
-    return res.status(404).json({ error: 'Option not found' });
-
-  const donor = req.donor;
-  if (donor.balance_remaining < cents) {
-    return res.status(400).json({ error: 'Insufficient balance' });
-  }
-
-  await prisma.$transaction([
-    prisma.donor.update({
-      where: { id: donor.id },
-      data: { balance_remaining: { decrement: cents } },
-    }),
-    prisma.pollVote.create({
-      data: {
-        poll_id: poll.id,
-        poll_option_id,
-        donor_id: donor.id,
-        amount_cents: cents,
-      },
-    }),
-    prisma.pollOption.update({
-      where: { id: poll_option_id },
-      data: { votes_cents: { increment: cents } },
-    }),
-    prisma.poll.update({
-      where: { id: poll.id },
-      data: { total_votes_cents: { increment: cents } },
-    }),
-  ]);
-
-  res.json({ success: true });
 });
 
 export default router;

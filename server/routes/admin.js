@@ -112,7 +112,7 @@ router.delete('/rewards/:id', async (req, res) => {
 // Simulate donation
 router.post('/simulate-donation', async (req, res) => {
   try {
-    const { email, donor_name, amount_cents, comment } = req.body;
+    const { email, donor_name, amount_cents, comment, pledge_token } = req.body;
     const cents = Number(amount_cents);
     if (!email || !Number.isInteger(cents) || cents < 100) {
       return res.status(400).json({ error: 'email and amount_cents (min 100) required' });
@@ -124,6 +124,7 @@ router.post('/simulate-donation', async (req, res) => {
       donorName: donor_name || 'Anonymous',
       amountCents: cents,
       comment: comment || null,
+      pledgeToken: pledge_token || null,
     });
     res.json({
       success: true,
@@ -133,6 +134,7 @@ router.post('/simulate-donation', async (req, res) => {
         email: result.donor.email,
         balance_remaining: result.donor.balance_remaining,
       },
+      pledge: result.pledge || null,
     });
   } catch (err) {
     console.error('Simulate donation error:', err);

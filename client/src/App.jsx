@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
+import DonateFlow from './pages/DonateFlow.jsx';
+import PledgeReturn from './pages/PledgeReturn.jsx';
 import MyWallet from './pages/MyWallet.jsx';
 import Rewards from './pages/Rewards.jsx';
 import Polls from './pages/Polls.jsx';
@@ -49,6 +51,8 @@ export default function App() {
               <Navbar />
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/donate" element={<DonateFlow />} />
+                <Route path="/pledge/:token" element={<PledgeReturn />} />
                 <Route path="/wallet" element={<MyWallet />} />
                 <Route path="/rewards" element={<Rewards />} />
                 <Route path="/polls" element={<Polls />} />

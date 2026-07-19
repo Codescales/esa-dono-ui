@@ -35,6 +35,7 @@ model Donation {
   comment     String?
   created_at  DateTime @default(now())
   donor       Donor    @relation(fields: [donor_id], references: [id])
+  pledge      PendingPledge?
 }
 
 model Reward {
@@ -160,4 +161,32 @@ model BalanceAdjustment {
   created_by        String   @default("admin")
   created_at        DateTime @default(now())
   donor             Donor    @relation(fields: [donor_id], references: [id])
+}
+
+model PendingPledge {
+  id                    String       @id @default(cuid())
+  pledge_token          String       @unique
+  donor_email           String?
+  total_cents           Int
+  status                String       @default("OPEN") // OPEN | FULFILLED | EXPIRED | CANCELLED
+  relay_key_id          String?      // Tiltify relay key id for deterministic linkage
+  relay_client_key      String?      // Tiltify relay client_key used in the redirect URL
+  fulfilled_by_donation_id String? @unique
+  created_at            DateTime     @default(now())
+  expires_at            DateTime
+  updated_at            DateTime     @updatedAt
+  items                 PledgeItem[]
+  fulfilled_by          Donation?    @relation(fields: [fulfilled_by_donation_id], references: [id])
+}
+
+model PledgeItem {
+  id          String       @id @default(cuid())
+  pledge_id   String
+  kind        String       // REWARD | POLL_VOTE | GOAL
+  target_id   String       // reward_id | poll_option_id | goal_id
+  poll_id     String?      // required for POLL_VOTE
+  amount_cents Int
+  data        String?      // JSON string for claim_data (physical reward shipping, etc.)
+  created_at  DateTime     @default(now())
+  pledge      PendingPledge @relation(fields: [pledge_id], references: [id], onDelete: Cascade)
 }

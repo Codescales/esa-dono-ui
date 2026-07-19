@@ -7,6 +7,7 @@ import donorRouter from './routes/donor.js';
 import rewardsRouter from './routes/rewards.js';
 import pollsRouter from './routes/polls.js';
 import goalsRouter from './routes/goals.js';
+import pledgeRouter from './routes/pledge.js';
 import adminRouter from './routes/admin.js';
 import moderatorRouter from './routes/moderator.js';
 import prisma from './lib/prisma.js';
@@ -29,11 +30,15 @@ app.get('/api/health', async (_req, res) => {
     res.status(503).json({ ok: false, db: false, error: err.message });
   }
 });
+app.get('/api/donate-url', (_req, res) => {
+  res.json({ url: process.env.TILTIFY_DONATE_URL || null });
+});
 app.use('/api/campaign', campaignRouter);
 app.use('/api/donor', donorRouter);
 app.use('/api/rewards', rewardsRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/goals', goalsRouter);
+app.use('/api/pledge', pledgeRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/moderator', moderatorRouter);
 

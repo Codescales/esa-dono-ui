@@ -29,12 +29,15 @@ router.post('/', async (req, res) => {
     }
 
     const payload = JSON.parse(rawBody.toString());
+    const meta = payload.meta || {};
+    const eventType = meta.event_type || payload.type || '';
 
-    // Acknowledge non-donation events
-    if (
-      payload.meta?.event_type !== 'donation.completed' &&
-      payload.type !== 'donation.completed'
-    ) {
+    // Handle relay events (private:relay:donation_updated)
+    const isRelay = eventType.includes('relay');
+    const isDonationEvent =
+      eventType.includes('donation_updated') || eventType === 'donation.completed';
+
+    if (!isDonationEvent) {
       return res.status(200).json({ received: true });
     }
 
@@ -46,6 +49,20 @@ router.post('/', async (req, res) => {
       parseFloat(donation.amount?.value ?? donation.amount ?? 0) * 100,
     );
     const comment = donation.comment ?? donation.campaign_donation?.comment ?? null;
+
+    // For relay events, extract the pledge token from relay_key_id
+    let pledgeToken = null;
+    if (isRelay && meta.relay_key_id) {
+      const pledgePrefix = 'pledge_';
+      if (meta.relay_key_id.startsWith(pledgePrefix)) {
+        pledgeToken = meta.relay_key_id.slice(pledgePrefix.length);
+      }
+    }
+
+    // For relay events, only process completed payments
+    if (isRelay && donation.payment_status && donation.payment_status !== 'completed') {
+      return res.status(200).json({ received: true, status: donation.payment_status });
+    }
 
     if (!email || !tiltifyId) {
       return res.status(200).json({ received: true, skipped: 'missing email or id' });
@@ -59,6 +76,7 @@ router.post('/', async (req, res) => {
       donorName,
       amountCents,
       comment,
+      pledgeToken,
     });
 
     res.status(200).json({ received: true });
