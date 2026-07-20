@@ -16,6 +16,7 @@ import AdminDonations from './pages/admin/AdminDonations.jsx';
 import AdminSimulate from './pages/admin/AdminSimulate.jsx';
 import AdminDonors from './pages/admin/AdminDonors.jsx';
 import AdminBlockedWords from './pages/admin/AdminBlockedWords.jsx';
+import AdminPledges from './pages/admin/AdminPledges.jsx';
 import ModeratorLayout from './pages/moderator/ModeratorLayout.jsx';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard.jsx';
 import ModeratorPolls from './pages/moderator/ModeratorPolls.jsx';
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="goals" element={<AdminGoals />} />
           <Route path="donations" element={<AdminDonations />} />
           <Route path="simulate" element={<AdminSimulate />} />
+          <Route path="pledges" element={<AdminPledges />} />
           <Route path="blocked-words" element={<AdminBlockedWords />} />
         </Route>
         <Route path="/moderate" element={<ModeratorLayout />}>

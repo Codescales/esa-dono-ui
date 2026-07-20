@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin/polls', label: 'polls' },
   { to: '/admin/goals', label: 'goals' },
   { to: '/admin/donations', label: 'donations & claims' },
+  { to: '/admin/pledges', label: 'pledges' },
   { to: '/admin/blocked-words', label: 'blocked words' },
   { to: '/admin/simulate', label: 'simulate' },
 ];

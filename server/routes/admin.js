@@ -9,16 +9,18 @@ router.use(adminAuth);
 
 // Stats
 router.get('/stats', async (req, res) => {
-  const [donorCount, donationCount, claimCount, totalRaised] = await Promise.all([
+  const [donorCount, donationCount, claimCount, totalRaised, pledgeCount] = await Promise.all([
     prisma.donor.count(),
     prisma.donation.count(),
     prisma.rewardClaim.count(),
     prisma.donation.aggregate({ _sum: { amount_cents: true } }),
+    prisma.pendingPledge.count(),
   ]);
   res.json({
     donors: donorCount,
     donations: donationCount,
     claims: claimCount,
+    pledges: pledgeCount,
     total_raised_cents: totalRaised._sum.amount_cents ?? 0,
   });
 });
@@ -451,7 +453,20 @@ router.delete('/polls/options/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// Blocked Words
+// Pledges
+router.get('/pledges', async (req, res) => {
+  const pledges = await prisma.pendingPledge.findMany({
+    include: {
+      items: true,
+      fulfilled_by: {
+        include: { donor: { select: { email: true } } },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 100,
+  });
+  res.json(pledges);
+});
 router.get('/blocked-words', async (req, res) => {
   const words = await prisma.blockedWord.findMany({ orderBy: { word: 'asc' } });
   res.json(words);
