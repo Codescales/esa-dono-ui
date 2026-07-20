@@ -15,7 +15,12 @@ router.post('/', async (req, res) => {
     const pledge = await createPledge({ email, items });
 
     // Create Tiltify relay key for deterministic linkage (graceful fallback)
-    const relay = await createRelayForPledge(pledge.pledge_token);
+    let relay = { donate_url: null, relay_client_key: null };
+    try {
+      relay = await createRelayForPledge(pledge.pledge_token);
+    } catch (relayErr) {
+      console.error('Relay key creation failed (non-fatal):', relayErr);
+    }
 
     res.json({
       ...pledge,
