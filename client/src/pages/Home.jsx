@@ -10,20 +10,12 @@ function fmt(cents) {
 
 export default function Home() {
   const [campaign, setCampaign] = useState(null);
-  const [donateUrl, setDonateUrl] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     getCampaign()
       .then(setCampaign)
       .catch(() => setError('Failed to load campaign data.'));
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/donate-url')
-      .then((r) => r.json())
-      .then((d) => setDonateUrl(d.url))
-      .catch(() => {});
   }, []);
 
   if (error)
@@ -75,29 +67,28 @@ export default function Home() {
           {goal > 0 ? `${Math.round((raised / goal) * 100)}% of goal` : ''}
         </p>
 
-        {/* Primary CTA — big donate button */}
-        <a
-          href={donateUrl || '#'}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* Primary CTA — incentive cart wizard */}
+        <Link
+          to="/donate"
           className="inline-block mt-6 w-full text-center font-display text-2xl tracking-wide lowercase text-black no-underline py-4 px-6 rounded-sm transition-opacity hover:opacity-90"
           style={{ background: 'var(--d-yellow)' }}
         >
           donate now
-        </a>
+        </Link>
 
-        {/* Secondary CTA — incentive cart wizard */}
-        <div className="mt-4 text-center">
-          <p className="font-body text-sm text-off-white/55 mb-2">
-            Want to pick rewards, vote in polls, or support fund goals?
-          </p>
-          <Link
-            to="/donate"
-            className="inline-block font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white no-underline"
-          >
-            choose your incentives &rarr;
-          </Link>
-        </div>
+        {/* Secondary CTA — skip straight to Tiltify */}
+        {campaign.donate_url && (
+          <div className="mt-4 text-center">
+            <a
+              href={campaign.donate_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-data font-bold text-sm tracking-wider lowercase text-off-white/55 hover:text-off-white no-underline"
+            >
+              skip the incentives &rarr;
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

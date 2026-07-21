@@ -87,6 +87,15 @@ export default function Navbar() {
       >
         goals
       </NavLink>
+      <NavLink
+        to="/donate"
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase text-black no-underline px-3 py-1 rounded-sm hover:opacity-90 ${isActive ? 'opacity-80' : ''}`
+        }
+        style={{ background: 'var(--d-yellow)' }}
+      >
+        donate
+      </NavLink>
       <div className="ml-auto flex items-center gap-4">
         {donor && (
           <div className="hidden lg:flex flex-col text-right leading-tight">

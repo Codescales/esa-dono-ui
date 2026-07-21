@@ -6,6 +6,7 @@ import { createPledge } from '../api/pledge.js';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import Card from '../components/Card.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
+import client from '../api/client.js';
 
 function fmt(cents) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -25,6 +26,14 @@ export default function DonateFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [pledgeResult, setPledgeResult] = useState(null);
+  const [donateUrl, setDonateUrl] = useState(null);
+
+  useEffect(() => {
+    client
+      .get('/donate-url')
+      .then((r) => setDonateUrl(r.data.url))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([getRewards(), getPolls(), getGoals()])
@@ -196,7 +205,7 @@ export default function DonateFlow() {
           </div>
 
           {/* Navigation */}
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between items-center mt-8">
             <button
               onClick={goBack}
               disabled={step === 0}
@@ -204,11 +213,23 @@ export default function DonateFlow() {
             >
               &larr; back
             </button>
-            {step < STEPS.length - 1 ? (
-              <button onClick={goNext} disabled={cart.length === 0} className="btrl-button">
-                next &rarr;
-              </button>
-            ) : null}
+            <div className="flex items-center gap-4">
+              {step < STEPS.length - 1 && donateUrl && (
+                <a
+                  href={donateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-data font-bold text-sm tracking-wider lowercase text-off-white/55 hover:text-off-white no-underline"
+                >
+                  skip to donation &rarr;
+                </a>
+              )}
+              {step < STEPS.length - 1 ? (
+                <button onClick={goNext} disabled={cart.length === 0} className="btrl-button">
+                  next &rarr;
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 
