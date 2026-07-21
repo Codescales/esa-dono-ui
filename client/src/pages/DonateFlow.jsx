@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getRewards } from '../api/rewards.js';
-import { getPolls } from '../api/polls.js';
+import { getPolls, submitCustomEntry } from '../api/polls.js';
 import { getGoals } from '../api/goals.js';
 import { createPledge } from '../api/pledge.js';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import Card from '../components/Card.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
+import Modal from '../components/Modal.jsx';
 import client from '../api/client.js';
 
 function fmt(cents) {
@@ -370,6 +371,10 @@ function RewardsStep({ rewards, cart, onAdd, onRemove }) {
 /* ─── Step 2: Polls ─── */
 function PollsStep({ polls, cart, onAdd, onRemove }) {
   const [amounts, setAmounts] = useState({});
+  const [suggesting, setSuggesting] = useState(null);
+  const [suggestLabel, setSuggestLabel] = useState('');
+  const [suggestError, setSuggestError] = useState('');
+  const [suggestSuccess, setSuggestSuccess] = useState('');
 
   const getAmount = (pollId, optionId) => {
     const key = `${pollId}-${optionId}`;
@@ -390,6 +395,24 @@ function PollsStep({ polls, cart, onAdd, onRemove }) {
       amount_cents: cents,
       label: option.label,
     });
+  };
+
+  const handleSuggest = async () => {
+    setSuggestError('');
+    if (!suggestLabel.trim()) {
+      setSuggestError('Please enter a suggestion');
+      return;
+    }
+    try {
+      await submitCustomEntry(suggesting.id, suggestLabel.trim());
+      setSuggestSuccess('Submitted for approval!');
+      setTimeout(() => {
+        setSuggesting(null);
+        setSuggestSuccess('');
+      }, 2000);
+    } catch (e) {
+      setSuggestError(e.response?.data?.error ?? 'Failed to submit');
+    }
   };
 
   return (
@@ -452,10 +475,67 @@ function PollsStep({ polls, cart, onAdd, onRemove }) {
               );
             })}
           </div>
+          {poll.allow_custom_entries && (
+            <button
+              onClick={() => {
+                setSuggesting(poll);
+                setSuggestLabel('');
+                setSuggestError('');
+                setSuggestSuccess('');
+              }}
+              className="btrl-button btrl-button-ghost mt-3 text-sm"
+            >
+              + suggest an option
+            </button>
+          )}
         </Card>
       ))}
       {polls.length === 0 && (
         <p className="font-body text-sm text-off-white/55">No active polls.</p>
+      )}
+
+      {suggesting && (
+        <Modal title="suggest an option" onClose={() => setSuggesting(null)}>
+          <p className="font-body text-sm text-off-white/55 mb-3">
+            Poll: <strong className="text-off-white">{suggesting.title}</strong>
+          </p>
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              your suggestion
+            </label>
+            <input
+              className="w-full px-3 py-2 text-sm"
+              placeholder="Type your option..."
+              value={suggestLabel}
+              onChange={(e) => setSuggestLabel(e.target.value)}
+              maxLength={suggesting.max_entry_chars || undefined}
+              onKeyDown={(e) => e.key === 'Enter' && handleSuggest()}
+            />
+            {suggesting.max_entry_chars && (
+              <p className="font-mono text-xs text-off-white/55 mt-1">
+                {suggestLabel.length}/{suggesting.max_entry_chars} characters
+              </p>
+            )}
+          </div>
+          {suggestError && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {suggestError}
+            </p>
+          )}
+          {suggestSuccess && (
+            <p className="text-sm mb-2" style={{ color: 'var(--green)' }}>
+              {suggestSuccess}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setSuggesting(null)} className="btrl-button btrl-button-outline">
+              cancel
+            </button>
+            <button onClick={handleSuggest} className="btrl-button">
+              submit for approval
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );
