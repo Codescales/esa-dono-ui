@@ -41,12 +41,14 @@ jobs:
             echo "backend_tags=${{ env.IMAGE_PREFIX }}/backend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
             echo "frontend_tags=${{ env.IMAGE_PREFIX }}/frontend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
             echo "push_enabled=true" >> "$GITHUB_OUTPUT"
-            echo "trivy_ref=${{ env.IMAGE_PREFIX }}/backend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_backend_ref=${{ env.IMAGE_PREFIX }}/backend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_frontend_ref=${{ env.IMAGE_PREFIX }}/frontend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
           else
             echo "backend_tags=${{ env.IMAGE_PREFIX }}/backend:latest,${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
             echo "frontend_tags=${{ env.IMAGE_PREFIX }}/frontend:latest,${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
             echo "push_enabled=true" >> "$GITHUB_OUTPUT"
-            echo "trivy_ref=${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_backend_ref=${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_frontend_ref=${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push backend
@@ -64,10 +66,11 @@ jobs:
       - name: Trivy scan backend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.tags.outputs.trivy_ref }}
+          image-ref: ${{ steps.tags.outputs.trivy_backend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
           trivyignores: .trivyignore
 
       - name: Build and push frontend
@@ -84,10 +87,11 @@ jobs:
       - name: Trivy scan frontend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ steps.tags.outputs.trivy_ref }}
+          image-ref: ${{ steps.tags.outputs.trivy_frontend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
           trivyignores: .trivyignore
 
       - name: Smoke-test published images
