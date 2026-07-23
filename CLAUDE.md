@@ -124,20 +124,20 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 
 ## Environment Variables
 
-| Variable                                      | Purpose                                                            |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API                                    |
-| `TILTIFY_CAMPAIGN_ID`                         | Campaign to proxy from Tiltify                                     |
-| `TILTIFY_DONATE_URL`                          | Static donate URL (fallback when relay is not configured)          |
-| `TILTIFY_DONATE_FACT_ID`                      | Fact ID/slug for relay donate URL (e.g. `@username/campaign-slug`) |
-| `TILTIFY_WEBHOOK_RELAY_ID`                    | Webhook Relay ID from Tiltify Developer Dashboard                  |
-| `TILTIFY_WEBHOOK_SECRET`                      | HMAC secret; omit to disable signature checking locally            |
-| `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI                                |
-| `MODERATOR_EMAILS`                            | Comma-separated emails auto-promoted to moderator on donation      |
-| `SMTP_*` / `EMAIL_FROM`                       | Nodemailer config                                                  |
-| `APP_BASE_URL`                                | Base URL for magic links in emails (e.g. `http://localhost:5173`)  |
-| `PORT`                                        | Server port, default `3001`                                        |
-| `DATABASE_URL`                                | Prisma DB URL, e.g. `file:./dev.db`                                |
+| Variable                                      | Purpose                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API                                   |
+| `TILTIFY_CAMPAIGN_ID`                         | Campaign to proxy from Tiltify                                    |
+| `TILTIFY_DONATE_URL`                          | Static donate URL (fallback when relay is not configured)         |
+| `TILTIFY_DONATE_ID`                           | Campaign identifier in donate URL (e.g. UUID or `@username/slug`) |
+| `TILTIFY_WEBHOOK_RELAY_ID`                    | Webhook Relay ID from Tiltify Developer Dashboard                 |
+| `TILTIFY_WEBHOOK_SECRET`                      | HMAC secret; omit to disable signature checking locally           |
+| `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI                               |
+| `MODERATOR_EMAILS`                            | Comma-separated emails auto-promoted to moderator on donation     |
+| `SMTP_*` / `EMAIL_FROM`                       | Nodemailer config                                                 |
+| `APP_BASE_URL`                                | Base URL for magic links in emails (e.g. `http://localhost:5173`) |
+| `PORT`                                        | Server port, default `3001`                                       |
+| `DATABASE_URL`                                | Prisma DB URL, e.g. `file:./dev.db`                               |
 
 ## Local Webhook Testing
 

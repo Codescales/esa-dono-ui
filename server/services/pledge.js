@@ -177,15 +177,15 @@ export async function resolvePledge({ pledgeToken, email, amountCents }) {
 
 /**
  * Create a Tiltify relay key for a pledge and return the donate URL.
- * Requires TILTIFY_CLIENT_ID, TILTIFY_CLIENT_SECRET, TILTIFY_WEBHOOK_RELAY_ID, TILTIFY_DONATE_FACT_ID.
+ * Requires TILTIFY_CLIENT_ID, TILTIFY_CLIENT_SECRET, TILTIFY_WEBHOOK_RELAY_ID, TILTIFY_DONATE_ID.
  * Falls back to plain donate URL if relay config is missing.
  */
 export async function createRelayForPledge(pledgeToken) {
   const relayId = process.env.TILTIFY_WEBHOOK_RELAY_ID;
-  const factId = process.env.TILTIFY_DONATE_FACT_ID;
+  const donateId = process.env.TILTIFY_DONATE_ID;
   const donateUrl = process.env.TILTIFY_DONATE_URL;
 
-  if (!relayId || !factId) {
+  if (!relayId || !donateId) {
     return { donate_url: donateUrl || null, relay_client_key: null };
   }
 
@@ -225,6 +225,13 @@ export async function createRelayForPledge(pledgeToken) {
     },
   });
 
-  const relayUrl = `https://donate.tiltify.com/${factId}?relay=${clientKey}`;
-  return { donate_url: relayUrl, relay_client_key: clientKey };
+  const relayUrl = `https://donate.tiltify.com/${donateId}?relay=${clientKey}`;
+
+  const pledge = await prisma.pendingPledge.findUnique({
+    where: { pledge_token: pledgeToken },
+    select: { total_cents: true },
+  });
+  const amountParam = pledge ? `&amount=${pledge.total_cents / 100}` : '';
+
+  return { donate_url: relayUrl + amountParam, relay_client_key: clientKey };
 }
