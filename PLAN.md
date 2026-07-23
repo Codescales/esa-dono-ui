@@ -245,6 +245,41 @@ Navbar shows "Moderate" link for moderators. App.jsx adds `/moderate` routes. CL
 - [ ] All existing flows unchanged
 - [ ] CLAUDE.md updated
 
+### Task 9: Prometheus Metrics
+
+**Blocked by:** None
+
+Expose application metrics at `GET /metrics` for Prometheus scraping. Track HTTP request counts/durations, donation volume, donor counts, balance totals, pledge counts, and error rates. Use `express-prom-bundle` or a lightweight manual counter approach.
+
+**Acceptance criteria:**
+
+- [ ] `GET /metrics` returns Prometheus-formatted text at `/api/metrics`
+- [ ] Metrics include: HTTP request count + duration (by route + status), donation total + count, active donor count, total balance_remaining, pledge count by status, webhook event count
+- [ ] Metrics endpoint is unauthenticated (standard Prometheus pattern) but rate-limited
+- [ ] `PROMETHEUS_ENABLED` env var (default `true`) controls whether the endpoint is mounted
+- [ ] Docker Compose exposes port for Prometheus scraping (optional sidecar)
+- [ ] No new dependencies beyond `prom-client` (Prometheus client library)
+- [ ] Tests verify metrics endpoint returns valid Prometheus format
+
+### Task 10: Outbound Webhooks
+
+**Blocked by:** None
+
+Fire configurable outbound webhooks to external URLs when key events occur. Events: `donation.created`, `reward.claimed`, `poll.voted`, `goal.contributed`, `pledge.fulfilled`. Webhook targets are managed via admin CRUD. Each target has a URL, optional secret (HMAC signing), and event type filter. Delivery is fire-and-forget with retry (3 attempts, exponential backoff).
+
+**Acceptance criteria:**
+
+- [ ] New DB model `OutboundWebhook` — `id`, `url`, `secret` (nullable), `event_types` (JSON array), `is_active`, `created_at`
+- [ ] New DB model `WebhookDelivery` — `id`, `webhook_id`, `event_type`, `payload` (JSON), `response_status`, `response_body`, `attempts`, `last_attempt_at`, `created_at`
+- [ ] Admin CRUD at `/api/admin/outbound-webhooks` — create, list, update, delete, toggle active
+- [ ] Admin UI page `AdminOutboundWebhooks.jsx` — table + create/edit modal
+- [ ] Shared `fireOutboundWebhooks(eventType, payload)` service — iterates active targets matching event type, POSTs JSON body with optional HMAC-SHA256 `X-Webhook-Signature` header, records delivery
+- [ ] Integration points: `processDonation()` fires `donation.created`, `claimRewardTx` fires `reward.claimed`, `votePollTx` fires `poll.voted`, `contributeGoalTx` fires `goal.contributed`, `fulfillPledge` fires `pledge.fulfilled`
+- [ ] Retry: 3 attempts with ~5s exponential backoff via `setTimeout` (non-blocking)
+- [ ] Admin can view delivery log per webhook (last 50 deliveries)
+- [ ] `OUTBOUND_WEBHOOK_TIMEOUT_MS` env var (default `10000`) for HTTP timeout
+- [ ] Tests: webhook delivery succeeds, HMAC signing, retry on failure, admin CRUD
+
 ### Dependency Graph
 
 ```
