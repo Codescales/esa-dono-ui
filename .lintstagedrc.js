@@ -12,5 +12,5 @@ export default {
     tasks.push(`prettier --write ${filenames.join(' ')}`);
     return tasks;
   },
-  '*.{json,css,md}': (filenames) => `prettier --write ${filenames.join(' ')}`,
+  '*.{json,css,md,yml,yaml}': (filenames) => `prettier --write ${filenames.join(' ')}`,
 };
