@@ -54,7 +54,7 @@ COPY --chown=dono:dono . .
 
 RUN DATABASE_URL="file:./dev.db" npx prisma generate --schema=./server/prisma/schema.prisma \
   && DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --schema=./server/prisma/schema.prisma \
-  && chown dono:dono dev.db
+  && chown dono:dono server/dev.db
 
 USER dono
 ENTRYPOINT ["node", "scripts/run-tests.mjs"]
