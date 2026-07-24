@@ -15,6 +15,12 @@ CVE-2026-32280
 CVE-2026-32281
 CVE-2026-32283
 CVE-2026-33811
+CVE-2026-33814
+CVE-2026-39820
+CVE-2026-39822
+CVE-2026-39836
+CVE-2026-42499
+CVE-2026-42504
 
 # npm-bundled packages in /usr/local/lib/node_modules/npm/ (Node.js base image)
 # and transitive deps already at fixed versions in our lock file.
