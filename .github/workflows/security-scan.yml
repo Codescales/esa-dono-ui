@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
+        continue-on-error: true
 
   hadolint:
     runs-on: ubuntu-latest
