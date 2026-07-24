@@ -5,6 +5,16 @@ CVE-2026-47429
 # Go stdlib vulnerabilities in the Trivy scanner binary itself — not in our image
 CVE-2024-24790
 CVE-2025-68121
+CVE-2023-45288
+CVE-2024-34156
+CVE-2025-61726
+CVE-2025-61729
+CVE-2026-25679
+CVE-2026-27145
+CVE-2026-32280
+CVE-2026-32281
+CVE-2026-32283
+CVE-2026-33811
 
 # npm-bundled packages in /usr/local/lib/node_modules/npm/ (Node.js base image)
 # and transitive deps already at fixed versions in our lock file.
@@ -23,3 +33,7 @@ CVE-2026-26960
 CVE-2026-29786
 CVE-2026-31802
 CVE-2026-59874
+
+# vite is a build tool only — not exploitable in production.
+# Requires major version bump to fix (5.x → 6.x+).
+CVE-2026-53571

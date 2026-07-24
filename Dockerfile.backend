@@ -47,6 +47,7 @@ RUN --mount=type=cache,target=/root/.npm,id=npm \
 FROM deps AS test
 
 ENV NODE_ENV=test \
+    DATABASE_URL="file:./dev.db" \
     PATH="/app/node_modules/.bin:${PATH}"
 
 COPY --chown=dono:dono . .
