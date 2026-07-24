@@ -3,6 +3,8 @@ name: Build and Push Docker Images
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -32,6 +34,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Derive image tags
+        id: tags
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "backend_tags=${{ env.IMAGE_PREFIX }}/backend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "frontend_tags=${{ env.IMAGE_PREFIX }}/frontend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "push_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "trivy_backend_ref=${{ env.IMAGE_PREFIX }}/backend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_frontend_ref=${{ env.IMAGE_PREFIX }}/frontend:pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_tags=${{ env.IMAGE_PREFIX }}/backend:latest,${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "frontend_tags=${{ env.IMAGE_PREFIX }}/frontend:latest,${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "push_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "trivy_backend_ref=${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "trivy_frontend_ref=${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
@@ -39,20 +58,19 @@ jobs:
           file: Dockerfile.backend
           target: runtime
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/backend:latest
-            ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
+          push: ${{ steps.tags.outputs.push_enabled }}
+          tags: ${{ steps.tags.outputs.backend_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy scan backend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
+          image-ref: ${{ steps.tags.outputs.trivy_backend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
           trivyignores: .trivyignore
 
       - name: Build and push frontend
@@ -61,29 +79,27 @@ jobs:
           context: .
           file: Dockerfile.frontend
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/frontend:latest
-            ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+          push: ${{ steps.tags.outputs.push_enabled }}
+          tags: ${{ steps.tags.outputs.frontend_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy scan frontend image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+          image-ref: ${{ steps.tags.outputs.trivy_frontend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
           trivyignores: .trivyignore
 
       - name: Smoke-test published images
+        if: github.event_name != 'pull_request'
         env:
           ADMIN_API_KEY: smoke-test-key
           FRONTEND_PORT: '18080'
         run: |
-          # docker-compose.yml references the :latest tags — pull the amd64
-          # variants just pushed and verify the stack actually runs.
           docker pull "${IMAGE_PREFIX}/backend:latest"
           docker pull "${IMAGE_PREFIX}/frontend:latest"
           ./scripts/smoke-test.sh

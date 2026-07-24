@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { sendMagicLink } from './email.js';
+import { resolvePledge, fulfillPledge } from './pledge.js';
 
 /**
  * Shared donation processing — used by both the Tiltify webhook
@@ -12,9 +13,26 @@ import { sendMagicLink } from './email.js';
  * Stable token: existing donors keep their magic_token (not rotated).
  * Only new donors get a fresh token. TTL is extended on repeat donations.
  *
- * @returns {{ donor, token }} | {{ duplicate: true }}
+ * If pledgeToken is provided (or resolvable by email+amount), the pledge
+ * items are auto-fulfilled from the credited balance. Remainder stays as
+ * spendable balance_remaining.
+ *
+ * @param {string}  options.tiltifyId
+ * @param {string}  options.email
+ * @param {string}  options.donorName
+ * @param {number}  options.amountCents
+ * @param {string}  [options.comment]
+ * @param {string}  [options.pledgeToken] - optional pledge token to fulfill
+ * @returns {{ donor, token, pledge? }} | {{ duplicate: true }}
  */
-export async function processDonation({ tiltifyId, email, donorName, amountCents, comment }) {
+export async function processDonation({
+  tiltifyId,
+  email,
+  donorName,
+  amountCents,
+  comment,
+  pledgeToken,
+}) {
   const normalizedEmail = email.trim().toLowerCase();
 
   const moderatorEmails = (process.env.MODERATOR_EMAILS || '')
@@ -45,7 +63,7 @@ export async function processDonation({ tiltifyId, email, donorName, amountCents
         },
       });
 
-      await tx.donation.create({
+      const donation = await tx.donation.create({
         data: {
           tiltify_id: tiltifyId,
           donor_id: donor.id,
@@ -55,11 +73,30 @@ export async function processDonation({ tiltifyId, email, donorName, amountCents
         },
       });
 
+      // Try to resolve and fulfill a pledge
+      let pledgeResult = null;
+      try {
+        const pledge = await resolvePledge({
+          pledgeToken,
+          email: normalizedEmail,
+          amountCents,
+        });
+        if (pledge) {
+          pledgeResult = await fulfillPledge(tx, pledge, donor.id);
+          await tx.donation.update({
+            where: { id: donation.id },
+            data: { pledge: { connect: { id: pledge.id } } },
+          });
+        }
+      } catch (pledgeErr) {
+        console.error('Pledge fulfillment error (non-fatal):', pledgeErr);
+      }
+
       sendMagicLink(normalizedEmail, donor.magic_token).catch((err) =>
         console.error('Email error:', err),
       );
 
-      return { donor, token: donor.magic_token };
+      return { donor, token: donor.magic_token, pledge: pledgeResult };
     });
   } catch (err) {
     if (err.code === 'P2002') {

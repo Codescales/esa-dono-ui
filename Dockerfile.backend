@@ -47,11 +47,14 @@ RUN --mount=type=cache,target=/root/.npm,id=npm \
 FROM deps AS test
 
 ENV NODE_ENV=test \
+    DATABASE_URL="file:/app/dev.db" \
     PATH="/app/node_modules/.bin:${PATH}"
 
 COPY --chown=dono:dono . .
 
-RUN DATABASE_URL="file:./dev.db" npx prisma generate --schema=./server/prisma/schema.prisma
+RUN DATABASE_URL="file:/app/dev.db" npx prisma generate --schema=./server/prisma/schema.prisma \
+  && DATABASE_URL="file:/app/dev.db" npx prisma db push --accept-data-loss --schema=./server/prisma/schema.prisma \
+  && chown -R dono:dono /app
 
 USER dono
 ENTRYPOINT ["node", "scripts/run-tests.mjs"]

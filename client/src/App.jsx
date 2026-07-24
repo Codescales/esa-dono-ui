@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
 import Home from './pages/Home.jsx';
+import DonateFlow from './pages/DonateFlow.jsx';
+import PledgeReturn from './pages/PledgeReturn.jsx';
 import MyWallet from './pages/MyWallet.jsx';
 import Rewards from './pages/Rewards.jsx';
 import Polls from './pages/Polls.jsx';
@@ -14,6 +16,7 @@ import AdminDonations from './pages/admin/AdminDonations.jsx';
 import AdminSimulate from './pages/admin/AdminSimulate.jsx';
 import AdminDonors from './pages/admin/AdminDonors.jsx';
 import AdminBlockedWords from './pages/admin/AdminBlockedWords.jsx';
+import AdminPledges from './pages/admin/AdminPledges.jsx';
 import ModeratorLayout from './pages/moderator/ModeratorLayout.jsx';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard.jsx';
 import ModeratorPolls from './pages/moderator/ModeratorPolls.jsx';
@@ -33,6 +36,7 @@ export default function App() {
           <Route path="goals" element={<AdminGoals />} />
           <Route path="donations" element={<AdminDonations />} />
           <Route path="simulate" element={<AdminSimulate />} />
+          <Route path="pledges" element={<AdminPledges />} />
           <Route path="blocked-words" element={<AdminBlockedWords />} />
         </Route>
         <Route path="/moderate" element={<ModeratorLayout />}>
@@ -49,6 +53,8 @@ export default function App() {
               <Navbar />
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/donate" element={<DonateFlow />} />
+                <Route path="/pledge/:token" element={<PledgeReturn />} />
                 <Route path="/wallet" element={<MyWallet />} />
                 <Route path="/rewards" element={<Rewards />} />
                 <Route path="/polls" element={<Polls />} />

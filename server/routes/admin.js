@@ -9,16 +9,18 @@ router.use(adminAuth);
 
 // Stats
 router.get('/stats', async (req, res) => {
-  const [donorCount, donationCount, claimCount, totalRaised] = await Promise.all([
+  const [donorCount, donationCount, claimCount, totalRaised, pledgeCount] = await Promise.all([
     prisma.donor.count(),
     prisma.donation.count(),
     prisma.rewardClaim.count(),
     prisma.donation.aggregate({ _sum: { amount_cents: true } }),
+    prisma.pendingPledge.count(),
   ]);
   res.json({
     donors: donorCount,
     donations: donationCount,
     claims: claimCount,
+    pledges: pledgeCount,
     total_raised_cents: totalRaised._sum.amount_cents ?? 0,
   });
 });
@@ -112,7 +114,7 @@ router.delete('/rewards/:id', async (req, res) => {
 // Simulate donation
 router.post('/simulate-donation', async (req, res) => {
   try {
-    const { email, donor_name, amount_cents, comment } = req.body;
+    const { email, donor_name, amount_cents, comment, pledge_token } = req.body;
     const cents = Number(amount_cents);
     if (!email || !Number.isInteger(cents) || cents < 100) {
       return res.status(400).json({ error: 'email and amount_cents (min 100) required' });
@@ -124,6 +126,7 @@ router.post('/simulate-donation', async (req, res) => {
       donorName: donor_name || 'Anonymous',
       amountCents: cents,
       comment: comment || null,
+      pledgeToken: pledge_token || null,
     });
     res.json({
       success: true,
@@ -133,6 +136,7 @@ router.post('/simulate-donation', async (req, res) => {
         email: result.donor.email,
         balance_remaining: result.donor.balance_remaining,
       },
+      pledge: result.pledge || null,
     });
   } catch (err) {
     console.error('Simulate donation error:', err);
@@ -449,7 +453,20 @@ router.delete('/polls/options/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// Blocked Words
+// Pledges
+router.get('/pledges', async (req, res) => {
+  const pledges = await prisma.pendingPledge.findMany({
+    include: {
+      items: true,
+      fulfilled_by: {
+        include: { donor: { select: { email: true } } },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    take: 100,
+  });
+  res.json(pledges);
+});
 router.get('/blocked-words', async (req, res) => {
   const words = await prisma.blockedWord.findMany({ orderBy: { word: 'asc' } });
   res.json(words);

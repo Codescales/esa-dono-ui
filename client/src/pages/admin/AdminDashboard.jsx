@@ -26,6 +26,7 @@ export default function AdminDashboard() {
     { label: 'donors', value: stats.donors },
     { label: 'donations', value: stats.donations },
     { label: 'reward claims', value: stats.claims },
+    { label: 'pledges', value: stats.pledges },
   ];
 
   return (

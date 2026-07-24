@@ -65,6 +65,7 @@ describe('POST /api/webhooks/tiltify', () => {
       donorName: 'Test Donor',
       amountCents: 2500,
       comment: 'Great cause!',
+      pledgeToken: null,
     });
   });
 

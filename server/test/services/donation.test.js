@@ -10,6 +10,10 @@ vi.mock('../../lib/prisma.js', () => ({
     donation: {
       findUnique: vi.fn(),
     },
+    pendingPledge: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -25,6 +29,10 @@ describe('processDonation', () => {
     vi.clearAllMocks();
     vi.resetModules();
     process.env.MODERATOR_EMAILS = '';
+    // Make pledge resolution return null (no pledge) by default
+    const prisma = (await import('../../lib/prisma.js')).default;
+    prisma.pendingPledge.findUnique.mockResolvedValue(null);
+    prisma.pendingPledge.findFirst.mockResolvedValue(null);
   });
 
   it('creates donor and donation for first-time donor', async () => {

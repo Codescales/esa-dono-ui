@@ -12,12 +12,13 @@ const STUB_CAMPAIGN = {
 };
 
 router.get('/', async (req, res) => {
+  const donateUrl = process.env.TILTIFY_DONATE_URL || null;
   if (!process.env.TILTIFY_CLIENT_ID) {
-    return res.json(STUB_CAMPAIGN);
+    return res.json({ ...STUB_CAMPAIGN, donate_url: donateUrl });
   }
   try {
     const campaign = await getCampaign();
-    res.json(campaign);
+    res.json({ ...campaign, donate_url: donateUrl });
   } catch (err) {
     console.error('Campaign error:', err);
     res.status(500).json({ error: 'Failed to fetch campaign' });

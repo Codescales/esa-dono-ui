@@ -27,6 +27,7 @@ describe('GET /api/campaign', () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('ESA Charity Marathon');
     expect(res.body.description).toBeDefined();
+    expect(res.body.donate_url).toBeNull();
     expect(getCampaign).not.toHaveBeenCalled();
   });
 
@@ -39,7 +40,20 @@ describe('GET /api/campaign', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Real Campaign');
+    expect(res.body.donate_url).toBeNull();
     expect(getCampaign).toHaveBeenCalled();
+  });
+
+  it('includes donate_url from env', async () => {
+    process.env.TILTIFY_CLIENT_ID = 'test-client-id';
+    process.env.TILTIFY_DONATE_URL = 'https://tiltify.com/donate/test';
+    const mockCampaign = { name: 'Real Campaign' };
+    getCampaign.mockResolvedValue(mockCampaign);
+
+    const res = await request(createApp()).get('/api/campaign');
+
+    expect(res.status).toBe(200);
+    expect(res.body.donate_url).toBe('https://tiltify.com/donate/test');
   });
 
   it('returns 500 when Tiltify API fails', async () => {

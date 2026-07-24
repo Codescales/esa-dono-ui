@@ -75,8 +75,10 @@ npm workspaces monorepo: `server/` (Express + Prisma + SQLite) and `client/` (Re
 
 - `server/index.js` — Express entry point. The Tiltify webhook route **must** be mounted before `express.json()` because it needs the raw body buffer for HMAC verification.
 - `server/lib/prisma.js` — Prisma singleton using `globalThis` cache to survive hot reloads.
-- `server/services/tiltify.js` — OAuth2 client-credentials token fetch with in-memory cache (refreshed ~60s before expiry). Calls Tiltify v5 API.
-- `server/services/donation.js` — Shared `processDonation()` (upserts donor + donation, sends magic link) used by both webhook and simulation. Also exports `checkBlockedWords()` for custom poll entry validation.
+- `server/services/tiltify.js` — OAuth2 client-credentials token fetch with in-memory cache (refreshed ~60s before expiry). Calls Tiltify v5 API. Supports multiple scopes (`public`, `webhooks:write`).
+- `server/services/donation.js` — Shared `processDonation()` (upserts donor + donation, sends magic link, auto-fulfills pledge) used by both webhook and simulation. Also exports `checkBlockedWords()` for custom poll entry validation.
+- `server/services/spend.js` — Reusable `tx`-aware spend helpers (`claimRewardTx`, `votePollTx`, `contributeGoalTx`) shared between HTTP routes and pledge fulfillment.
+- `server/services/pledge.js` — Pledge lifecycle: `createPledge()` (validates items, persists `PendingPledge`), `resolvePledge()` (by token or email fallback), `fulfillPledge()` (executes items inside a donation transaction), `createRelayForPledge()` (creates Tiltify relay key for deterministic linkage).
 - `server/services/email.js` — Nodemailer magic link sender; called fire-and-forget from the webhook handler.
 - `server/middleware/adminAuth.js` — Checks `X-Admin-Key` header against `ADMIN_API_KEY` env var.
 - `server/middleware/donorAuth.js` — Resolves `?token=` query param to a `Donor` record; sets `req.donor`.
@@ -90,12 +92,23 @@ Set `MODERATOR_EMAILS` env var to a comma-separated list of emails. When a donat
 ### Webhook flow (`server/routes/webhook.js`)
 
 1. HMAC-SHA256 verify (`x-tiltify-signature` + `x-tiltify-timestamp`). Skipped if `TILTIFY_WEBHOOK_SECRET` is unset (useful for local testing).
-2. Ack all non-`donation.completed` events with 200.
-3. Delegates to `processDonation()` in `server/services/donation.js` — upserts donor (credits balance, extends token TTL without rotating, sets `is_moderator` only when matching), creates donation (P2002 = duplicate → no-op), fire-and-forget sendMagicLink.
+2. Handles both standard `donation.completed` events and `private:relay:donation_updated` relay events. For relay events, extracts `pledge_token` from `meta.relay_key_id` and only processes `payment_status: completed`.
+3. Delegates to `processDonation()` in `server/services/donation.js` — upserts donor (credits balance, extends token TTL without rotating, sets `is_moderator` only when matching), creates donation (P2002 = duplicate → no-op), resolves and fulfills any matching pledge, fire-and-forget sendMagicLink.
+
+### Pledge / Cart Flow
+
+The smart donation cart lets donors select incentives before donating. The flow:
+
+1. **Client**: User browses rewards/polls/goals in a guided stepper (`/donate`), builds a cart.
+2. **Server**: `POST /api/pledge` creates a `PendingPledge` with `PledgeItem`s, validates all items against live state, computes `total_cents`. Optionally creates a Tiltify Webhook Relay key for deterministic donation→pledge linkage.
+3. **Client**: User is redirected to Tiltify donate URL (with `?relay=<client_key>` if relay is configured).
+4. **Tiltify**: Fires `private:relay:donation_updated` webhook with `meta.relay_key_id` = `pledge_<pledge_token>`.
+5. **Server**: Webhook extracts pledge token, calls `processDonation({ pledgeToken })`. Inside the transaction, `resolvePledge()` finds the matching pledge (by token, or email fallback), then `fulfillPledge()` replays each item through the shared spend helpers. Remainder stays as `balance_remaining`.
+6. **Fallback**: If relay linkage fails, `resolvePledge()` falls back to email+amount matching (newest OPEN pledge with `total ≤ amount` within 2h window). If nothing matches, full amount → `balance_remaining` (today's behavior). Money is never lost.
 
 ### Balance mutations
 
-All balance changes (reward claims, poll votes, goal contributions) use `prisma.$transaction([...])` to keep `Donor.balance_remaining` and the associated record creation atomic.
+All balance changes (reward claims, poll votes, goal contributions) use `prisma.$transaction` with the shared `tx`-aware helpers in `server/services/spend.js` to keep `Donor.balance_remaining` and the associated record creation atomic. Both HTTP routes and pledge fulfillment use the same helpers.
 
 ### Client
 
@@ -115,6 +128,9 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 | --------------------------------------------- | ----------------------------------------------------------------- |
 | `TILTIFY_CLIENT_ID` / `TILTIFY_CLIENT_SECRET` | OAuth2 creds for Tiltify v5 API                                   |
 | `TILTIFY_CAMPAIGN_ID`                         | Campaign to proxy from Tiltify                                    |
+| `TILTIFY_DONATE_URL`                          | Static donate URL (fallback when relay is not configured)         |
+| `TILTIFY_DONATE_ID`                           | Campaign identifier in donate URL (e.g. UUID or `@username/slug`) |
+| `TILTIFY_WEBHOOK_RELAY_ID`                    | Webhook Relay ID from Tiltify Developer Dashboard                 |
 | `TILTIFY_WEBHOOK_SECRET`                      | HMAC secret; omit to disable signature checking locally           |
 | `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI                               |
 | `MODERATOR_EMAILS`                            | Comma-separated emails auto-promoted to moderator on donation     |

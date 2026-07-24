@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getCampaign } from '../api/campaign.js';
 import ProgressBar from '../components/ProgressBar.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
@@ -65,6 +66,29 @@ export default function Home() {
         <p className="text-center font-data text-sm text-off-white/55 mt-2">
           {goal > 0 ? `${Math.round((raised / goal) * 100)}% of goal` : ''}
         </p>
+
+        {/* Primary CTA — incentive cart wizard */}
+        <Link
+          to="/donate"
+          className="inline-block mt-6 w-full text-center font-display text-2xl tracking-wide lowercase text-black no-underline py-4 px-6 rounded-sm transition-opacity hover:opacity-90"
+          style={{ background: 'var(--d-yellow)' }}
+        >
+          donate now
+        </Link>
+
+        {/* Secondary CTA — skip straight to Tiltify */}
+        {campaign.donate_url && (
+          <div className="mt-4 text-center">
+            <a
+              href={campaign.donate_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-data font-bold text-sm tracking-wider lowercase text-off-white/55 hover:text-off-white no-underline"
+            >
+              skip the incentives &rarr;
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
