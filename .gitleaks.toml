@@ -1,0 +1,7 @@
+[allowlist]
+description = "Allowlist for known false positives"
+paths = [
+  # Example secrets in documentation and test fixtures
+  '''(?i)README\.md$''',
+  '''(?i)CLAUDE\.md$''',
+]

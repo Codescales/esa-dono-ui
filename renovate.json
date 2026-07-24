@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 5am on Monday"],
+  "timezone": "Europe/Stockholm",
+  "labels": ["dependencies"],
+  "hostRules": [
+    {
+      "hostType": "github",
+      "matchHost": "github.com",
+      "token": "{{ env.RENOVATE_TOKEN }}"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    }
+  ]
+}
