@@ -5,6 +5,8 @@ import Card from '../components/Card';
 import Modal from '../components/Modal';
 import ProgressBar from '../components/ProgressBar';
 import { apiErrorMessage, type Poll, type PollOption } from '../types';
+import { sanitizeMoneyInput } from '../utils/money';
+import { DEFAULT_VOTE_AMOUNT, MIN_SPEND_CENTS, MIN_SPEND_DOLLARS } from '../config';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -14,13 +16,14 @@ export default function Polls() {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState<{ poll: Poll; option: PollOption } | null>(null);
-  const [amount, setAmount] = useState('1.00');
+  const [amount, setAmount] = useState(DEFAULT_VOTE_AMOUNT);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [suggesting, setSuggesting] = useState<Poll | null>(null);
-  const [suggestLabel, setSuggestLabel] = useState('');
-  const [suggestError, setSuggestError] = useState('');
-  const [suggestSuccess, setSuggestSuccess] = useState('');
+  const [writingIn, setWritingIn] = useState<Poll | null>(null);
+  const [writeInLabel, setWriteInLabel] = useState('');
+  const [writeInAmount, setWriteInAmount] = useState(DEFAULT_VOTE_AMOUNT);
+  const [writeInError, setWriteInError] = useState('');
+  const [writeInSuccess, setWriteInSuccess] = useState('');
 
   const reload = () => getPolls().then(setPolls);
   useEffect(() => {
@@ -29,7 +32,7 @@ export default function Polls() {
 
   const openVote = (poll: Poll, option: PollOption) => {
     setVoting({ poll, option });
-    setAmount('1.00');
+    setAmount(DEFAULT_VOTE_AMOUNT);
     setError('');
     setSuccess('');
   };
@@ -37,8 +40,8 @@ export default function Polls() {
   const handleVote = async () => {
     setError('');
     const cents = Math.round(parseFloat(amount) * 100);
-    if (isNaN(cents) || cents < 100) {
-      setError('Minimum vote is $1.00');
+    if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
+      setError(`Minimum vote is $${MIN_SPEND_DOLLARS.toFixed(2)}`);
       return;
     }
     try {
@@ -54,28 +57,39 @@ export default function Polls() {
     }
   };
 
-  const openSuggest = (poll: Poll) => {
-    setSuggesting(poll);
-    setSuggestLabel('');
-    setSuggestError('');
-    setSuggestSuccess('');
+  const openWriteIn = (poll: Poll) => {
+    setWritingIn(poll);
+    setWriteInLabel('');
+    setWriteInAmount(DEFAULT_VOTE_AMOUNT);
+    setWriteInError('');
+    setWriteInSuccess('');
   };
 
-  const handleSuggest = async () => {
-    setSuggestError('');
-    if (!suggestLabel.trim()) {
-      setSuggestError('Please enter a suggestion');
+  const handleWriteIn = async () => {
+    setWriteInError('');
+    if (!writeInLabel.trim()) {
+      setWriteInError('Please enter your option');
+      return;
+    }
+    const cents = Math.round(parseFloat(writeInAmount) * 100);
+    if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
+      setWriteInError(`Minimum amount is $${MIN_SPEND_DOLLARS.toFixed(2)}`);
       return;
     }
     try {
-      await submitCustomEntry(suggesting!.id, suggestLabel.trim());
-      setSuggestSuccess('Submitted for approval!');
+      const result = await submitCustomEntry(writingIn!.id, writeInLabel.trim(), cents);
+      setWriteInSuccess(
+        result.pending_approval
+          ? 'Funded! Awaiting moderator approval — refunded automatically if rejected.'
+          : "Funded and live! It's now in the tally.",
+      );
+      reload();
       setTimeout(() => {
-        setSuggesting(null);
-        setSuggestSuccess('');
-      }, 2000);
+        setWritingIn(null);
+        setWriteInSuccess('');
+      }, 2500);
     } catch (e) {
-      setSuggestError(apiErrorMessage(e, 'Failed to submit'));
+      setWriteInError(apiErrorMessage(e, 'Failed to submit'));
     }
   };
 
@@ -121,10 +135,10 @@ export default function Polls() {
           </p>
           {poll.allow_custom_entries && (
             <button
-              onClick={() => openSuggest(poll)}
+              onClick={() => openWriteIn(poll)}
               className="btrl-button btrl-button-ghost mt-2 text-sm"
             >
-              + suggest an option
+              + add your own option
             </button>
           )}
         </Card>
@@ -145,10 +159,10 @@ export default function Polls() {
             <input
               type="number"
               step="0.01"
-              min="1"
+              min={MIN_SPEND_DOLLARS}
               className="w-full px-3 py-2 text-sm"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(sanitizeMoneyInput(e.target.value))}
             />
           </div>
           {error && (
@@ -172,45 +186,63 @@ export default function Polls() {
         </Modal>
       )}
 
-      {suggesting && (
-        <Modal title="suggest an option" onClose={() => setSuggesting(null)}>
+      {writingIn && (
+        <Modal title="add your own option" onClose={() => setWritingIn(null)}>
           <p className="font-body text-sm text-off-white/55 mb-3">
-            Poll: <strong className="text-off-white">{suggesting.title}</strong>
+            Poll: <strong className="text-off-white">{writingIn.title}</strong>
+          </p>
+          <p className="font-body text-xs text-off-white/55 mb-3">
+            {writingIn.auto_approve === false
+              ? 'Your balance is spent now. A moderator reviews new options before they go live; if rejected, the amount is refunded to your wallet.'
+              : 'Your balance is spent now and your option goes live immediately (subject to moderator review afterward).'}
           </p>
           <div className="mb-3">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              your suggestion
+              your option
             </label>
             <input
               className="w-full px-3 py-2 text-sm"
               placeholder="Type your option..."
-              value={suggestLabel}
-              onChange={(e) => setSuggestLabel(e.target.value)}
-              maxLength={suggesting.max_entry_chars || undefined}
-              onKeyDown={(e) => e.key === 'Enter' && handleSuggest()}
+              value={writeInLabel}
+              onChange={(e) => setWriteInLabel(e.target.value)}
+              maxLength={writingIn.max_entry_chars || undefined}
             />
-            {suggesting.max_entry_chars && (
+            {writingIn.max_entry_chars && (
               <p className="font-mono text-xs text-off-white/55 mt-1">
-                {suggestLabel.length}/{suggesting.max_entry_chars} characters
+                {writeInLabel.length}/{writingIn.max_entry_chars} characters
               </p>
             )}
           </div>
-          {suggestError && (
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              amount ($1 minimum)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min={MIN_SPEND_DOLLARS}
+              className="w-full px-3 py-2 text-sm"
+              value={writeInAmount}
+              onChange={(e) => setWriteInAmount(sanitizeMoneyInput(e.target.value))}
+              onKeyDown={(e) => e.key === 'Enter' && handleWriteIn()}
+            />
+          </div>
+          {writeInError && (
             <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
-              {suggestError}
+              {writeInError}
             </p>
           )}
-          {suggestSuccess && (
+          {writeInSuccess && (
             <p className="text-sm mb-2" style={{ color: 'var(--green)' }}>
-              {suggestSuccess}
+              {writeInSuccess}
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setSuggesting(null)} className="btrl-button btrl-button-outline">
+            <button onClick={() => setWritingIn(null)} className="btrl-button btrl-button-outline">
               cancel
             </button>
-            <button onClick={handleSuggest} className="btrl-button">
-              submit for approval
+            <button onClick={handleWriteIn} className="btrl-button">
+              fund it now
             </button>
           </div>
         </Modal>

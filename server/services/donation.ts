@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { sendMagicLink } from './email.js';
 import { resolvePledge, fulfillPledge } from './pledge.js';
+import { TOKEN_TTL_MS } from '../config.js';
 
 interface ProcessDonationOptions {
   tiltifyId: string;
@@ -53,7 +54,7 @@ export async function processDonation({
   try {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const token = crypto.randomBytes(32).toString('hex');
-      const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const tokenExpiresAt = new Date(Date.now() + TOKEN_TTL_MS);
 
       const donor = await tx.donor.upsert({
         where: { email: normalizedEmail },
@@ -119,20 +120,7 @@ export async function processDonation({
 /**
  * Check text against the global blocked-words dictionary.
  * Returns an error message string if a blocked word is found, or null if clean.
+ * @deprecated import from './blockedWords.js' directly; re-exported here for
+ * backward compatibility with existing callers.
  */
-export async function checkBlockedWords(text: string | null | undefined): Promise<string | null> {
-  if (!text) return null;
-  const blockedWords = await prisma.blockedWord.findMany();
-  if (blockedWords.length === 0) return null;
-
-  // Split by word boundaries, extract only word char sequences
-  const words = text.toLowerCase().match(/\b\w+\b/g) || [];
-  const lowerBlocked = new Set(blockedWords.map((w) => w.word.toLowerCase()));
-
-  for (const word of words) {
-    if (lowerBlocked.has(word)) {
-      return `Entry contains blocked word: "${word}"`;
-    }
-  }
-  return null;
-}
+export { checkBlockedWords } from './blockedWords.js';
