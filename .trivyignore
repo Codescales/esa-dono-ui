@@ -25,6 +25,11 @@ CVE-2026-42504
 # npm-bundled packages in /usr/local/lib/node_modules/npm/ (Node.js base image)
 # and transitive deps already at fixed versions in our lock file.
 CVE-2026-13149
+# The base image's bundled npm ships ip-address@10.1.0 and brace-expansion@2.0.2.
+# Neither is a runtime dependency of the app (our lock resolves ip-address@10.5.0
+# via override, brace-expansion@1.1.18/5.0.9); they are inert CLI tooling.
+CVE-2026-69192
+CVE-2026-69152
 CVE-2024-21538
 CVE-2025-64756
 CVE-2026-26996
