@@ -39,8 +39,9 @@ export default function DonateFlow() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('last_donor_email') || '');
   const [comment, setComment] = useState('');
+  const [topUp, setTopUp] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [pledgeResult, setPledgeResult] = useState<PledgeResult | null>(null);
@@ -56,6 +57,8 @@ export default function DonateFlow() {
   }, []);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.amount_cents, 0);
+  const topUpCents = Math.round(parseFloat(topUp || '0') * 100);
+  const totalCents = cartTotal + (isNaN(topUpCents) ? 0 : topUpCents);
 
   const goNext = useCallback(() => {
     setDirection('next');
@@ -90,12 +93,18 @@ export default function DonateFlow() {
       setError('Please enter your email address');
       return;
     }
+    const topUp = isNaN(topUpCents) ? 0 : topUpCents;
+    if (cart.length === 0 && topUp <= 0) {
+      setError('Add an incentive or an additional donation to continue');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
       const result = await createPledge({
         email: email.trim(),
         comment: comment.trim() || undefined,
+        top_up_cents: topUp > 0 ? topUp : undefined,
         items: cart.map((item) => ({
           kind: item.kind,
           target_id: item.target_id,
@@ -104,7 +113,11 @@ export default function DonateFlow() {
           data: item.data,
         })),
       });
+      localStorage.setItem('last_donor_email', email.trim());
       setPledgeResult(result);
+      if (result.donate_url) {
+        window.location.href = result.donate_url;
+      }
     } catch (e) {
       setError(apiErrorMessage(e, 'Failed to create pledge'));
     } finally {
@@ -131,15 +144,6 @@ export default function DonateFlow() {
             <p className="font-data text-sm text-off-white/55 mb-1">cart total</p>
             <p className="font-display text-4xl text-d-yellow">{fmt(pledgeResult.total_cents)}</p>
           </div>
-          <a
-            href={pledgeResult.donate_url || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btrl-button block text-center text-lg py-3 mb-3"
-            style={{ background: 'var(--d-yellow)', color: 'black' }}
-          >
-            proceed to secure checkout
-          </a>
           {!pledgeResult.donate_url && (
             <p className="font-body text-xs text-off-white/55">
               No checkout URL configured. Contact the event organizer.
@@ -206,10 +210,13 @@ export default function DonateFlow() {
               <CheckoutStep
                 cart={cart}
                 cartTotal={cartTotal}
+                totalCents={totalCents}
                 email={email}
                 onEmailChange={setEmail}
                 comment={comment}
                 onCommentChange={setComment}
+                topUp={topUp}
+                onTopUpChange={setTopUp}
                 error={error}
                 submitting={submitting}
                 onSubmit={handleCheckout}
@@ -823,20 +830,26 @@ const COMMENT_MAX_LENGTH = 500;
 function CheckoutStep({
   cart,
   cartTotal,
+  totalCents,
   email,
   onEmailChange,
   comment,
   onCommentChange,
+  topUp,
+  onTopUpChange,
   error,
   submitting,
   onSubmit,
 }: {
   cart: CartItem[];
   cartTotal: number;
+  totalCents: number;
   email: string;
   onEmailChange: (value: string) => void;
   comment: string;
   onCommentChange: (value: string) => void;
+  topUp: string;
+  onTopUpChange: (value: string) => void;
   error: string;
   submitting: boolean;
   onSubmit: () => void;
@@ -861,6 +874,9 @@ function CheckoutStep({
               <span className="font-data text-d-yellow">{fmt(item.amount_cents)}</span>
             </div>
           ))}
+          {cart.length === 0 && (
+            <p className="font-body text-sm text-off-white/55">No incentives selected.</p>
+          )}
         </div>
         <div
           className="flex justify-between font-data font-bold pt-3 mt-3"
@@ -869,6 +885,24 @@ function CheckoutStep({
           <span className="text-off-white">minimum donation</span>
           <span className="text-d-yellow">{fmt(cartTotal)}</span>
         </div>
+      </Card>
+
+      <Card className="mb-4">
+        <label className="block font-data font-bold text-sm mb-1 text-off-white">
+          additional donation <span className="text-off-white/40 font-normal">(optional)</span>
+        </label>
+        <p className="font-body text-xs text-off-white/55 mb-2">
+          Add extra on top of your incentives. It's credited to your wallet as spendable balance.
+        </p>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          className="w-full px-3 py-2 text-sm"
+          placeholder="0.00"
+          value={topUp}
+          onChange={(e) => onTopUpChange(sanitizeMoneyInput(e.target.value))}
+        />
       </Card>
 
       <Card className="mb-4">
@@ -912,11 +946,11 @@ function CheckoutStep({
 
       <button
         onClick={onSubmit}
-        disabled={submitting || cart.length === 0}
+        disabled={submitting || (cart.length === 0 && totalCents <= 0)}
         className="btrl-button w-full text-center text-lg py-3"
         style={{ background: 'var(--d-yellow)', color: 'black' }}
       >
-        {submitting ? 'creating pledge...' : `donate at least ${fmt(cartTotal)}`}
+        {submitting ? 'redirecting to checkout...' : `donate ${fmt(totalCents)}`}
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getPledge } from '../api/pledge';
+import { setDonorToken } from '../utils/authToken';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
 import type { Pledge } from '../types';
@@ -9,20 +10,64 @@ function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 15;
+
 export default function PledgeReturn() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [pledge, setPledge] = useState<Pledge | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const attempts = useRef(0);
 
   useEffect(() => {
     if (!token) {
       setError('No pledge token provided.');
       return;
     }
-    getPledge(token)
-      .then(setPledge)
-      .catch(() => setError('Could not load pledge status.'));
-  }, [token]);
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (cancelled) return;
+      attempts.current += 1;
+      try {
+        const data = await getPledge(token);
+        if (cancelled) return;
+        setPledge(data);
+
+        if (data.status === 'FULFILLED') {
+          if (data.magic_token) {
+            setDonorToken(data.magic_token);
+            navigate('/wallet');
+          }
+          return;
+        }
+        if (data.status === 'EXPIRED' || new Date(data.expires_at) < new Date()) {
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+        setError('Could not load pledge status.');
+        return;
+      }
+
+      if (attempts.current >= POLL_MAX_ATTEMPTS) {
+        setTimedOut(true);
+        return;
+      }
+      timer = setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [token, navigate]);
 
   if (error) {
     return (
@@ -63,10 +108,17 @@ export default function PledgeReturn() {
               wallet balance.
             </p>
           </div>
+        ) : timedOut ? (
+          <div className="mb-4 p-3 rounded-sm" style={{ background: 'rgba(208,152,70,.16)' }}>
+            <p className="font-data text-sm" style={{ color: 'var(--d-yellow)' }}>
+              Still processing your donation. Check your email for the magic link — it may take a
+              moment to arrive.
+            </p>
+          </div>
         ) : (
           <div className="mb-4 p-3 rounded-sm" style={{ background: 'rgba(115,78,158,.3)' }}>
             <p className="font-data text-sm text-off-white">
-              Pending — waiting for your donation to be processed on Tiltify.
+              Processing your donation... this usually takes a few seconds.
             </p>
           </div>
         )}

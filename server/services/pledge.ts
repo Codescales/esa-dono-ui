@@ -19,6 +19,7 @@ interface CreatePledgeInput {
   email?: string | null;
   comment?: string | null;
   items: PledgeItemInput[];
+  top_up_cents?: number;
 }
 
 const COMMENT_MAX_LENGTH = 500;
@@ -28,9 +29,20 @@ const COMMENT_MAX_LENGTH = 500;
  * Validates each item against live state, computes total, persists.
  * Returns { pledge_token, total_cents, donate_url }.
  */
-export async function createPledge({ email, comment, items }: CreatePledgeInput) {
-  if (!items || !Array.isArray(items) || items.length === 0) {
+export async function createPledge({ email, comment, items, top_up_cents }: CreatePledgeInput) {
+  if (!items || !Array.isArray(items)) {
     throw Object.assign(new Error('At least one item required'), { status: 400 });
+  }
+
+  const topUp = top_up_cents ?? 0;
+  if (!Number.isInteger(topUp) || topUp < 0) {
+    throw Object.assign(new Error('top_up_cents must be a non-negative integer'), { status: 400 });
+  }
+
+  if (items.length === 0 && topUp === 0) {
+    throw Object.assign(new Error('At least one item or an additional donation is required'), {
+      status: 400,
+    });
   }
 
   let commentValue: string | null = null;
@@ -154,7 +166,8 @@ export async function createPledge({ email, comment, items }: CreatePledgeInput)
       pledge_token: pledgeToken,
       donor_email: email || null,
       comment: commentValue,
-      total_cents: totalCents,
+      total_cents: totalCents + topUp,
+      top_up_cents: topUp,
       status: 'OPEN',
       expires_at: expiresAt,
       items: {

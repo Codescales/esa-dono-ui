@@ -48,15 +48,18 @@ router.get('/:token', async (req: Request, res: Response) => {
     const { default: prisma } = await import('../lib/prisma.js');
     const pledge = await prisma.pendingPledge.findUnique({
       where: { pledge_token: req.params.token },
-      include: { items: true },
+      include: { items: true, fulfilled_by: { include: { donor: true } } },
     });
     if (!pledge) return res.status(404).json({ error: 'Pledge not found' });
     res.json({
       pledge_token: pledge.pledge_token,
       total_cents: pledge.total_cents,
+      top_up_cents: pledge.top_up_cents,
       status: pledge.status,
       donor_email: pledge.donor_email,
       expires_at: pledge.expires_at,
+      magic_token:
+        pledge.status === 'FULFILLED' ? (pledge.fulfilled_by?.donor?.magic_token ?? null) : null,
       items: pledge.items.map((i) => ({
         kind: i.kind,
         target_id: i.target_id,

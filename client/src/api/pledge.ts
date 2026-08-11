@@ -4,6 +4,7 @@ import type { CartItem, PledgeResult, Pledge } from '../types';
 interface CreatePledgeInput {
   email: string;
   comment?: string;
+  top_up_cents?: number;
   items: Array<{
     kind: CartItem['kind'];
     target_id: string;

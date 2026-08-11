@@ -17,9 +17,28 @@ describe('Pledge Service', () => {
   });
 
   describe('createPledge', () => {
-    it('rejects empty items', async () => {
-      await expect(createPledge({ items: [] })).rejects.toThrow('At least one item required');
+    it('rejects empty items with no additional donation', async () => {
+      await expect(createPledge({ items: [] })).rejects.toThrow(
+        'At least one item or an additional donation is required',
+      );
     });
+
+    it('rejects negative top_up_cents', async () => {
+      await expect(createPledge({ items: [], top_up_cents: -1 })).rejects.toThrow(
+        'top_up_cents must be a non-negative integer',
+      );
+    });
+
+    it('creates a pure top-up pledge with no items', async () => {
+      const result = await createPledge({
+        email: 'topup@example.com',
+        items: [],
+        top_up_cents: 1000,
+      });
+      expect(result.pledge_token).toBeTruthy();
+      expect(result.total_cents).toBe(1000);
+      await prisma.pendingPledge.delete({ where: { pledge_token: result.pledge_token } });
+    }, 10000);
 
     it('rejects invalid item kind', async () => {
       await expect(
