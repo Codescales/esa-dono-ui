@@ -40,6 +40,27 @@ describe('Pledge Service', () => {
       await prisma.pendingPledge.delete({ where: { pledge_token: result.pledge_token } });
     }, 10000);
 
+    it('adds top_up_cents to the item total and persists it', async () => {
+      const reward = await prisma.reward.create({
+        data: { title: 'Top-up Reward', type: 'DIGITAL', cost_cents: 500, quantity_total: 10 },
+      });
+      const result = await createPledge({
+        email: 'topup2@example.com',
+        items: [{ kind: 'REWARD', target_id: reward.id }],
+        top_up_cents: 1500,
+      });
+      expect(result.total_cents).toBe(500 + 1500);
+
+      const stored = await prisma.pendingPledge.findUnique({
+        where: { pledge_token: result.pledge_token },
+      });
+      expect(stored?.top_up_cents).toBe(1500);
+      expect(stored?.total_cents).toBe(2000);
+
+      await prisma.pendingPledge.delete({ where: { pledge_token: result.pledge_token } });
+      await prisma.reward.delete({ where: { id: reward.id } });
+    }, 10000);
+
     it('rejects invalid item kind', async () => {
       await expect(
         createPledge({ items: [{ kind: 'INVALID' as any, target_id: 'x' }] }),

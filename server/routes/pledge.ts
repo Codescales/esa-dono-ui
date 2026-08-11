@@ -11,8 +11,8 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, comment, items } = req.body;
-    const pledge = await createPledge({ email, comment, items });
+    const { email, comment, items, top_up_cents } = req.body;
+    const pledge = await createPledge({ email, comment, items, top_up_cents });
 
     // Create Stripe Checkout Session for deterministic linkage (graceful fallback)
     let checkout: {
