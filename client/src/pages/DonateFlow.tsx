@@ -285,12 +285,22 @@ export default function DonateFlow() {
                 ))}
               </div>
             )}
+            {topUpCents > 0 && (
+              <div className="flex justify-between items-start text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-data text-off-white truncate">additional donation</p>
+                </div>
+                <div className="flex items-center gap-2 ml-2">
+                  <span className="font-data text-d-yellow">{fmt(topUpCents)}</span>
+                </div>
+              </div>
+            )}
             <div
               className="flex justify-between font-data font-bold pt-3"
               style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
             >
               <span className="text-off-white">total</span>
-              <span className="text-d-yellow">{fmt(cartTotal)}</span>
+              <span className="text-d-yellow">{fmt(totalCents)}</span>
             </div>
             <p className="font-body text-[10px] text-off-white/55 mt-2">
               You'll donate at least this amount. Anything extra becomes wallet balance.
