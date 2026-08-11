@@ -123,9 +123,9 @@ router.post('/simulate-donation', async (req, res) => {
         .status(400)
         .json({ error: `email and amount_cents (min ${MIN_SPEND_CENTS}) required` });
     }
-    const tiltifyId = `sim-${crypto.randomUUID()}`;
+    const externalId = `sim-${crypto.randomUUID()}`;
     const result = await processDonation({
-      tiltifyId,
+      externalId,
       email,
       donorName: donor_name || 'Anonymous',
       amountCents: cents,
@@ -133,7 +133,7 @@ router.post('/simulate-donation', async (req, res) => {
       pledgeToken: pledge_token || null,
     });
     if ('duplicate' in result) {
-      // sim always uses a fresh tiltifyId, so this branch is unreachable;
+      // sim always uses a fresh externalId, so this branch is unreachable;
       // narrow the union for TypeScript without altering behavior.
       throw new Error('Duplicate donation');
     }

@@ -43,7 +43,7 @@ describe('processDonation', () => {
 
     const { processDonation } = await import('../../services/donation.js');
     const result = await processDonation({
-      tiltifyId: 'tiltify-1',
+      externalId: 'tiltify-1',
       email: 'Alice@Example.com',
       donorName: 'Alice',
       amountCents: 2500,
@@ -68,7 +68,7 @@ describe('processDonation', () => {
     expect(mockTxDonation.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          tiltify_id: 'tiltify-1',
+          external_id: 'tiltify-1',
           donor_id: 'donor-1',
           amount_cents: 2500,
         }),
@@ -77,7 +77,7 @@ describe('processDonation', () => {
     expect(sendMagicLink).toHaveBeenCalledWith('alice@example.com', 'abc123');
   });
 
-  it('returns { duplicate: true } when tiltify_id already exists', async () => {
+  it('returns { duplicate: true } when external_id already exists', async () => {
     const donor = { id: 'donor-1', email: 'alice@example.com', magic_token: 'abc123' };
     mockTxDonor.upsert.mockResolvedValue(donor);
     const p2002 = new Error('Unique constraint failed') as Error & { code: string };
@@ -93,7 +93,7 @@ describe('processDonation', () => {
 
     const { processDonation } = await import('../../services/donation.js');
     const result = await processDonation({
-      tiltifyId: 'tiltify-1',
+      externalId: 'tiltify-1',
       email: 'alice@example.com',
       donorName: 'Alice',
       amountCents: 2500,
@@ -112,7 +112,7 @@ describe('processDonation', () => {
 
     const { processDonation } = await import('../../services/donation.js');
     const result = await processDonation({
-      tiltifyId: 'tiltify-2',
+      externalId: 'tiltify-2',
       email: 'alice@example.com',
       donorName: 'Alice',
       amountCents: 1000,
@@ -137,7 +137,7 @@ describe('processDonation', () => {
 
     const { processDonation } = await import('../../services/donation.js');
     await processDonation({
-      tiltifyId: 'tid-1',
+      externalId: 'tid-1',
       email: '  BOB@Example.COM  ',
       donorName: 'Bob',
       amountCents: 500,
@@ -167,7 +167,7 @@ describe('processDonation', () => {
 
     const { processDonation } = await import('../../services/donation.js');
     await processDonation({
-      tiltifyId: 'tid-2',
+      externalId: 'tid-2',
       email: 'existing@example.com',
       donorName: 'Existing',
       amountCents: 500,

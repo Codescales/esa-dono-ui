@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 
 // MUST mount webhook BEFORE express.json()
-app.use('/api/webhooks/tiltify', express.raw({ type: 'application/json' }), webhookRouter);
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhookRouter);
 
 app.use(express.json());
 
@@ -29,9 +29,6 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   } catch (err) {
     res.status(503).json({ ok: false, db: false, error: (err as Error).message });
   }
-});
-app.get('/api/donate-url', (_req: Request, res: Response) => {
-  res.json({ url: process.env.TILTIFY_DONATE_URL || null });
 });
 app.use('/api/campaign', campaignRouter);
 app.use('/api/donor', donorRouter);

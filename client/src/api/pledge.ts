@@ -3,6 +3,7 @@ import type { CartItem, PledgeResult, Pledge } from '../types';
 
 interface CreatePledgeInput {
   email: string;
+  comment?: string;
   items: Array<{
     kind: CartItem['kind'];
     target_id: string;

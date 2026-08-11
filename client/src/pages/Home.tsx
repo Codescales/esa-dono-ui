@@ -76,20 +76,6 @@ export default function Home() {
         >
           donate now
         </Link>
-
-        {/* Secondary CTA — skip straight to Tiltify */}
-        {campaign.donate_url && (
-          <div className="mt-4 text-center">
-            <a
-              href={campaign.donate_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block font-data font-bold text-sm tracking-wider lowercase text-off-white/55 hover:text-off-white no-underline"
-            >
-              skip the incentives &rarr;
-            </a>
-          </div>
-        )}
       </div>
     </div>
   );

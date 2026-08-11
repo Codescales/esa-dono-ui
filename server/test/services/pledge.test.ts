@@ -207,7 +207,7 @@ describe('Pledge Service', () => {
       });
 
       const result = await processDonation({
-        tiltifyId: `test-${crypto.randomUUID()}`,
+        externalId: `test-${crypto.randomUUID()}`,
         email: 'fulfill@example.com',
         donorName: 'Test',
         amountCents: 1000,
@@ -243,7 +243,7 @@ describe('Pledge Service', () => {
       });
 
       const result = await processDonation({
-        tiltifyId: `test-${crypto.randomUUID()}`,
+        externalId: `test-${crypto.randomUUID()}`,
         email: 'writein-fulfill@example.com',
         donorName: 'Test',
         amountCents: 300,
@@ -295,7 +295,7 @@ describe('Pledge Service', () => {
       });
 
       const result = await processDonation({
-        tiltifyId: `test-${crypto.randomUUID()}`,
+        externalId: `test-${crypto.randomUUID()}`,
         email: 'writein-review@example.com',
         donorName: 'Test',
         amountCents: 300,
@@ -326,7 +326,7 @@ describe('Pledge Service', () => {
 
     it('gracefully degrades when no pledge matches', async () => {
       const result = await processDonation({
-        tiltifyId: `test-${crypto.randomUUID()}`,
+        externalId: `test-${crypto.randomUUID()}`,
         email: 'nopledge@example.com',
         donorName: 'Test',
         amountCents: 1000,
@@ -341,9 +341,9 @@ describe('Pledge Service', () => {
     }, 10000);
 
     it('handles duplicate donation idempotently', async () => {
-      const tiltifyId = `test-dup-${crypto.randomUUID()}`;
+      const externalId = `test-dup-${crypto.randomUUID()}`;
       const result1 = await processDonation({
-        tiltifyId,
+        externalId,
         email: 'dup@example.com',
         donorName: 'Test',
         amountCents: 1000,
@@ -351,7 +351,7 @@ describe('Pledge Service', () => {
       expect((result1 as any).duplicate).toBeFalsy();
 
       const result2 = await processDonation({
-        tiltifyId,
+        externalId,
         email: 'dup@example.com',
         donorName: 'Test',
         amountCents: 1000,

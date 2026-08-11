@@ -135,7 +135,6 @@ export interface Campaign {
   name?: string;
   title?: string;
   description?: string;
-  donate_url?: string;
   logo?: { src?: string };
   amount_raised?: { value?: string };
   total_amount_raised?: { value?: string };

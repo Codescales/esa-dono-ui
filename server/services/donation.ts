@@ -6,7 +6,7 @@ import { resolvePledge, fulfillPledge } from './pledge.js';
 import { TOKEN_TTL_MS } from '../config.js';
 
 interface ProcessDonationOptions {
-  tiltifyId: string;
+  externalId: string;
   email: string;
   donorName: string;
   amountCents: number;
@@ -15,10 +15,10 @@ interface ProcessDonationOptions {
 }
 
 /**
- * Shared donation processing — used by both the Tiltify webhook
+ * Shared donation processing — used by both the Stripe webhook
  * and the admin simulation endpoint.
  *
- * Idempotent: if tiltifyId already exists, returns { duplicate: true }
+ * Idempotent: if externalId already exists, returns { duplicate: true }
  * without crediting balance or sending email.
  *
  * Stable token: existing donors keep their magic_token (not rotated).
@@ -26,9 +26,11 @@ interface ProcessDonationOptions {
  *
  * If pledgeToken is provided (or resolvable by email+amount), the pledge
  * items are auto-fulfilled from the credited balance. Remainder stays as
- * spendable balance_remaining.
+ * spendable balance_remaining. When a pledge is fulfilled, the donation's
+ * comment is sourced from the pledge (donor captured it in the cart); the
+ * caller-supplied comment is used as a fallback otherwise.
  *
- * @param {string}  options.tiltifyId
+ * @param {string}  options.externalId
  * @param {string}  options.email
  * @param {string}  options.donorName
  * @param {number}  options.amountCents
@@ -37,7 +39,7 @@ interface ProcessDonationOptions {
  * @returns {{ donor, token, pledge? }} | {{ duplicate: true }}
  */
 export async function processDonation({
-  tiltifyId,
+  externalId,
   email,
   donorName,
   amountCents,
@@ -76,11 +78,11 @@ export async function processDonation({
 
       const donation = await tx.donation.create({
         data: {
-          tiltify_id: tiltifyId,
+          external_id: externalId,
           donor_id: donor.id,
           amount_cents: amountCents,
           donor_name: donorName,
-          comment,
+          comment: comment ?? null,
         },
       });
 
@@ -96,7 +98,10 @@ export async function processDonation({
           pledgeResult = await fulfillPledge(tx, pledge, donor.id);
           await tx.donation.update({
             where: { id: donation.id },
-            data: { pledge: { connect: { id: pledge.id } } },
+            data: {
+              pledge: { connect: { id: pledge.id } },
+              ...(pledge.comment ? { comment: pledge.comment } : {}),
+            },
           });
         }
       } catch (pledgeErr) {

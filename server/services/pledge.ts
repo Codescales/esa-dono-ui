@@ -4,6 +4,7 @@ import { MIN_SPEND_CENTS } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { claimRewardTx, votePollTx, contributeGoalTx, proposeCustomEntryTx } from './spend.js';
 import { checkBlockedWords } from './blockedWords.js';
+import { isStripeConfigured } from './stripe.js';
 import { PLEDGE_TTL_MS } from '../config.js';
 
 interface PledgeItemInput {
@@ -16,17 +17,35 @@ interface PledgeItemInput {
 
 interface CreatePledgeInput {
   email?: string | null;
+  comment?: string | null;
   items: PledgeItemInput[];
 }
+
+const COMMENT_MAX_LENGTH = 500;
 
 /**
  * Create a pending pledge from cart items.
  * Validates each item against live state, computes total, persists.
  * Returns { pledge_token, total_cents, donate_url }.
  */
-export async function createPledge({ email, items }: CreatePledgeInput) {
+export async function createPledge({ email, comment, items }: CreatePledgeInput) {
   if (!items || !Array.isArray(items) || items.length === 0) {
     throw Object.assign(new Error('At least one item required'), { status: 400 });
+  }
+
+  let commentValue: string | null = null;
+  if (comment != null && comment.trim().length > 0) {
+    commentValue = comment.trim();
+    if (commentValue.length > COMMENT_MAX_LENGTH) {
+      throw Object.assign(
+        new Error(`Comment exceeds maximum of ${COMMENT_MAX_LENGTH} characters`),
+        { status: 400 },
+      );
+    }
+    const blockedError = await checkBlockedWords(commentValue);
+    if (blockedError) {
+      throw Object.assign(new Error(blockedError), { status: 400 });
+    }
   }
 
   // Validate all items against live data
@@ -134,6 +153,7 @@ export async function createPledge({ email, items }: CreatePledgeInput) {
     data: {
       pledge_token: pledgeToken,
       donor_email: email || null,
+      comment: commentValue,
       total_cents: totalCents,
       status: 'OPEN',
       expires_at: expiresAt,
@@ -262,62 +282,36 @@ export async function resolvePledge({
 }
 
 /**
- * Create a Tiltify relay key for a pledge and return the donate URL.
- * Requires TILTIFY_CLIENT_ID, TILTIFY_CLIENT_SECRET, TILTIFY_WEBHOOK_RELAY_ID, TILTIFY_DONATE_ID.
- * Falls back to plain donate URL if relay config is missing.
+ * Create a Stripe Checkout Session for a pledge and return the checkout URL.
+ * Requires STRIPE_SECRET_KEY. Falls back to a null URL if Stripe is not configured.
  */
-export async function createRelayForPledge(pledgeToken: string) {
-  const relayId = process.env.TILTIFY_WEBHOOK_RELAY_ID;
-  const donateId = process.env.TILTIFY_DONATE_ID;
-  const donateUrl = process.env.TILTIFY_DONATE_URL;
-
-  if (!relayId || !donateId) {
-    return { donate_url: donateUrl || null, relay_client_key: null };
+export async function createCheckoutForPledge(pledgeToken: string) {
+  if (!isStripeConfigured()) {
+    return { donate_url: null, checkout_session_id: null };
   }
-
-  const { getAccessToken } = await import('./tiltify.js');
-  const token = await getAccessToken('webhooks:write');
-
-  const res = await fetch(
-    `https://v5api.tiltify.com/api/private/webhook_relays/${relayId}/webhook_relay_keys`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id: `pledge_${pledgeToken}`,
-        metadata: '',
-      }),
-    },
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('Tiltify relay key creation failed:', res.status, text);
-    return { donate_url: donateUrl || null, relay_client_key: null };
-  }
-
-  const data = (await res.json()) as { data?: { client_key?: string } };
-  const clientKey = data.data?.client_key;
-
-  // Store the relay key info on the pledge
-  await prisma.pendingPledge.update({
-    where: { pledge_token: pledgeToken },
-    data: {
-      relay_key_id: `pledge_${pledgeToken}`,
-      relay_client_key: clientKey,
-    },
-  });
-
-  const relayUrl = `https://donate.tiltify.com/${donateId}?relay=${clientKey}`;
 
   const pledge = await prisma.pendingPledge.findUnique({
     where: { pledge_token: pledgeToken },
-    select: { total_cents: true },
+    select: { total_cents: true, donor_email: true },
   });
-  const amountParam = pledge ? `&amount=${pledge.total_cents / 100}` : '';
+  if (!pledge) {
+    throw Object.assign(new Error('Pledge not found'), { status: 404 });
+  }
 
-  return { donate_url: relayUrl + amountParam, relay_client_key: clientKey };
+  const { createCheckoutSession } = await import('./stripe.js');
+  const session = await createCheckoutSession({
+    pledgeToken,
+    amountCents: pledge.total_cents,
+    email: pledge.donor_email,
+  });
+
+  await prisma.pendingPledge.update({
+    where: { pledge_token: pledgeToken },
+    data: {
+      checkout_session_id: session.id,
+      checkout_url: session.url,
+    },
+  });
+
+  return { donate_url: session.url, checkout_session_id: session.id };
 }

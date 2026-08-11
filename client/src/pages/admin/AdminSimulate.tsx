@@ -146,14 +146,14 @@ export default function AdminSimulate() {
       <Card className="mt-4">
         <h3 className="font-data font-bold text-sm mb-2 text-off-white">curl alternative</h3>
         <p className="font-body text-xs text-off-white/55 mb-2">
-          When TILTIFY_WEBHOOK_SECRET is unset, you can POST directly to the webhook:
+          When STRIPE_WEBHOOK_SECRET is unset, you can POST directly to the webhook:
         </p>
         <pre
           className="p-3 rounded-sm text-xs overflow-x-auto"
           style={{ background: 'rgba(0,0,0,0.4)', color: 'var(--green)' }}
-        >{`curl -X POST http://localhost:3001/api/webhooks/tiltify \\
+        >{`curl -X POST http://localhost:3001/api/webhooks/stripe \\
   -H "Content-Type: application/json" \\
-  -d '{"meta":{"event_type":"donation.completed"},"data":{"id":"test-123","donor_email":"test@example.com","donor_name":"Test","amount":{"value":"10.00"},"comment":"test"}}'`}</pre>
+  -d '{"type":"checkout.session.completed","data":{"object":{"id":"cs_test_123","amount_total":1000,"customer_details":{"email":"test@example.com","name":"Test"}}}}'`}</pre>
       </Card>
     </div>
   );

@@ -1,34 +1,37 @@
 import { Router, type Request, type Response } from 'express';
-import { createPledge, createRelayForPledge } from '../services/pledge.js';
+import { createPledge, createCheckoutForPledge } from '../services/pledge.js';
 
 const router = Router();
 
 /**
  * POST /api/pledge
  * Create a pending pledge from cart items.
- * Body: { email?, items: [{ kind, target_id, amount_cents?, poll_id?, data? }] }
- * Returns: { pledge_token, total_cents, expires_at, donate_url }
+ * Body: { email?, comment?, items: [{ kind, target_id, amount_cents?, poll_id?, data? }] }
+ * Returns: { pledge_token, total_cents, expires_at, donate_url, has_checkout }
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, items } = req.body;
-    const pledge = await createPledge({ email, items });
+    const { email, comment, items } = req.body;
+    const pledge = await createPledge({ email, comment, items });
 
-    // Create Tiltify relay key for deterministic linkage (graceful fallback)
-    let relay: { donate_url: string | null; relay_client_key: string | null | undefined } = {
+    // Create Stripe Checkout Session for deterministic linkage (graceful fallback)
+    let checkout: {
+      donate_url: string | null;
+      checkout_session_id: string | null;
+    } = {
       donate_url: null,
-      relay_client_key: null,
+      checkout_session_id: null,
     };
     try {
-      relay = await createRelayForPledge(pledge.pledge_token);
-    } catch (relayErr) {
-      console.error('Relay key creation failed (non-fatal):', relayErr);
+      checkout = await createCheckoutForPledge(pledge.pledge_token);
+    } catch (checkoutErr) {
+      console.error('Checkout session creation failed (non-fatal):', checkoutErr);
     }
 
     res.json({
       ...pledge,
-      donate_url: relay.donate_url,
-      has_relay: !!relay.relay_client_key,
+      donate_url: checkout.donate_url,
+      has_checkout: !!checkout.checkout_session_id,
     });
   } catch (err) {
     const status = (err as { status?: number }).status || 500;

@@ -76,13 +76,13 @@ echo "   Goals: $G1 $G2 $G3"
 # --- Donations (creates donors) ---
 echo "==> Firing donation webhooks..."
 for payload in \
-  '{"type":"donation.completed","data":{"id":"fake-001","donor_email":"alice@example.com","donor_name":"Alice Speedrun","amount":{"value":"100.00"},"comment":"Love what you all do!"}}' \
-  '{"type":"donation.completed","data":{"id":"fake-002","donor_email":"bob@example.com","donor_name":"Bob Gamer","amount":{"value":"50.00"},"comment":"Go go go!"}}' \
-  '{"type":"donation.completed","data":{"id":"fake-003","donor_email":"carol@example.com","donor_name":"Carol Plays","amount":{"value":"25.00"},"comment":"First time donating, hyped!"}}' \
-  '{"type":"donation.completed","data":{"id":"fake-004","donor_email":"dave@example.com","donor_name":"Dave","amount":{"value":"200.00"},"comment":""}}' \
-  '{"type":"donation.completed","data":{"id":"fake-005","donor_email":"eve@example.com","donor_name":"Eve the Runner","amount":{"value":"75.00"},"comment":"Keep the runners fed!"}}' \
-  '{"type":"donation.completed","data":{"id":"fake-006","donor_email":"alice@example.com","donor_name":"Alice Speedrun","amount":{"value":"30.00"},"comment":"Second donation, lets go!"}}'; do
-  curl -sf -X POST $BASE/api/webhooks/tiltify -H "Content-Type: application/json" --data-raw "$payload" > /dev/null
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-001","amount_total":10000,"customer_details":{"email":"alice@example.com","name":"Alice Speedrun"}}}}' \
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-002","amount_total":5000,"customer_details":{"email":"bob@example.com","name":"Bob Gamer"}}}}' \
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-003","amount_total":2500,"customer_details":{"email":"carol@example.com","name":"Carol Plays"}}}}' \
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-004","amount_total":20000,"customer_details":{"email":"dave@example.com","name":"Dave"}}}}' \
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-005","amount_total":7500,"customer_details":{"email":"eve@example.com","name":"Eve the Runner"}}}}' \
+  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-006","amount_total":3000,"customer_details":{"email":"alice@example.com","name":"Alice Speedrun"}}}}'; do
+  curl -sf -X POST $BASE/api/webhooks/stripe -H "Content-Type: application/json" --data-raw "$payload" > /dev/null
 done
 echo "   6 donations created."
 

@@ -1,84 +1,62 @@
 import { Router, type Request, type Response } from 'express';
-import crypto from 'crypto';
-import { amountToCents, type TiltifyWebhookPayload } from '@dono/shared';
+import Stripe from 'stripe';
 
 const router = Router();
 
 router.post('/', async (req: Request, res: Response) => {
+  const rawBody = req.body as Buffer; // Buffer from express.raw()
+  const { verifyWebhook } = await import('../services/stripe.js');
+
+  let event: Stripe.Event;
   try {
-    const signature = req.headers['x-tiltify-signature'];
-    const timestamp = req.headers['x-tiltify-timestamp'];
-    const rawBody = req.body as Buffer; // Buffer from express.raw()
-
-    if (process.env.TILTIFY_WEBHOOK_SECRET) {
-      if (!signature || !timestamp) {
-        return res.status(400).json({ error: 'Missing signature headers' });
-      }
-      const message = timestamp + '.' + rawBody.toString();
-      const expectedSig = crypto
-        .createHmac('sha256', process.env.TILTIFY_WEBHOOK_SECRET)
-        .update(message)
-        .digest('hex');
-      const sigBuffer = Buffer.from(signature as string);
-      const expectedBuffer = Buffer.from(expectedSig);
-      if (
-        sigBuffer.length !== expectedBuffer.length ||
-        !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
-      ) {
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
+    event = await verifyWebhook(rawBody, req.headers['stripe-signature']);
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeSignatureVerificationError) {
+      return res.status(400).json({ error: 'Invalid signature' });
     }
+    console.error('Webhook verification error:', err);
+    return res.status(400).json({ error: 'Invalid signature' });
+  }
 
-    const payload = JSON.parse(rawBody.toString()) as TiltifyWebhookPayload;
-    const meta = payload.meta ?? {};
-    const eventType = meta.event_type ?? payload.type ?? '';
-
-    // Handle relay events (private:relay:donation_updated)
-    const isRelay = eventType.includes('relay');
-    const isDonationEvent =
-      eventType.includes('donation_updated') || eventType === 'donation.completed';
-
-    if (!isDonationEvent) {
+  try {
+    if (event.type !== 'checkout.session.completed') {
       return res.status(200).json({ received: true });
     }
 
-    const donation = payload.data ?? payload.donation ?? {};
-    const tiltifyId = donation.id?.toString() ?? donation.legacy_id?.toString();
-    const email = donation.donor_email ?? donation.campaign_donation?.donor?.email;
-    const donorName = donation.donor_name ?? donation.campaign_donation?.donor?.name ?? 'Anonymous';
-    const rawAmount =
-      typeof donation.amount === 'object' && donation.amount !== null
-        ? donation.amount.value
-        : donation.amount;
-    const amountCents = amountToCents(rawAmount ?? 0);
-    const comment = donation.comment ?? donation.campaign_donation?.comment ?? null;
+    const session = event.data?.object as
+      | {
+          id?: string;
+          amount_total?: number | null;
+          customer_details?: { email?: string | null; name?: string | null } | null;
+          customer_email?: string | null;
+          metadata?: Record<string, string> | null;
+          client_reference_id?: string | null;
+        }
+      | undefined;
 
-    // For relay events, extract the pledge token from relay_key_id
-    let pledgeToken: string | null = null;
-    if (isRelay && meta.relay_key_id) {
-      const pledgePrefix = 'pledge_';
-      if (meta.relay_key_id.startsWith(pledgePrefix)) {
-        pledgeToken = meta.relay_key_id.slice(pledgePrefix.length);
-      }
+    if (!session) {
+      return res.status(200).json({ received: true, skipped: 'no session object' });
     }
 
-    // For relay events, only process completed payments
-    if (isRelay && donation.payment_status && donation.payment_status !== 'completed') {
-      return res.status(200).json({ received: true, status: donation.payment_status });
-    }
+    const externalId = session.id;
+    const pledgeToken = session.metadata?.pledge_token ?? session.client_reference_id ?? null;
+    const email = session.customer_details?.email ?? session.customer_email;
+    const donorName = session.customer_details?.name ?? 'Anonymous';
+    const amountCents = session.amount_total ?? 0;
 
-    if (!email || !tiltifyId) {
+    if (!email || !externalId) {
       return res.status(200).json({ received: true, skipped: 'missing email or id' });
     }
 
-    // Delegate to shared donation processor
+    // Delegate to shared donation processor. Comment is sourced from the resolved
+    // pledge (donor captured it in the cart), so none is passed here.
     const { processDonation } = await import('../services/donation.js');
     await processDonation({
-      tiltifyId,
+      externalId,
       email,
       donorName,
       amountCents,
-      comment,
+      comment: null,
       pledgeToken,
     });
 

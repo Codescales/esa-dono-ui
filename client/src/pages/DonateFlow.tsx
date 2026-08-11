@@ -7,7 +7,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
 import ProgressBar from '../components/ProgressBar';
 import Modal from '../components/Modal';
-import client from '../api/client';
 import { sanitizeMoneyInput } from '../utils/money';
 import {
   CART_SYNC_DEBOUNCE_MS,
@@ -41,17 +40,10 @@ export default function DonateFlow() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [email, setEmail] = useState('');
+  const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [pledgeResult, setPledgeResult] = useState<PledgeResult | null>(null);
-  const [donateUrl, setDonateUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    client
-      .get('/donate-url')
-      .then((r) => setDonateUrl(r.data.url))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     Promise.all([getRewards(), getPolls(), getGoals()])
@@ -103,6 +95,7 @@ export default function DonateFlow() {
     try {
       const result = await createPledge({
         email: email.trim(),
+        comment: comment.trim() || undefined,
         items: cart.map((item) => ({
           kind: item.kind,
           target_id: item.target_id,
@@ -145,11 +138,11 @@ export default function DonateFlow() {
             className="btrl-button block text-center text-lg py-3 mb-3"
             style={{ background: 'var(--d-yellow)', color: 'black' }}
           >
-            donate on tiltify
+            proceed to secure checkout
           </a>
           {!pledgeResult.donate_url && (
             <p className="font-body text-xs text-off-white/55">
-              No donate URL configured. Contact the event organizer.
+              No checkout URL configured. Contact the event organizer.
             </p>
           )}
           <p className="font-body text-xs text-off-white/55 text-center">
@@ -215,6 +208,8 @@ export default function DonateFlow() {
                 cartTotal={cartTotal}
                 email={email}
                 onEmailChange={setEmail}
+                comment={comment}
+                onCommentChange={setComment}
                 error={error}
                 submitting={submitting}
                 onSubmit={handleCheckout}
@@ -232,16 +227,6 @@ export default function DonateFlow() {
               &larr; back
             </button>
             <div className="flex items-center gap-4">
-              {step < STEPS.length - 1 && donateUrl && (
-                <a
-                  href={donateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-data font-bold text-sm tracking-wider lowercase text-off-white/55 hover:text-off-white no-underline"
-                >
-                  skip to donation &rarr;
-                </a>
-              )}
               {step < STEPS.length - 1 ? (
                 <button onClick={goNext} disabled={cart.length === 0} className="btrl-button">
                   next &rarr;
@@ -833,11 +818,15 @@ function GoalsStep({
 }
 
 /* ─── Step 4: Checkout ─── */
+const COMMENT_MAX_LENGTH = 500;
+
 function CheckoutStep({
   cart,
   cartTotal,
   email,
   onEmailChange,
+  comment,
+  onCommentChange,
   error,
   submitting,
   onSubmit,
@@ -846,6 +835,8 @@ function CheckoutStep({
   cartTotal: number;
   email: string;
   onEmailChange: (value: string) => void;
+  comment: string;
+  onCommentChange: (value: string) => void;
   error: string;
   submitting: boolean;
   onSubmit: () => void;
@@ -855,8 +846,8 @@ function CheckoutStep({
       <h2 className="font-display text-3xl lowercase text-off-white mb-2">checkout</h2>
       <p className="font-body text-sm text-off-white/55 mb-6">
         Review your selections. You'll donate at least{' '}
-        <strong className="text-d-yellow">{fmt(cartTotal)}</strong> on Tiltify. Anything extra will
-        be credited to your wallet as spendable balance.
+        <strong className="text-d-yellow">{fmt(cartTotal)}</strong>. Anything extra will be credited
+        to your wallet as spendable balance.
       </p>
 
       <Card className="mb-4">
@@ -885,7 +876,7 @@ function CheckoutStep({
           email address
         </label>
         <p className="font-body text-xs text-off-white/55 mb-2">
-          Your magic link and receipt will be sent here. Must match the email you use on Tiltify.
+          Your magic link and receipt will be sent here.
         </p>
         <input
           type="email"
@@ -894,6 +885,23 @@ function CheckoutStep({
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
         />
+      </Card>
+
+      <Card className="mb-4">
+        <label className="block font-data font-bold text-sm mb-1 text-off-white">
+          comment <span className="text-off-white/40 font-normal">(optional)</span>
+        </label>
+        <textarea
+          className="w-full px-3 py-2 text-sm"
+          rows={3}
+          maxLength={COMMENT_MAX_LENGTH}
+          placeholder="Leave a message with your donation"
+          value={comment}
+          onChange={(e) => onCommentChange(e.target.value)}
+        />
+        <p className="font-data text-xs text-off-white/40 mt-1 text-right">
+          {comment.length}/{COMMENT_MAX_LENGTH}
+        </p>
       </Card>
 
       {error && (
@@ -908,7 +916,7 @@ function CheckoutStep({
         className="btrl-button w-full text-center text-lg py-3"
         style={{ background: 'var(--d-yellow)', color: 'black' }}
       >
-        {submitting ? 'creating pledge...' : `donate at least ${fmt(cartTotal)} on tiltify`}
+        {submitting ? 'creating pledge...' : `donate at least ${fmt(cartTotal)}`}
       </button>
     </div>
   );
