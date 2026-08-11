@@ -5,7 +5,10 @@ import prisma from '../lib/prisma.js';
 import { claimRewardTx, votePollTx, contributeGoalTx, proposeCustomEntryTx } from './spend.js';
 import { checkBlockedWords } from './blockedWords.js';
 import { isStripeConfigured } from './stripe.js';
-import { PLEDGE_TTL_MS } from '../config.js';
+import { sendMagicLink } from './email.js';
+import { PLEDGE_TTL_MS, TOKEN_TTL_MS } from '../config.js';
+
+const STRIPE_MIN_CHARGE_CENTS = 50;
 
 interface PledgeItemInput {
   kind: string;
@@ -267,7 +270,7 @@ export async function resolvePledge({
     if (
       pledge &&
       pledge.status === 'OPEN' &&
-      pledge.total_cents <= amountCents &&
+      pledge.total_cents <= amountCents + (pledge.wallet_discount_cents ?? 0) &&
       new Date() < pledge.expires_at
     ) {
       return pledge;
@@ -294,28 +297,104 @@ export async function resolvePledge({
   return null;
 }
 
+export interface WalletDonor {
+  id: string;
+  email: string;
+  balance_remaining: number;
+  magic_token: string | null;
+}
+
 /**
  * Create a Stripe Checkout Session for a pledge and return the checkout URL.
  * Requires STRIPE_SECRET_KEY. Falls back to a null URL if Stripe is not configured.
+ *
+ * When an authenticated donor is provided (resolved from a valid magic token),
+ * their wallet balance is applied as a discount to the Stripe charge,
+ * recorded as wallet_discount_cents on the pledge. If the wallet balance
+ * covers the entire pledge, the pledge is fulfilled directly without Stripe.
+ *
+ * @param pledgeToken The pledge token to create a checkout for
+ * @param donor       Authenticated donor (from magic token validation). If
+ *                     not provided, wallet discount is skipped.
+ * @param email       Unauthenticated email for Stripe customer_email pre-fill.
+ *                     Not used for wallet discount.
  */
-export async function createCheckoutForPledge(pledgeToken: string) {
-  if (!isStripeConfigured()) {
-    return { donate_url: null, checkout_session_id: null };
-  }
-
+export async function createCheckoutForPledge(
+  pledgeToken: string,
+  donor?: WalletDonor | null,
+  email?: string | null,
+) {
   const pledge = await prisma.pendingPledge.findUnique({
     where: { pledge_token: pledgeToken },
-    select: { total_cents: true, donor_email: true },
+    select: { id: true, total_cents: true, donor_email: true, comment: true },
   });
   if (!pledge) {
     throw Object.assign(new Error('Pledge not found'), { status: 404 });
   }
 
+  const stripeEmail = (email || pledge.donor_email || '').trim().toLowerCase();
+
+  let walletDiscountCents = 0;
+  if (donor && donor.balance_remaining > 0) {
+    walletDiscountCents = Math.min(donor.balance_remaining, pledge.total_cents);
+    const projectedCharge = pledge.total_cents - walletDiscountCents;
+    if (projectedCharge > 0 && projectedCharge < STRIPE_MIN_CHARGE_CENTS) {
+      walletDiscountCents = pledge.total_cents - STRIPE_MIN_CHARGE_CENTS;
+    }
+
+    // Wallet covers everything — fulfill directly, no Stripe charge
+    if (walletDiscountCents >= pledge.total_cents) {
+      const fullPledge = await prisma.pendingPledge.findUniqueOrThrow({
+        where: { pledge_token: pledgeToken },
+        include: { items: true },
+      });
+
+      await prisma.$transaction(async (tx) => {
+        await fulfillPledge(tx, fullPledge, donor.id);
+        await tx.pendingPledge.update({
+          where: { pledge_token: pledgeToken },
+          data: {
+            wallet_discount_cents: pledge.total_cents,
+            status: 'FULFILLED',
+          },
+        });
+      });
+
+      sendMagicLink(donor.email, donor.magic_token!).catch((err) =>
+        console.error('Email error:', err),
+      );
+
+      const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
+      return {
+        donate_url: `${baseUrl}/wallet?token=${donor.magic_token}`,
+        checkout_session_id: null,
+        wallet_discount_cents: pledge.total_cents,
+      };
+    }
+  }
+
+  // Store the discount on the pledge so resolvePledge can account for it later
+  if (walletDiscountCents > 0) {
+    await prisma.pendingPledge.update({
+      where: { pledge_token: pledgeToken },
+      data: { wallet_discount_cents: walletDiscountCents },
+    });
+  }
+
+  if (!isStripeConfigured()) {
+    return {
+      donate_url: null,
+      checkout_session_id: null,
+      wallet_discount_cents: walletDiscountCents,
+    };
+  }
+
+  const checkoutAmount = pledge.total_cents - walletDiscountCents;
   const { createCheckoutSession } = await import('./stripe.js');
   const session = await createCheckoutSession({
     pledgeToken,
-    amountCents: pledge.total_cents,
-    email: pledge.donor_email,
+    amountCents: checkoutAmount,
+    email: stripeEmail,
   });
 
   await prisma.pendingPledge.update({
@@ -326,5 +405,9 @@ export async function createCheckoutForPledge(pledgeToken: string) {
     },
   });
 
-  return { donate_url: session.url, checkout_session_id: session.id };
+  return {
+    donate_url: session.url,
+    checkout_session_id: session.id,
+    wallet_discount_cents: walletDiscountCents,
+  };
 }

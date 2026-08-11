@@ -128,6 +128,7 @@ export default function DonateFlow() {
   if (loading) return <LoadingSpinner />;
 
   if (pledgeResult) {
+    const discount = pledgeResult.wallet_discount_cents ?? 0;
     return (
       <div className="max-w-2xl mx-auto p-8">
         <Card>
@@ -143,6 +144,25 @@ export default function DonateFlow() {
           <div className="btrl-panel p-4 mb-4">
             <p className="font-data text-sm text-off-white/55 mb-1">cart total</p>
             <p className="font-display text-4xl text-d-yellow">{fmt(pledgeResult.total_cents)}</p>
+            {discount > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                <p className="font-data text-sm text-off-white/55 mb-1">wallet credit applied</p>
+                <p className="font-display text-xl" style={{ color: 'var(--green)' }}>
+                  -{fmt(discount)}
+                </p>
+                {discount < pledgeResult.total_cents && (
+                  <p className="font-display text-sm text-off-white mt-1">
+                    you'll be charged {fmt(pledgeResult.total_cents - discount)}
+                  </p>
+                )}
+                {discount >= pledgeResult.total_cents && (
+                  <p className="font-body text-sm mt-2" style={{ color: 'var(--green)' }}>
+                    Your wallet balance covers this pledge. No payment needed — redirecting to your
+                    wallet...
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           {!pledgeResult.donate_url && (
             <p className="font-body text-xs text-off-white/55">

@@ -164,6 +164,7 @@ export interface PledgeItem {
 export interface PledgeResult {
   total_cents: number;
   donate_url?: string | null;
+  wallet_discount_cents?: number;
 }
 
 export interface Pledge {

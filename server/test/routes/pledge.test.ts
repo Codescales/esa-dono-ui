@@ -31,6 +31,7 @@ describe('POST /api/pledge', () => {
     vi.mocked(createCheckoutForPledge).mockResolvedValue({
       donate_url: 'https://checkout.stripe.com/cs_test',
       checkout_session_id: 'cs_test_1',
+      wallet_discount_cents: 0,
     });
 
     const res = await request(createApp())
@@ -63,6 +64,7 @@ describe('POST /api/pledge', () => {
     vi.mocked(createCheckoutForPledge).mockResolvedValue({
       donate_url: null,
       checkout_session_id: null,
+      wallet_discount_cents: 0,
     });
 
     const res = await request(createApp())
