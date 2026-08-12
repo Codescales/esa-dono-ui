@@ -32,6 +32,8 @@ info:
   version: '1.0.0'
 
 servers:
+  - url: /api
+    description: Production (same origin)
   - url: http://localhost:3001/api
     description: Local development
 
