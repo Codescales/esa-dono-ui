@@ -37,6 +37,12 @@ app.get('/api/openapi.yaml', (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/x-yaml');
   res.sendFile(resolve(dirname(fileURLToPath(import.meta.url)), 'openapi.yaml'));
 });
+
+app.get('/api/docs', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.sendFile(resolve(dirname(fileURLToPath(import.meta.url)), 'swagger.html'));
+});
+
 app.use('/api/campaign', campaignRouter);
 app.use('/api/donor', donorRouter);
 app.use('/api/rewards', rewardsRouter);
