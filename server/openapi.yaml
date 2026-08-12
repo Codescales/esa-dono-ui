@@ -1,0 +1,1381 @@
+openapi: '3.0.3'
+info:
+  title: ESA Dono API
+  description: |
+    Donation platform with Stripe checkout, wallet balance, pledge (smart cart)
+    auto-fulfillment, rewards, polls, fund goals, and moderator/admin tooling.
+
+    ## Authentication
+
+    | Method | Mechanism | Used By |
+    |--------|-----------|---------|
+    | Donor token | `?token=<magic_token>` query param on every request | Donor wallet, spend endpoints, moderator |
+    | Admin key | `X-Admin-Key: <ADMIN_API_KEY>` header | Admin routes |
+    | Moderator | Donor token + `is_moderator: true` on donor record | Moderator routes |
+    | Stripe webhook | HMAC signature via `stripe-signature` header | Stripe webhook (skipped when `STRIPE_WEBHOOK_SECRET` unset) |
+
+    ## Rate Limiting
+
+    Spend endpoints (`claim`, `vote`, `custom-entry`, `contribute`) are rate-limited:
+    20 requests per minute, keyed by `?token=` or IP. Configurable via `RATE_LIMIT_SPEND`.
+
+    ## Wallet Discount
+
+    When `POST /api/pledge` receives a valid `?token=` (authenticated donor),
+    the donor's `balance_remaining` is applied as a discount on the Stripe
+    checkout amount. If the wallet covers the entire pledge total, the pledge
+    is fulfilled directly without a Stripe charge. See the pledge endpoint for details.
+
+    ## Money
+
+    All monetary values are **integer cents**. Display values as `$X.XX` by dividing by 100.
+  version: '1.0.0'
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Campaign
+  - name: Donor
+  - name: Rewards
+  - name: Polls
+  - name: Goals
+  - name: Pledge
+  - name: Webhook
+  - name: Admin
+  - name: Moderator
+
+paths:
+  # ─── Health ───
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  db: { type: boolean }
+        '503':
+          description: Database down
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { const: false }
+                  db: { const: false }
+                  error: { type: string }
+
+  # ─── Campaign ───
+  /campaign:
+    get:
+      tags: [Campaign]
+      summary: Get campaign totals
+      responses:
+        '200':
+          description: Campaign stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  description: { type: string }
+                  amount_raised:
+                    type: object
+                    properties:
+                      value: { type: string, description: 'Dollars formatted string' }
+                  goal:
+                    type: object
+                    properties:
+                      value: { type: string }
+
+  # ─── Donor ───
+  /donor:
+    get:
+      tags: [Donor]
+      summary: Get current donor profile
+      description: Returns the authenticated donor with nested donations, claims, votes, contributions, and custom entries.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Donor profile
+        '401':
+          description: Missing/invalid/expired token
+        '403':
+          description: Account frozen
+
+  # ─── Rewards ───
+  /rewards:
+    get:
+      tags: [Rewards]
+      summary: List active rewards
+      responses:
+        '200':
+          description: Active rewards ordered by cost_cents ascending
+
+  /rewards/{id}/claim:
+    post:
+      tags: [Rewards]
+      summary: Claim a reward
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                claim_data: {}
+      responses:
+        '200':
+          description: Claim created
+        '400':
+          description: Insufficient balance / sold out / inactive
+        '401':
+          description: Token required
+        '429':
+          description: Rate limited
+
+  # ─── Polls ───
+  /polls:
+    get:
+      tags: [Polls]
+      summary: List active polls
+      responses:
+        '200':
+          description: Active polls with ACTIVE options ordered by votes_cents descending
+
+  /polls/{id}/custom-entry:
+    post:
+      tags: [Polls]
+      summary: Propose a custom poll option (funded write-in)
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, amount_cents]
+              properties:
+                label: { type: string, maxLength: 500 }
+                amount_cents: { type: integer, minimum: 100 }
+      responses:
+        '200':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+                  entry: { type: object }
+                  pending_approval: { type: boolean }
+        '400':
+          description: Validation error
+
+  /polls/{id}/vote:
+    post:
+      tags: [Polls]
+      summary: Vote in a poll
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [poll_option_id, amount_cents]
+              properties:
+                poll_option_id: { type: string }
+                amount_cents: { type: integer, minimum: 100 }
+      responses:
+        '200':
+          description: Vote recorded
+
+  # ─── Goals ───
+  /goals:
+    get:
+      tags: [Goals]
+      summary: List active fund goals
+      responses:
+        '200':
+          description: Active goals ordered by created_at descending
+
+  /goals/{id}/contribute:
+    post:
+      tags: [Goals]
+      summary: Contribute to a fund goal
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents: { type: integer, minimum: 100 }
+      responses:
+        '200':
+          description: Contribution recorded
+
+  # ─── Pledge ───
+  /pledge:
+    post:
+      tags: [Pledge]
+      summary: Create a pending pledge (smart cart)
+      description: |
+        Creates a pending pledge from cart items and (when Stripe is configured)
+        a Stripe Checkout Session. When a valid donor token is provided via
+        `?token=`, the donor's wallet balance is applied as a discount.
+
+        **Wallet discount flow:**
+        - `?token=` present & valid → donor's `balance_remaining` deducted from Stripe charge
+        - Wallet ≥ pledge total → pledge fulfilled immediately, redirected to wallet
+        - Wallet < pledge total → Stripe charges only `total - discount` (min 50 cents)
+        - No `?token=` → no discount applied
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema: { type: string }
+          description: Optional donor magic token for wallet discount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Donor email (for Stripe pre-fill and magic link delivery)
+                comment:
+                  type: string
+                  maxLength: 500
+                top_up_cents:
+                  type: integer
+                  minimum: 0
+                  description: Optional additional donation beyond cart items (credited as wallet balance)
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [kind, target_id]
+                    properties:
+                      kind:
+                        type: string
+                        enum: [REWARD, POLL_VOTE, GOAL, POLL_CUSTOM]
+                      target_id:
+                        type: string
+                        description: reward_id | poll_option_id | goal_id | poll_id (POLL_CUSTOM)
+                      amount_cents:
+                        type: integer
+                        description: Required for POLL_VOTE, GOAL, POLL_CUSTOM (min 100)
+                      poll_id:
+                        type: string
+                        description: Required for POLL_VOTE and POLL_CUSTOM
+                      data:
+                        description: Claim data for REWARD, { label } for POLL_CUSTOM
+      responses:
+        '200':
+          description: Pledge created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pledge_token: { type: string }
+                  total_cents: { type: integer }
+                  expires_at: { type: string, format: date-time }
+                  donate_url: { type: string, nullable: true }
+                  has_checkout: { type: boolean }
+                  wallet_discount_cents: { type: integer, default: 0 }
+        '400':
+          description: Validation error (invalid items, blocked words, empty cart)
+
+  /pledge/{token}:
+    get:
+      tags: [Pledge]
+      summary: Get pledge status
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Pledge details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pledge_token: { type: string }
+                  total_cents: { type: integer }
+                  top_up_cents: { type: integer }
+                  status:
+                    type: string
+                    enum: [OPEN, FULFILLED, EXPIRED, CANCELLED]
+                  donor_email: { type: string, nullable: true }
+                  expires_at: { type: string, format: date-time }
+                  magic_token:
+                    type: string
+                    nullable: true
+                    description: Donor's magic token (present when FULFILLED)
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string }
+                        target_id: { type: string }
+                        amount_cents: { type: integer }
+        '404':
+          description: Pledge not found
+
+  # ─── Webhook ───
+  /webhooks/stripe:
+    post:
+      tags: [Webhook]
+      summary: Stripe webhook receiver
+      description: |
+        Receives raw JSON body (mounted before `express.json()`).
+        Only processes `checkout.session.completed` events.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Event received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { const: true }
+        '400':
+          description: Invalid signature
+
+  # ─── Admin ───
+  /admin/stats:
+    get:
+      tags: [Admin]
+      summary: Admin dashboard stats
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Aggregated stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  donors: { type: integer }
+                  donations: { type: integer }
+                  claims: { type: integer }
+                  pledges: { type: integer }
+                  total_raised_cents: { type: integer }
+
+  /admin/donations:
+    get:
+      tags: [Admin]
+      summary: List all donations
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Donations with donor email, ordered by created_at descending
+
+  /admin/claims:
+    get:
+      tags: [Admin]
+      summary: List all reward claims
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Claims with reward and donor email
+
+  /admin/claims/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update claim status
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [PENDING, FULFILLED]
+      responses:
+        '200':
+          description: Claim updated
+
+  /admin/rewards:
+    get:
+      tags: [Admin]
+      summary: List all rewards
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: All rewards ordered by created_at descending
+    post:
+      tags: [Admin]
+      summary: Create a reward
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, type, cost_cents]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                type:
+                  type: string
+                  enum: [DIGITAL, PHYSICAL, SHOUTOUT, CUSTOM]
+                cost_cents: { type: integer }
+                quantity_total: { type: integer, nullable: true }
+                is_active: { type: boolean, default: true }
+                custom_type_label: { type: string }
+      responses:
+        '200':
+          description: Reward created
+
+  /admin/rewards/{id}:
+    put:
+      tags: [Admin]
+      summary: Update a reward
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                type: { type: string, enum: [DIGITAL, PHYSICAL, SHOUTOUT, CUSTOM] }
+                cost_cents: { type: integer }
+                quantity_total: { type: integer, nullable: true }
+                is_active: { type: boolean }
+                custom_type_label: { type: string }
+      responses:
+        '200':
+          description: Reward updated
+    delete:
+      tags: [Admin]
+      summary: Delete a reward
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /admin/simulate-donation:
+    post:
+      tags: [Admin]
+      summary: Simulate a donation (no real money)
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, amount_cents]
+              properties:
+                email: { type: string, format: email }
+                donor_name: { type: string }
+                amount_cents: { type: integer, minimum: 100 }
+                comment: { type: string }
+                pledge_token: { type: string }
+      responses:
+        '200':
+          description: Donation simulated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+                  token: { type: string, description: 'Donor magic token' }
+                  donor:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                      balance_remaining: { type: integer }
+                  pledge: { type: object, nullable: true }
+
+  /admin/donors:
+    get:
+      tags: [Admin]
+      summary: List donors
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Search by email
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+          description: Pagination offset
+      responses:
+        '200':
+          description: Paginated donor list (capped at 50)
+
+  /admin/donors/{id}:
+    get:
+      tags: [Admin]
+      summary: Get donor details
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Full donor with nested donations, claims, votes, contributions, adjustments
+        '404':
+          description: Donor not found
+
+  /admin/donors/{id}/revoke-token:
+    post:
+      tags: [Admin]
+      summary: Revoke donor magic token
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Token revoked
+
+  /admin/donors/{id}/regenerate-token:
+    post:
+      tags: [Admin]
+      summary: Regenerate donor magic token
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: New token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+                  email: { type: string }
+                  magic_token: { type: string }
+
+  /admin/donors/{id}/freeze:
+    post:
+      tags: [Admin]
+      summary: Freeze/unfreeze a donor account
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [frozen]
+              properties:
+                frozen: { type: boolean }
+      responses:
+        '200':
+          description: Freeze status updated
+
+  /admin/donors/{id}/adjust-balance:
+    post:
+      tags: [Admin]
+      summary: Adjust donor balance
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents, type]
+              properties:
+                amount_cents:
+                  type: integer
+                  description: Non-zero integer. Positive adds, negative subtracts.
+                reason: { type: string }
+                type:
+                  type: string
+                  enum: [REFUND, FREEZE_ZERO, MANUAL, CHARGEBACK]
+      responses:
+        '200':
+          description: Balance adjusted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+                  email: { type: string }
+                  balance_before: { type: integer }
+                  balance_after: { type: integer }
+                  adjustment: { type: object }
+
+  /admin/donors/{id}/reverse-spend:
+    post:
+      tags: [Admin]
+      summary: Reverse a claim, vote, or contribution (refunds donor)
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [spend_type, spend_id]
+              properties:
+                spend_type:
+                  type: string
+                  enum: [claim, vote, contribution]
+                spend_id: { type: string }
+      responses:
+        '200':
+          description: Spend reversed
+
+  /admin/polls:
+    get:
+      tags: [Admin]
+      summary: List all polls
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: All polls with nested options
+    post:
+      tags: [Admin]
+      summary: Create a poll
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                is_active: { type: boolean, default: true }
+                ends_at: { type: string, format: date-time, nullable: true }
+                options:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      label: { type: string }
+                allow_custom_entries: { type: boolean, default: false }
+                max_entry_chars: { type: integer, nullable: true }
+                auto_approve: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Poll created
+
+  /admin/polls/{id}:
+    put:
+      tags: [Admin]
+      summary: Update a poll
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                is_active: { type: boolean }
+                ends_at: { type: string, format: date-time, nullable: true }
+                allow_custom_entries: { type: boolean }
+                max_entry_chars: { type: integer, nullable: true }
+                auto_approve: { type: boolean }
+      responses:
+        '200':
+          description: Poll updated
+    delete:
+      tags: [Admin]
+      summary: Delete a poll
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /admin/polls/{id}/options:
+    post:
+      tags: [Admin]
+      summary: Add a poll option
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string }
+      responses:
+        '200':
+          description: Option created
+
+  /admin/polls/options/{id}:
+    delete:
+      tags: [Admin]
+      summary: Delete a poll option
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /admin/pledges:
+    get:
+      tags: [Admin]
+      summary: List all pledges
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Pledges with nested items and fulfilled_by donor (capped at 100)
+
+  /admin/blocked-words:
+    get:
+      tags: [Admin]
+      summary: List blocked words
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Blocked words ordered alphabetically
+    post:
+      tags: [Admin]
+      summary: Add a blocked word
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [word]
+              properties:
+                word: { type: string }
+      responses:
+        '200':
+          description: Word added
+        '409':
+          description: Word already exists
+
+  /admin/blocked-words/{id}:
+    delete:
+      tags: [Admin]
+      summary: Remove a blocked word
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /admin/goals:
+    get:
+      tags: [Admin]
+      summary: List all fund goals
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: All goals ordered by created_at descending
+    post:
+      tags: [Admin]
+      summary: Create a fund goal
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, target_cents]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                target_cents: { type: integer }
+                is_active: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Goal created
+
+  /admin/goals/{id}:
+    put:
+      tags: [Admin]
+      summary: Update a fund goal
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                target_cents: { type: integer }
+                is_active: { type: boolean }
+                is_complete: { type: boolean }
+      responses:
+        '200':
+          description: Goal updated
+    delete:
+      tags: [Admin]
+      summary: Delete a fund goal
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  # ─── Moderator ───
+  /moderator/stats:
+    get:
+      tags: [Moderator]
+      summary: Moderator dashboard stats
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Moderator stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending_entries: { type: integer }
+                  active_polls: { type: integer }
+                  total_rewards: { type: integer }
+                  total_goals: { type: integer }
+
+  /moderator/polls:
+    get:
+      tags: [Moderator]
+      summary: List all polls
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Polls with options and custom entries
+    post:
+      tags: [Moderator]
+      summary: Create a poll
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                is_active: { type: boolean, default: true }
+                ends_at: { type: string, format: date-time, nullable: true }
+                options:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      label: { type: string }
+                allow_custom_entries: { type: boolean, default: false }
+                max_entry_chars: { type: integer, nullable: true }
+                auto_approve: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Poll created
+
+  /moderator/polls/{id}:
+    put:
+      tags: [Moderator]
+      summary: Update a poll
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                is_active: { type: boolean }
+                ends_at: { type: string, format: date-time, nullable: true }
+                allow_custom_entries: { type: boolean }
+                max_entry_chars: { type: integer, nullable: true }
+                auto_approve: { type: boolean }
+      responses:
+        '200':
+          description: Poll updated
+    delete:
+      tags: [Moderator]
+      summary: Delete a poll
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /moderator/polls/{id}/options:
+    post:
+      tags: [Moderator]
+      summary: Add a poll option
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string }
+      responses:
+        '200':
+          description: Option created
+
+  /moderator/polls/options/{id}:
+    delete:
+      tags: [Moderator]
+      summary: Delete a poll option
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /moderator/polls/{id}/custom-entries:
+    get:
+      tags: [Moderator]
+      summary: List custom entries for a poll
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Custom entries with donor email and option details
+
+  /moderator/polls/custom-entries/{id}:
+    patch:
+      tags: [Moderator]
+      summary: Approve or reject a custom poll entry
+      description: |
+        APPROVED: credits option tally (`votes_cents`, `total_votes_cents`).
+        REJECTED: refunds donor balance, marks option REJECTED, writes BalanceAdjustment.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [APPROVED, REJECTED]
+      responses:
+        '200':
+          description: Entry updated
+
+  /moderator/rewards:
+    get:
+      tags: [Moderator]
+      summary: List all rewards
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Rewards ordered by created_at descending
+    post:
+      tags: [Moderator]
+      summary: Create a reward
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, type, cost_cents]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                type: { type: string, enum: [DIGITAL, PHYSICAL, SHOUTOUT, CUSTOM] }
+                cost_cents: { type: integer }
+                quantity_total: { type: integer, nullable: true }
+                is_active: { type: boolean, default: true }
+                custom_type_label: { type: string }
+      responses:
+        '200':
+          description: Reward created
+
+  /moderator/rewards/{id}:
+    put:
+      tags: [Moderator]
+      summary: Update a reward
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                type: { type: string, enum: [DIGITAL, PHYSICAL, SHOUTOUT, CUSTOM] }
+                cost_cents: { type: integer }
+                quantity_total: { type: integer, nullable: true }
+                is_active: { type: boolean }
+                custom_type_label: { type: string }
+      responses:
+        '200':
+          description: Reward updated
+    delete:
+      tags: [Moderator]
+      summary: Delete a reward
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+  /moderator/claims:
+    get:
+      tags: [Moderator]
+      summary: List all reward claims
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Claims with reward and donor email
+
+  /moderator/claims/{id}:
+    patch:
+      tags: [Moderator]
+      summary: Update claim status
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [PENDING, FULFILLED]
+      responses:
+        '200':
+          description: Claim updated
+
+  /moderator/goals:
+    get:
+      tags: [Moderator]
+      summary: List all fund goals
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Goals ordered by created_at descending
+    post:
+      tags: [Moderator]
+      summary: Create a fund goal
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, target_cents]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                target_cents: { type: integer }
+                is_active: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Goal created
+
+  /moderator/goals/{id}:
+    put:
+      tags: [Moderator]
+      summary: Update a fund goal
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                target_cents: { type: integer }
+                is_active: { type: boolean }
+                is_complete: { type: boolean }
+      responses:
+        '200':
+          description: Goal updated
+    delete:
+      tags: [Moderator]
+      summary: Delete a fund goal
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+
+components:
+  securitySchemes:
+    AdminKey:
+      type: apiKey
+      in: header
+      name: X-Admin-Key
+      description: Admin API key matching `ADMIN_API_KEY` env var

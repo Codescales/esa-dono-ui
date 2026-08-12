@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express, { type Request, type Response } from 'express';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import webhookRouter from './routes/webhook.js';
 import campaignRouter from './routes/campaign.js';
@@ -29,6 +31,11 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   } catch (err) {
     res.status(503).json({ ok: false, db: false, error: (err as Error).message });
   }
+});
+
+app.get('/api/openapi.yaml', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/x-yaml');
+  res.sendFile(resolve(dirname(fileURLToPath(import.meta.url)), 'openapi.yaml'));
 });
 app.use('/api/campaign', campaignRouter);
 app.use('/api/donor', donorRouter);
