@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getDonor } from '../../api/donor';
 import { hasModeratorAccess } from '../../types';
 import SidebarLayout, { type SidebarNavItem } from '../../components/SidebarLayout';
@@ -9,6 +10,7 @@ import {
   GoalIcon,
   CheckBadgeIcon,
   ReceiptIcon,
+  HomeIcon,
   LogoutIcon,
 } from '../../components/icons';
 
@@ -99,18 +101,28 @@ export default function ModeratorLayout() {
       title="moderator"
       nav={NAV}
       storageKey="moderator_sidebar_collapsed"
-      footer={(collapsed) =>
-        key ? (
-          <button
-            onClick={logout}
-            title="logout (moderator key)"
+      footer={(collapsed) => (
+        <div className="flex flex-col">
+          <Link
+            to="/"
+            title="back to home"
             className={`flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55 hover:text-off-white mt-2 ${collapsed ? 'justify-center' : 'text-left'}`}
           >
-            <LogoutIcon className="w-4 h-4 shrink-0" />
-            {!collapsed && <span>logout (moderator key)</span>}
-          </button>
-        ) : null
-      }
+            <HomeIcon className="w-4 h-4 shrink-0" />
+            {!collapsed && <span>back to home</span>}
+          </Link>
+          {key ? (
+            <button
+              onClick={logout}
+              title="logout (moderator key)"
+              className={`flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55 hover:text-off-white ${collapsed ? 'justify-center' : 'text-left'}`}
+            >
+              <LogoutIcon className="w-4 h-4 shrink-0" />
+              {!collapsed && <span>logout (moderator key)</span>}
+            </button>
+          ) : null}
+        </div>
+      )}
     />
   );
 }

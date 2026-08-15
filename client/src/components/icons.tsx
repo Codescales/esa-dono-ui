@@ -142,6 +142,16 @@ export function ChevronsRightIcon(props: IconProps) {
   );
 }
 
+export function HomeIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M3 9.5L10 3l7 6.5V17a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+      <path d="M7.5 18V12h5v6" />
+    </>,
+    props,
+  );
+}
+
 export function LogoutIcon(props: IconProps) {
   return base(
     <>
