@@ -1,60 +1,10 @@
-# vitest is a devDependency present in the image (needed for prisma CLI at runtime)
-# but never executed in production — not an exploitable attack surface.
-CVE-2026-47429
-
-# Go stdlib vulnerabilities in the Trivy scanner binary itself — not in our image
-CVE-2024-24790
-CVE-2025-68121
-CVE-2023-45288
-CVE-2024-34156
-CVE-2025-61726
-CVE-2025-61729
-CVE-2026-25679
-CVE-2026-27145
-CVE-2026-32280
-CVE-2026-32281
-CVE-2026-32283
-CVE-2026-33811
-CVE-2026-33814
-CVE-2026-39820
-# golang.org/x/net/idna in esbuild's bundled Go stdlib (vite build tool, not runtime)
-CVE-2026-39821
-CVE-2026-39822
-CVE-2026-39836
-CVE-2026-42499
-CVE-2026-42504
-
-# npm-bundled packages in /usr/local/lib/node_modules/npm/ (Node.js base image)
-# and transitive deps already at fixed versions in our lock file.
-CVE-2026-13149
-# The base image's bundled npm ships ip-address@10.1.0 and brace-expansion@2.0.2.
-# Neither is a runtime dependency of the app (our lock resolves ip-address@10.5.0
-# via override, brace-expansion@1.1.18/5.0.9); they are inert CLI tooling.
-CVE-2026-69192
-CVE-2026-69152
-CVE-2024-21538
-CVE-2025-64756
-CVE-2026-26996
-CVE-2026-27903
-CVE-2026-27904
-CVE-2026-48815
-CVE-2026-59873
-CVE-2026-23745
-CVE-2026-23950
-CVE-2026-24842
-CVE-2026-26960
-CVE-2026-29786
-CVE-2026-31802
-CVE-2026-59874
-
-# vite is a build tool only — not exploitable in production.
-# Requires major version bump to fix (5.x → 6.x+).
-CVE-2026-53571
-
-# ReDoS in glob/brace tooling. Present only in build/CLI dependency chains
-# (npm's bundled node_modules, and tsx/jiti's tinyglobby → picomatch used to load
-# TypeScript configs at build time), never in the production HTTP request path.
-# brace-expansion@1.1.16 is already ahead of the 1.x backport fix; Trivy's DB only
-# records the 5.0.8 fix and flags it regardless. Not runtime-exploitable.
-CVE-2026-14257
-CVE-2026-33671
+# Trivy ignore list.
+#
+# The production backend image is slimmed to production dependencies only
+# (see Dockerfile.backend, `runtime-deps` stage) and no longer ships build/test
+# tooling or the Node base image's bundled npm. Both the backend and frontend
+# runtime images currently scan clean at HIGH/CRITICAL, so no CVEs are ignored.
+#
+# If a new HIGH/CRITICAL finding appears, prefer to fix it by upgrading the
+# offending dependency or slimming it out of the runtime image rather than
+# adding it here.

@@ -44,6 +44,20 @@ COPY packages/shared/package.json ./packages/shared/
 RUN --mount=type=cache,target=/root/.npm,id=npm \
     npm ci --no-audit --no-fund --include=dev
 
+# ---------- Runtime dependencies (production deps + startup CLI tools) ----------
+# Slimmer than `deps`: only production dependencies, plus the two CLIs needed to
+# run the server (tsx) and apply migrations (prisma). Excludes vite/vitest/
+# esbuild(build)/tailwind/jsdom/testing tooling that would otherwise be scanned.
+FROM base AS runtime-deps
+
+COPY package.json package-lock.json ./
+COPY server/package.json ./server/
+COPY client/package.json ./client/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN --mount=type=cache,target=/root/.npm,id=npm \
+    npm ci --no-audit --no-fund --omit=dev
+
 # ---------- Test target (distributed testing / CI) ----------
 FROM deps AS test
 
@@ -61,7 +75,7 @@ USER dono
 ENTRYPOINT ["node_modules/.bin/tsx", "scripts/run-tests.ts"]
 
 # ---------- Runtime (production API) ----------
-FROM deps AS runtime
+FROM runtime-deps AS runtime
 
 ENV NODE_ENV=production \
     PORT=3001 \
@@ -74,11 +88,17 @@ COPY --chown=dono:dono tsconfig.base.json ./
 COPY --chown=dono:dono package.json package-lock.json ./
 COPY --chown=dono:dono docker-entrypoint.backend.sh /usr/local/bin/docker-entrypoint.sh
 
-# Note: dev deps are kept because the Prisma CLI (a devDependency) is required at
-# startup to run `prisma migrate deploy`. Generated client + CLI both live in node_modules.
+# The Prisma CLI is a production dependency (needed at startup for
+# `prisma migrate deploy`), so no dev toolchain is shipped.
 RUN DATABASE_URL="file:./dev.db" npx prisma generate --schema=./server/prisma/schema.prisma \
  && chmod +x /usr/local/bin/docker-entrypoint.sh \
  && mkdir -p /data && chown dono:dono /data
+
+# Strip the npm CLI + corepack bundled into the Node base image. Nothing at
+# runtime invokes npm/npx (entrypoint uses node_modules/.bin/*), and their
+# bundled dependency tree is the source of a cluster of high-severity CVEs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 VOLUME ["/data"]
 USER dono

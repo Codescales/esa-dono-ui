@@ -60,7 +60,7 @@ Two production images (mirrors the esa-waypoint split backend/frontend pattern):
 
 - **`Dockerfile.backend`** — Express + Prisma API. Multi-stage:
   - `test` target: full dev deps + source, entrypoint runs `scripts/run-tests.mjs` (used by CI `container-test`).
-  - `runtime` target: production API. Applies `prisma migrate deploy` on startup via `docker-entrypoint.backend.sh`, runs non-root, SQLite lives in the `/data` volume (`DATABASE_URL=file:/data/dono.db`), health check on `/api/health`.
+  - `runtime` target: production API. Built from a slim `runtime-deps` stage (`npm ci --omit=dev`; `tsx` and `prisma` are production deps so no dev toolchain is shipped, and the base image's bundled npm is stripped). Applies `prisma migrate deploy` on startup via `docker-entrypoint.backend.sh`, runs non-root, SQLite lives in the `/data` volume (`DATABASE_URL=file:/data/dono.db`), health check on `/api/health`.
 - **`Dockerfile.frontend`** — builds the Vite SPA and serves it via `nginx-unprivileged` on port 8080. `nginx.conf` (templated to `default.conf.template`) does SPA fallback and proxies `/api/` → `http://backend:3001`. Uses the built-in `15-local-resolvers` script (`NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`) so DNS resolution works on both Docker and Podman.
 
 ```bash
