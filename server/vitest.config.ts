@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   // vite-node (the vitest runner) does not honor `resolve.extensionAlias`, so
@@ -16,6 +17,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    env: {
+      DATABASE_URL: `file:${path.resolve(__dirname, 'prisma/dev.db')}`,
+    },
     setupFiles: ['./test/setup.ts'],
     // Several test files hit the real SQLite dev.db directly (each opening
     // its own PrismaClient) for integration-style coverage of tx-based money
