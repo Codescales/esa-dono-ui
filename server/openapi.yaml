@@ -1215,7 +1215,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Custom entries with donor email and option details
+          description: Custom entries with option details (no donor email)
 
   /moderator/polls/custom-entries/{id}:
     patch:
@@ -1343,7 +1343,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Claims with reward and donor email
+          description: Claims with reward details (no donor email)
 
   /moderator/claims/{id}:
     patch:

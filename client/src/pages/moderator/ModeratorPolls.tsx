@@ -235,9 +235,6 @@ export default function ModeratorPolls() {
                           >
                             {e.label}
                           </span>
-                          <span className="font-data text-xs text-off-white/55 ml-2">
-                            {e.donor?.email}
-                          </span>
                           {e.option?.votes?.[0] && (
                             <span className="font-data text-xs text-d-yellow ml-2">
                               {fmt(e.option.votes[0].amount_cents)}

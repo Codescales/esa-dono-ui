@@ -124,7 +124,6 @@ export interface CustomEntry {
   id: string;
   label: string;
   status: string;
-  donor?: { email?: string } | null;
   option?: { status: string; votes: { amount_cents: number }[] } | null;
 }
 

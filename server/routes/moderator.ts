@@ -108,7 +108,6 @@ router.get('/polls/:id/custom-entries', async (req, res) => {
   const entries = await prisma.pollCustomEntry.findMany({
     where: { poll_id: req.params.id },
     include: {
-      donor: { select: { email: true } },
       option: { include: { votes: { orderBy: { created_at: 'desc' }, take: 1 } } },
     },
     orderBy: { created_at: 'desc' },
@@ -191,7 +190,6 @@ router.patch('/polls/custom-entries/:id', async (req, res) => {
 
   const updated = await prisma.pollCustomEntry.findUnique({
     where: { id: req.params.id },
-    include: { donor: { select: { email: true } } },
   });
   res.json(updated);
 });
@@ -244,7 +242,7 @@ router.delete('/rewards/:id', async (req, res) => {
 // Claims
 router.get('/claims', async (req, res) => {
   const claims = await prisma.rewardClaim.findMany({
-    include: { reward: true, donor: { select: { email: true } } },
+    include: { reward: true },
     orderBy: { created_at: 'desc' },
   });
   res.json(
@@ -268,7 +266,7 @@ router.patch('/claims/:id', async (req, res) => {
   const claim = await prisma.rewardClaim.update({
     where: { id: req.params.id },
     data: { status },
-    include: { reward: true, donor: { select: { email: true } } },
+    include: { reward: true },
   });
   res.json(claim);
 });
