@@ -17,7 +17,7 @@ interface SidebarLayoutProps {
 }
 
 export default function SidebarLayout({ title, nav, storageKey, footer }: SidebarLayoutProps) {
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(storageKey) === '1');
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(storageKey) !== '0');
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -28,9 +28,9 @@ export default function SidebarLayout({ title, nav, storageKey, footer }: Sideba
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex min-h-screen">
       <aside
-        className={`flex flex-col p-4 transition-[width] duration-150 ${collapsed ? 'w-16' : 'w-52'}`}
+        className={`sticky top-0 self-start flex flex-col p-4 transition-[width] duration-150 ${collapsed ? 'w-16' : 'w-52'}`}
         style={{ background: 'var(--dark-gray)', borderRight: '1px solid rgba(239,238,236,.08)' }}
       >
         <div
@@ -38,7 +38,7 @@ export default function SidebarLayout({ title, nav, storageKey, footer }: Sideba
         >
           {collapsed ? title.slice(0, 1) : title}
         </div>
-        <nav className="flex-1 space-y-1">
+        <nav className="space-y-1">
           {nav.map((n) => (
             <NavLink
               key={n.to}
