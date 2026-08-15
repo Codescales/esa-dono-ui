@@ -75,7 +75,7 @@ export default function AdminDonations() {
                   <td className="px-4 py-2 font-data font-bold text-off-white">
                     {fmt(d.amount_cents)}
                   </td>
-                  <td className="px-4 py-2 font-body text-sm text-off-white/55">
+                  <td className="px-4 py-2 font-body text-sm text-off-white/55 max-w-xs break-words">
                     {d.comment ?? '-'}
                   </td>
                   <td className="px-4 py-2 font-data text-off-white/55">

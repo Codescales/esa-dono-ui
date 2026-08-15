@@ -31,16 +31,16 @@ export default function ModeratorDonations() {
       <div className="space-y-4">
         {donations.map((d) => (
           <Card key={d.id}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-data font-bold text-sm text-off-white">
+            <div className="flex justify-between items-start gap-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-data font-bold text-sm text-off-white break-words">
                   {d.donor_name ?? '-'}
                 </h3>
                 <p className="font-data font-bold text-sm text-d-yellow mt-1">
                   {fmt(d.amount_cents)}
                 </p>
                 {d.comment && (
-                  <p className="font-body text-sm text-off-white/55 mt-1 max-w-md">
+                  <p className="font-body text-sm text-off-white/55 mt-1 max-w-md break-words">
                     &ldquo;{d.comment}&rdquo;
                   </p>
                 )}
@@ -48,13 +48,13 @@ export default function ModeratorDonations() {
                   {new Date(d.created_at).toLocaleString()}
                 </p>
                 {d.moderated && (
-                  <p className="font-data text-xs text-off-white/40 mt-1">
+                  <p className="font-data text-xs text-off-white/40 mt-1 break-words">
                     moderated by {d.moderated_by} &middot;{' '}
                     {d.moderated_at ? new Date(d.moderated_at).toLocaleString() : ''}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <span
                   className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold"
                   style={{
