@@ -1384,7 +1384,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Donations with donor email and moderation status
+          description: Donations with donor name (no donor email) and moderation status
 
   /moderator/donations/{id}:
     patch:

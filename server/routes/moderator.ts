@@ -277,7 +277,6 @@ router.patch('/claims/:id', async (req, res) => {
 // regardless of who the donor is.
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
-    include: { donor: { select: { email: true } } },
     orderBy: { created_at: 'desc' },
   });
   res.json(donations);
@@ -294,7 +293,6 @@ router.patch('/donations/:id', async (req, res) => {
     data: moderated
       ? { moderated: true, moderated_at: new Date(), moderated_by: moderatorEmail }
       : { moderated: false, moderated_at: null, moderated_by: null },
-    include: { donor: { select: { email: true } } },
   });
   res.json(donation);
 });

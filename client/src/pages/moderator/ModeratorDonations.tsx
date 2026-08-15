@@ -36,9 +36,6 @@ export default function ModeratorDonations() {
                 <h3 className="font-data font-bold text-sm text-off-white">
                   {d.donor_name ?? '-'}
                 </h3>
-                <p className="font-data text-xs text-off-white/55">
-                  donor: {d.donor?.email ?? '-'}
-                </p>
                 <p className="font-data font-bold text-sm text-d-yellow mt-1">
                   {fmt(d.amount_cents)}
                 </p>

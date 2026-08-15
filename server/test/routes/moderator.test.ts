@@ -268,9 +268,9 @@ describe('Moderator donations', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.some((d: { id: string }) => d.id === donation.id)).toBe(true);
-    expect(res.body.find((d: { id: string }) => d.id === donation.id).donor.email).toBe(
-      donor.email,
-    );
+    const found = res.body.find((d: { id: string }) => d.id === donation.id);
+    expect(found.donor_name).toBe('Test Donor');
+    expect(found.donor).toBeUndefined();
 
     await prisma.donation.delete({ where: { id: donation.id } });
     await prisma.donor.delete({ where: { id: donor.id } });
