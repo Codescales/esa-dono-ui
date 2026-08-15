@@ -40,7 +40,7 @@ export default function ModeratorDonations() {
                   {fmt(d.amount_cents)}
                 </p>
                 {d.comment && (
-                  <p className="font-body text-sm text-off-white/55 mt-1 max-w-md break-words">
+                  <p className="font-body text-sm text-off-white/55 mt-1 break-words">
                     &ldquo;{d.comment}&rdquo;
                   </p>
                 )}
