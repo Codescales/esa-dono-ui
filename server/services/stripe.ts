@@ -16,6 +16,7 @@ export interface CreateCheckoutOptions {
   pledgeToken: string;
   amountCents: number;
   email?: string | null;
+  requiresShipping?: boolean;
 }
 
 export interface CreateCheckoutResult {
@@ -27,11 +28,17 @@ export interface CreateCheckoutResult {
  * Create a hosted Checkout Session for a pledge.
  * The pledge token is carried in client_reference_id and metadata for
  * deterministic linkage on the completed webhook.
+ *
+ * When `requiresShipping` is true, Stripe collects a shipping address and adds
+ * a shipping charge via the ShippingRate referenced by STRIPE_SHIPPING_RATE_ID.
+ * This forces the physical-item cart through Checkout even when wallet balance
+ * would otherwise cover the pledge, so a shipping address is always captured.
  */
 export async function createCheckoutSession({
   pledgeToken,
   amountCents,
   email,
+  requiresShipping = false,
 }: CreateCheckoutOptions): Promise<CreateCheckoutResult> {
   const stripe = getStripe();
   if (!stripe) {
@@ -40,6 +47,11 @@ export async function createCheckoutSession({
 
   const currency = process.env.STRIPE_CURRENCY || 'usd';
   const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
+  const shippingRateId = process.env.STRIPE_SHIPPING_RATE_ID || '';
+  const allowedCountries = (process.env.STRIPE_SHIPPING_ALLOWED_COUNTRIES || 'US')
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -58,6 +70,12 @@ export async function createCheckoutSession({
     customer_email: email || undefined,
     success_url: `${baseUrl}/pledge/${pledgeToken}`,
     cancel_url: `${baseUrl}/pledge/${pledgeToken}`,
+    ...(requiresShipping
+      ? {
+          shipping_address_collection: { allowed_countries: allowedCountries },
+          shipping_options: shippingRateId ? [{ shipping_rate: shippingRateId }] : undefined,
+        }
+      : {}),
   });
 
   return { id: session.id, url: session.url };

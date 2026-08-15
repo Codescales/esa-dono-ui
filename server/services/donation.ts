@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
+import type { ShippingAddress } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { sendMagicLink } from './email.js';
 import { resolvePledge, fulfillPledge } from './pledge.js';
@@ -12,6 +13,8 @@ interface ProcessDonationOptions {
   amountCents: number;
   comment?: string | null;
   pledgeToken?: string | null;
+  shippingCents?: number;
+  shippingAddress?: ShippingAddress | null;
 }
 
 /**
@@ -45,8 +48,13 @@ export async function processDonation({
   amountCents,
   comment,
   pledgeToken,
+  shippingCents = 0,
+  shippingAddress = null,
 }: ProcessDonationOptions) {
   const normalizedEmail = email.trim().toLowerCase();
+  // Shipping is passed through to Stripe, not donated — exclude it from the
+  // spendable wallet balance (but keep the full amount in total_donated).
+  const creditedCents = amountCents - shippingCents;
 
   try {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -61,13 +69,13 @@ export async function processDonation({
         where: { email: normalizedEmail },
         update: {
           total_donated: { increment: amountCents },
-          balance_remaining: { increment: amountCents },
+          balance_remaining: { increment: creditedCents },
           token_expires_at: tokenExpiresAt,
         },
         create: {
           email: normalizedEmail,
           total_donated: amountCents,
-          balance_remaining: amountCents,
+          balance_remaining: creditedCents,
           magic_token: token,
           token_expires_at: tokenExpiresAt,
         },
@@ -92,7 +100,7 @@ export async function processDonation({
           amountCents,
         });
         if (pledge) {
-          pledgeResult = await fulfillPledge(tx, pledge, donor.id);
+          pledgeResult = await fulfillPledge(tx, pledge, donor.id, shippingAddress);
           await tx.donation.update({
             where: { id: donation.id },
             data: {

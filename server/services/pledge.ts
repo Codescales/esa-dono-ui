@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
-import { MIN_SPEND_CENTS } from '@dono/shared';
+import { MIN_SPEND_CENTS, type ShippingAddress } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { claimRewardTx, votePollTx, contributeGoalTx, proposeCustomEntryTx } from './spend.js';
 import { checkBlockedWords } from './blockedWords.js';
@@ -65,6 +65,7 @@ export async function createPledge({ email, comment, items, top_up_cents }: Crea
 
   // Validate all items against live data
   let totalCents = 0;
+  let requiresShipping = false;
   for (const item of items) {
     const { kind, target_id, amount_cents, poll_id } = item;
 
@@ -79,6 +80,9 @@ export async function createPledge({ email, comment, items, top_up_cents }: Crea
       }
       if (reward.quantity_total !== null && reward.quantity_claimed >= reward.quantity_total) {
         throw Object.assign(new Error(`Reward sold out: ${reward.title}`), { status: 400 });
+      }
+      if (reward.type === 'PHYSICAL') {
+        requiresShipping = true;
       }
       totalCents += reward.cost_cents;
     } else if (kind === 'POLL_VOTE') {
@@ -171,6 +175,7 @@ export async function createPledge({ email, comment, items, top_up_cents }: Crea
       comment: commentValue,
       total_cents: totalCents + topUp,
       top_up_cents: topUp,
+      requires_shipping: requiresShipping,
       status: 'OPEN',
       expires_at: expiresAt,
       items: {
@@ -203,6 +208,7 @@ export async function fulfillPledge(
   tx: Prisma.TransactionClient,
   pledge: Prisma.PendingPledgeGetPayload<{ include: { items: true } }>,
   donorId: string,
+  shippingAddress?: ShippingAddress | null,
 ) {
   const results: Array<Record<string, unknown>> = [];
   let totalSpent = 0;
@@ -213,7 +219,7 @@ export async function fulfillPledge(
       let result: { cost: number } | undefined;
       if (item.kind === 'REWARD') {
         const data = item.data ? JSON.parse(item.data) : {};
-        result = await claimRewardTx(tx, donorId, item.target_id, data);
+        result = await claimRewardTx(tx, donorId, item.target_id, data, shippingAddress);
       } else if (item.kind === 'POLL_VOTE') {
         result = await votePollTx(tx, donorId, item.poll_id!, item.target_id, item.amount_cents);
       } else if (item.kind === 'GOAL') {
@@ -311,7 +317,10 @@ export interface WalletDonor {
  * When an authenticated donor is provided (resolved from a valid magic token),
  * their wallet balance is applied as a discount to the Stripe charge,
  * recorded as wallet_discount_cents on the pledge. If the wallet balance
- * covers the entire pledge, the pledge is fulfilled directly without Stripe.
+ * covers the entire pledge, the pledge is fulfilled directly without Stripe —
+ * unless the pledge requires shipping (contains a PHYSICAL reward), in which
+ * case Stripe Checkout is always used to collect a shipping address and charge
+ * shipping.
  *
  * @param pledgeToken The pledge token to create a checkout for
  * @param donor       Authenticated donor (from magic token validation). If
@@ -326,7 +335,13 @@ export async function createCheckoutForPledge(
 ) {
   const pledge = await prisma.pendingPledge.findUnique({
     where: { pledge_token: pledgeToken },
-    select: { id: true, total_cents: true, donor_email: true, comment: true },
+    select: {
+      id: true,
+      total_cents: true,
+      donor_email: true,
+      comment: true,
+      requires_shipping: true,
+    },
   });
   if (!pledge) {
     throw Object.assign(new Error('Pledge not found'), { status: 404 });
@@ -342,34 +357,42 @@ export async function createCheckoutForPledge(
       walletDiscountCents = pledge.total_cents - STRIPE_MIN_CHARGE_CENTS;
     }
 
-    // Wallet covers everything — fulfill directly, no Stripe charge
+    // Wallet covers everything — fulfill directly, no Stripe charge. Physical
+    // pledges always skip this branch so a shipping address is collected (and
+    // shipping charged) via Stripe Checkout. In that case, keep the line item
+    // at Stripe's minimum charge so the session is valid (shipping is added on
+    // top by Stripe).
     if (walletDiscountCents >= pledge.total_cents) {
-      const fullPledge = await prisma.pendingPledge.findUniqueOrThrow({
-        where: { pledge_token: pledgeToken },
-        include: { items: true },
-      });
-
-      await prisma.$transaction(async (tx) => {
-        await fulfillPledge(tx, fullPledge, donor.id);
-        await tx.pendingPledge.update({
+      if (pledge.requires_shipping) {
+        walletDiscountCents = Math.max(0, pledge.total_cents - STRIPE_MIN_CHARGE_CENTS);
+      } else {
+        const fullPledge = await prisma.pendingPledge.findUniqueOrThrow({
           where: { pledge_token: pledgeToken },
-          data: {
-            wallet_discount_cents: pledge.total_cents,
-            status: 'FULFILLED',
-          },
+          include: { items: true },
         });
-      });
 
-      sendMagicLink(donor.email, donor.magic_token!).catch((err) =>
-        console.error('Email error:', err),
-      );
+        await prisma.$transaction(async (tx) => {
+          await fulfillPledge(tx, fullPledge, donor.id);
+          await tx.pendingPledge.update({
+            where: { pledge_token: pledgeToken },
+            data: {
+              wallet_discount_cents: pledge.total_cents,
+              status: 'FULFILLED',
+            },
+          });
+        });
 
-      const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
-      return {
-        donate_url: `${baseUrl}/wallet?token=${donor.magic_token}`,
-        checkout_session_id: null,
-        wallet_discount_cents: pledge.total_cents,
-      };
+        sendMagicLink(donor.email, donor.magic_token!).catch((err) =>
+          console.error('Email error:', err),
+        );
+
+        const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
+        return {
+          donate_url: `${baseUrl}/wallet?token=${donor.magic_token}`,
+          checkout_session_id: null,
+          wallet_discount_cents: pledge.total_cents,
+        };
+      }
     }
   }
 
@@ -382,6 +405,12 @@ export async function createCheckoutForPledge(
   }
 
   if (!isStripeConfigured()) {
+    if (pledge.requires_shipping) {
+      throw Object.assign(
+        new Error('Physical rewards require Stripe checkout to collect a shipping address'),
+        { status: 503 },
+      );
+    }
     return {
       donate_url: null,
       checkout_session_id: null,
@@ -395,6 +424,7 @@ export async function createCheckoutForPledge(
     pledgeToken,
     amountCents: checkoutAmount,
     email: stripeEmail,
+    requiresShipping: pledge.requires_shipping,
   });
 
   await prisma.pendingPledge.update({

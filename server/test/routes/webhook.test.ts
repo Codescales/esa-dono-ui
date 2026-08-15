@@ -86,6 +86,8 @@ describe('POST /api/webhooks/stripe', () => {
       amountCents: 2500,
       comment: null,
       pledgeToken: 'pledge-abc',
+      shippingCents: 0,
+      shippingAddress: null,
     });
   });
 
@@ -133,5 +135,47 @@ describe('POST /api/webhooks/stripe', () => {
     expect(res.status).toBe(200);
     expect(res.body.skipped).toBe('missing email or id');
     expect(processDonation).not.toHaveBeenCalled();
+  });
+
+  it('extracts shipping details and amount for physical rewards', async () => {
+    vi.mocked(processDonation).mockResolvedValue({ donor: { id: 'donor-1' } } as any);
+
+    const payload = JSON.stringify(
+      checkoutEvent({
+        amount_total: 3200,
+        total_details: { amount_shipping: 700 },
+        shipping_details: {
+          name: 'Recipient Name',
+          address: {
+            line1: '123 Main St',
+            line2: 'Apt 4',
+            city: 'Springfield',
+            country: 'US',
+          },
+        },
+      }),
+    );
+
+    const res = await request(createApp())
+      .post('/api/webhooks/stripe')
+      .set('Content-Type', 'application/json')
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    expect(processDonation).toHaveBeenCalledWith({
+      externalId: 'cs_test_123',
+      email: 'donor@example.com',
+      donorName: 'Test Donor',
+      amountCents: 3200,
+      comment: null,
+      pledgeToken: 'pledge-abc',
+      shippingCents: 700,
+      shippingAddress: {
+        name: 'Recipient Name',
+        address: '123 Main St, Apt 4',
+        city: 'Springfield',
+        country: 'US',
+      },
+    });
   });
 });

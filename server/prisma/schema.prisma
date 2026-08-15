@@ -176,6 +176,7 @@ model PendingPledge {
   top_up_cents          Int          @default(0) // optional additional donation beyond cart items
   wallet_discount_cents Int          @default(0) // cents deducted from existing wallet balance at checkout
   status                String       @default("OPEN") // OPEN | FULFILLED | EXPIRED | CANCELLED
+  requires_shipping     Boolean      @default(false) // true when any cart item is a PHYSICAL reward
   checkout_session_id   String?      // Stripe Checkout Session id for deterministic linkage
   checkout_url          String?      // Stripe Checkout Session URL used in the redirect
   comment               String?      // donor comment captured in the cart before checkout
