@@ -874,7 +874,7 @@ paths:
   /admin/polls/options/{id}:
     delete:
       tags: [Admin]
-      summary: Delete a poll option
+      summary: Refund and remove a poll option
       security: [{ AdminKey: [] }]
       parameters:
         - name: id
@@ -883,7 +883,29 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Deleted
+          description: Removed after refunding unreversed votes; historical records are preserved
+
+  /admin/polls/options/{id}/refund:
+    post:
+      tags: [Admin]
+      summary: Refund all unreversed votes for a poll option
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Votes refunded and audit adjustments recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  refunded_count: { type: integer }
+                  refunded_cents: { type: integer }
 
   /admin/pledges:
     get:
@@ -989,7 +1011,7 @@ paths:
           description: Goal updated
     delete:
       tags: [Admin]
-      summary: Delete a fund goal
+      summary: Refund and remove a fund goal
       security: [{ AdminKey: [] }]
       parameters:
         - name: id
@@ -998,7 +1020,29 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Deleted
+          description: Removed after refunding unreversed contributions; historical records are preserved
+
+  /admin/goals/{id}/refund:
+    post:
+      tags: [Admin]
+      summary: Refund all unreversed contributions to a fund goal
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Contributions refunded and audit adjustments recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  refunded_count: { type: integer }
+                  refunded_cents: { type: integer }
 
   # ─── Moderator ───
   /moderator/stats:

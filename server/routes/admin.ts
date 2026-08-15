@@ -4,6 +4,7 @@ import { MIN_SPEND_CENTS } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { adminAuth } from '../middleware/adminAuth.js';
 import { processDonation } from '../services/donation.js';
+import { refundGoalContributions, refundPollOptionVotes } from '../services/refund.js';
 import { TOKEN_TTL_MS } from '../config.js';
 
 const router = Router();
@@ -509,8 +510,30 @@ router.post('/polls/:id/options', async (req, res) => {
 });
 
 router.delete('/polls/options/:id', async (req, res) => {
-  await prisma.pollOption.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const refund = await refundPollOptionVotes(tx, req.params.id);
+      await tx.pollOption.update({
+        where: { id: req.params.id },
+        data: { status: 'REJECTED' },
+      });
+      return refund;
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as { status?: number }).status || 500;
+    res.status(status).json({ error: (err as Error).message });
+  }
+});
+
+router.post('/polls/options/:id/refund', async (req, res) => {
+  try {
+    const result = await prisma.$transaction((tx) => refundPollOptionVotes(tx, req.params.id));
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as { status?: number }).status || 500;
+    res.status(status).json({ error: (err as Error).message });
+  }
 });
 
 // Pledges
@@ -573,8 +596,30 @@ router.put('/goals/:id', async (req, res) => {
 });
 
 router.delete('/goals/:id', async (req, res) => {
-  await prisma.fundGoal.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const refund = await refundGoalContributions(tx, req.params.id);
+      await tx.fundGoal.update({
+        where: { id: req.params.id },
+        data: { is_active: false },
+      });
+      return refund;
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as { status?: number }).status || 500;
+    res.status(status).json({ error: (err as Error).message });
+  }
+});
+
+router.post('/goals/:id/refund', async (req, res) => {
+  try {
+    const result = await prisma.$transaction((tx) => refundGoalContributions(tx, req.params.id));
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as { status?: number }).status || 500;
+    res.status(status).json({ error: (err as Error).message });
+  }
 });
 
 export default router;

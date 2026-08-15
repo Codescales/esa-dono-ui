@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import adminClient from '../../api/admin';
+import adminClient, { refundPollOption } from '../../api/admin';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -94,9 +94,25 @@ export default function AdminPolls() {
     await reload();
   };
 
-  const deleteOption = async (id: string) => {
+  const deleteOption = async (id: string, label: string, allocatedCents: number) => {
+    const warning = allocatedCents
+      ? `This will refund ${fmt(allocatedCents)} to donor wallets, remove the option from the poll, and preserve its vote history. This cannot be undone.`
+      : 'Any allocated votes will be refunded to donor wallets; the option will be removed and its vote history preserved. This cannot be undone.';
+    if (!confirm(`Remove option "${label}"?\n\n${warning}`)) return;
     await adminClient.delete(`/polls/options/${id}`);
     await reload();
+  };
+
+  const handleRefundOption = async (id: string, label: string) => {
+    if (!confirm(`Refund all votes for "${label}"? This restores each donor's wallet balance.`))
+      return;
+    try {
+      const result = await refundPollOption(id);
+      alert(`Refunded ${result.refunded_count} vote(s) totaling ${fmt(result.refunded_cents)}.`);
+      await reload();
+    } catch (e) {
+      setError(apiErrorMessage(e, 'Refund failed'));
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -149,13 +165,22 @@ export default function AdminPolls() {
                   <span className="font-data text-off-white">
                     {opt.label} ({fmt(opt.votes_cents)})
                   </span>
-                  <button
-                    onClick={() => deleteOption(opt.id)}
-                    className="font-mono text-[10px] hover:underline"
-                    style={{ color: 'var(--red)' }}
-                  >
-                    remove
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRefundOption(opt.id, opt.label)}
+                      className="font-mono text-[10px] hover:underline"
+                      style={{ color: 'var(--d-yellow)' }}
+                    >
+                      refund votes
+                    </button>
+                    <button
+                      onClick={() => deleteOption(opt.id, opt.label, opt.votes_cents)}
+                      className="font-mono text-[10px] hover:underline"
+                      style={{ color: 'var(--red)' }}
+                    >
+                      remove
+                    </button>
+                  </div>
                 </div>
               ))}
               <div className="flex gap-2 mt-2">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import adminClient from '../../api/admin';
+import adminClient, { refundGoal } from '../../api/admin';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import ProgressBar from '../../components/ProgressBar';
@@ -64,9 +64,29 @@ export default function AdminGoals() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete goal?')) return;
+    const goal = goals.find((item) => item.id === id);
+    const warning = goal?.current_cents
+      ? `This will refund ${fmt(goal.current_cents)} to donor wallets, deactivate the goal, and preserve contribution history. This cannot be undone.`
+      : 'This will deactivate the goal and preserve contribution history. This cannot be undone.';
+    if (!confirm(`Remove goal?\n\n${warning}`)) return;
     await adminClient.delete(`/goals/${id}`);
     await reload();
+  };
+
+  const handleRefund = async (id: string, title: string) => {
+    if (
+      !confirm(`Refund all contributions to "${title}"? This restores each donor's wallet balance.`)
+    )
+      return;
+    try {
+      const result = await refundGoal(id);
+      alert(
+        `Refunded ${result.refunded_count} contribution(s) totaling ${fmt(result.refunded_cents)}.`,
+      );
+      await reload();
+    } catch (e) {
+      setError(apiErrorMessage(e, 'Refund failed'));
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -104,6 +124,13 @@ export default function AdminGoals() {
                   className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
                   edit
+                </button>
+                <button
+                  onClick={() => handleRefund(g.id, g.title)}
+                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  style={{ color: 'var(--d-yellow)' }}
+                >
+                  refund contributions
                 </button>
                 <button
                   onClick={() => handleDelete(g.id)}

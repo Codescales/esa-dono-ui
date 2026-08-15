@@ -18,8 +18,12 @@ vi.mock('../../lib/prisma.js', () => ({
     },
     pollVote: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
     },
     pollOption: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
       update: vi.fn(),
     },
     poll: {
@@ -27,9 +31,12 @@ vi.mock('../../lib/prisma.js', () => ({
     },
     fundContribution: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
     },
     fundGoal: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     balanceAdjustment: {
       create: vi.fn(),
@@ -209,6 +216,159 @@ describe('Admin donor management', () => {
 
     expect(res.status).toBe(200);
     expect(prisma.balanceAdjustment.create).toHaveBeenCalled();
+  });
+
+  it('POST /polls/options/:id/refund refunds all unreversed votes atomically', async () => {
+    px.pollOption.findUnique.mockResolvedValue({ id: 'o1', poll_id: 'p1', status: 'ACTIVE' });
+    px.pollVote.findMany.mockResolvedValue([
+      { id: 'v1', donor_id: 'd1', amount_cents: 250, created_at: new Date() },
+      { id: 'v2', donor_id: 'd2', amount_cents: 500, created_at: new Date() },
+    ]);
+    px.donor.findUnique
+      .mockResolvedValueOnce({ id: 'd1', balance_remaining: 100 })
+      .mockResolvedValueOnce({ id: 'd2', balance_remaining: 200 });
+    px.donor.update.mockResolvedValue({});
+    px.pollVote.update.mockResolvedValue({});
+    px.pollOption.update.mockResolvedValue({});
+    px.poll.update.mockResolvedValue({});
+    px.balanceAdjustment.create.mockResolvedValue({});
+    px.$transaction.mockImplementation(async (callback: any) => callback(px));
+
+    const res = await request(createApp()).post('/api/admin/polls/options/o1/refund').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, refunded_count: 2, refunded_cents: 750 });
+    expect(prisma.balanceAdjustment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.pollOption.update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
+      data: { votes_cents: { decrement: 750 } },
+    });
+  });
+
+  it('POST /goals/:id/refund refunds all unreversed contributions atomically', async () => {
+    px.fundGoal.findUnique.mockResolvedValue({
+      id: 'g1',
+      current_cents: 900,
+      target_cents: 1000,
+    });
+    px.fundContribution.findMany.mockResolvedValue([
+      { id: 'c1', donor_id: 'd1', amount_cents: 300, created_at: new Date() },
+      { id: 'c2', donor_id: 'd1', amount_cents: 200, created_at: new Date() },
+    ]);
+    px.donor.findUnique
+      .mockResolvedValueOnce({ id: 'd1', balance_remaining: 100 })
+      .mockResolvedValueOnce({ id: 'd1', balance_remaining: 400 });
+    px.donor.update.mockResolvedValue({});
+    px.fundContribution.update.mockResolvedValue({});
+    px.fundGoal.update.mockResolvedValue({});
+    px.balanceAdjustment.create.mockResolvedValue({});
+    px.$transaction.mockImplementation(async (callback: any) => callback(px));
+
+    const res = await request(createApp()).post('/api/admin/goals/g1/refund').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, refunded_count: 2, refunded_cents: 500 });
+    expect(prisma.balanceAdjustment.create).toHaveBeenCalledTimes(2);
+    expect(prisma.fundGoal.update).toHaveBeenCalledWith({
+      where: { id: 'g1' },
+      data: { current_cents: { decrement: 500 }, is_complete: false },
+    });
+  });
+
+  it('DELETE /polls/options/:id refunds allocated funds and preserves the option record', async () => {
+    px.pollOption.findUnique.mockResolvedValue({ id: 'o1', poll_id: 'p1', status: 'ACTIVE' });
+    px.pollVote.findMany.mockResolvedValue([
+      { id: 'v1', donor_id: 'd1', amount_cents: 400, created_at: new Date() },
+    ]);
+    px.donor.findUnique.mockResolvedValue({ id: 'd1', balance_remaining: 100 });
+    px.donor.update.mockResolvedValue({});
+    px.pollVote.update.mockResolvedValue({});
+    px.pollOption.update.mockResolvedValue({});
+    px.poll.update.mockResolvedValue({});
+    px.balanceAdjustment.create.mockResolvedValue({});
+    px.$transaction.mockImplementation(async (callback: any) => callback(px));
+
+    const res = await request(createApp()).delete('/api/admin/polls/options/o1').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, refunded_count: 1, refunded_cents: 400 });
+    expect(prisma.pollOption.update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
+      data: { status: 'REJECTED' },
+    });
+    expect(prisma.balanceAdjustment.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('DELETE /goals/:id refunds allocated funds and deactivates the goal', async () => {
+    px.fundGoal.findUnique.mockResolvedValue({ id: 'g1', current_cents: 400, target_cents: 1000 });
+    px.fundContribution.findMany.mockResolvedValue([
+      { id: 'c1', donor_id: 'd1', amount_cents: 400, created_at: new Date() },
+    ]);
+    px.donor.findUnique.mockResolvedValue({ id: 'd1', balance_remaining: 100 });
+    px.donor.update.mockResolvedValue({});
+    px.fundContribution.update.mockResolvedValue({});
+    px.fundGoal.update.mockResolvedValue({});
+    px.balanceAdjustment.create.mockResolvedValue({});
+    px.$transaction.mockImplementation(async (callback: any) => callback(px));
+
+    const res = await request(createApp()).delete('/api/admin/goals/g1').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, refunded_count: 1, refunded_cents: 400 });
+    expect(prisma.fundGoal.update).toHaveBeenCalledWith({
+      where: { id: 'g1' },
+      data: { is_active: false },
+    });
+    expect(prisma.balanceAdjustment.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('PUT /goals/:id disabling a goal does not refund contributions', async () => {
+    px.fundGoal.update.mockResolvedValue({ id: 'g1', is_active: false });
+
+    const res = await request(createApp())
+      .put('/api/admin/goals/g1')
+      .send({ is_active: false })
+      .set(auth);
+
+    expect(res.status).toBe(200);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.balanceAdjustment.create).not.toHaveBeenCalled();
+    expect(prisma.fundGoal.update).toHaveBeenCalledWith({
+      where: { id: 'g1' },
+      data: {
+        title: undefined,
+        description: undefined,
+        target_cents: undefined,
+        is_active: false,
+        is_complete: undefined,
+      },
+    });
+  });
+
+  it('PUT /polls/:id closing a poll does not refund votes', async () => {
+    px.poll.update.mockResolvedValue({ id: 'p1', is_active: false });
+
+    const res = await request(createApp())
+      .put('/api/admin/polls/p1')
+      .send({ is_active: false })
+      .set(auth);
+
+    expect(res.status).toBe(200);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.balanceAdjustment.create).not.toHaveBeenCalled();
+    expect(prisma.poll.update).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: {
+        title: undefined,
+        description: undefined,
+        is_active: false,
+        ends_at: null,
+        allow_custom_entries: false,
+        max_entry_chars: null,
+        auto_approve: true,
+      },
+      include: { options: true },
+    });
   });
 
   it('rejects non-admin requests', async () => {

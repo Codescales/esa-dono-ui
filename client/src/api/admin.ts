@@ -57,6 +57,16 @@ export async function reverseDonorSpend(id: string, spend_type: string, spend_id
   return data;
 }
 
+export async function refundPollOption(id: string) {
+  const { data } = await adminClient.post(`/polls/options/${id}/refund`);
+  return data;
+}
+
+export async function refundGoal(id: string) {
+  const { data } = await adminClient.post(`/goals/${id}/refund`);
+  return data;
+}
+
 export async function getClaims() {
   const { data } = await adminClient.get('/claims');
   return data;
