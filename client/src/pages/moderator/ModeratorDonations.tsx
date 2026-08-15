@@ -31,7 +31,7 @@ export default function ModeratorDonations() {
       <div className="space-y-4">
         {donations.map((d) => (
           <Card key={d.id}>
-            <div className="flex justify-between items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
               <div className="min-w-0 flex-1">
                 <h3 className="font-data font-bold text-sm text-off-white break-words">
                   {d.donor_name ?? '-'}
@@ -54,7 +54,7 @@ export default function ModeratorDonations() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 sm:shrink-0">
                 <span
                   className="font-mono text-[10px] px-2 py-0.5 rounded-sm font-bold"
                   style={{
