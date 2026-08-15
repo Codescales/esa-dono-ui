@@ -2,6 +2,22 @@ import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 import { moderatorAuth } from '../middleware/moderatorAuth.js';
 
+// INVARIANT: no handler in this file may select/include `donor.email` (or
+// return it via any other path) in a JSON response. Moderators can see
+// donor_name, spend amounts, claim/entry content, and moderation metadata,
+// but never the donor's email address — only ADMIN routes (server/routes/
+// admin.ts, gated by X-Admin-Key) are allowed to expose it.
+//
+// This has regressed once already (fixed in 87ad5e4, then again for the
+// donations endpoints): the pattern `donor: { select: { email: ... } } }` was
+// removed from some handlers here but missed identical occurrences a few
+// lines away in others, and shipped clean because no test asserted the
+// negative case. `test/routes/moderator-donor-email.test.ts` statically
+// greps this file for that pattern so a reintroduction fails CI immediately,
+// regardless of which endpoint it's added to or whether that endpoint has
+// its own behavioral test. Do not weaken or delete that test to make a
+// change pass — if a moderator surface genuinely needs donor identity, use
+// donor_name (already a plain column, no join needed) instead of email.
 const router = Router();
 router.use(moderatorAuth);
 
@@ -274,7 +290,9 @@ router.patch('/claims/:id', async (req, res) => {
 // Donations — read-only list + moderation flag. Downstream tools (exports,
 // leaderboards, Discord role sync, etc.) key off `moderated` to know which
 // donations a human has reviewed, so moderators need full read access here
-// regardless of who the donor is.
+// regardless of who the donor is. `donor_name` is a plain column on
+// Donation — do not add `include: { donor: { select: { email: true } } }`
+// (see file-level invariant above; caught by moderator-donor-email.test.ts).
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
     orderBy: { created_at: 'desc' },
