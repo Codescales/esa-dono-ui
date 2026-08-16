@@ -11,6 +11,7 @@ import {
 import { getRewards } from '../api/rewards';
 import { getPolls } from '../api/polls';
 import { getGoals } from '../api/goals';
+import { getStreams } from '../api/streams';
 import { createPledge } from '../api/pledge';
 import {
   apiErrorMessage,
@@ -18,6 +19,7 @@ import {
   type Reward,
   type Poll,
   type Goal,
+  type Stream,
   type PledgeResult,
 } from '../types';
 
@@ -35,31 +37,50 @@ interface StoredCartState {
   cart: CartItem[];
   topUp: string;
   comment: string;
+  streamId: string | null;
 }
 
 function loadStoredCart(): StoredCartState {
   try {
     const raw = sessionStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return { cart: [], topUp: '', comment: '' };
+    if (!raw) return { cart: [], topUp: '', comment: '', streamId: null };
     const parsed = JSON.parse(raw) as Partial<StoredCartState>;
     return {
       cart: Array.isArray(parsed.cart) ? parsed.cart : [],
       topUp: typeof parsed.topUp === 'string' ? parsed.topUp : '',
       comment: typeof parsed.comment === 'string' ? parsed.comment : '',
+      streamId: typeof parsed.streamId === 'string' ? parsed.streamId : null,
     };
   } catch {
-    return { cart: [], topUp: '', comment: '' };
+    return { cart: [], topUp: '', comment: '', streamId: null };
   }
 }
 
 interface CartContextValue {
   // Live incentive data — fetched once here so every consumer (the /donate
   // stepper, the standalone browse pages, and the cart drawer) shares a
-  // single fetch instead of each re-fetching independently.
+  // single fetch instead of each re-fetching independently. Already filtered
+  // to the selected stream (shared incentives + the selected stream's own).
   rewards: Reward[];
   polls: Poll[];
   goals: Goal[];
   loading: boolean;
+
+  // Streams — every donation is routed to exactly one stream (required, for
+  // overlay routing). Incentives with a null stream_id are shared and appear
+  // regardless of which stream is selected; incentives tied to a specific
+  // stream only appear (and can only be added to the cart) when that stream
+  // is selected. A cart therefore can never mix incentives from two
+  // different streams.
+  streams: Stream[];
+  selectedStreamId: string | null;
+  // Attempts to select a stream. If the current cart holds items tied to a
+  // *different* specific stream, the switch is held pending confirmation
+  // (see pendingStreamId) instead of applied immediately.
+  selectStream: (streamId: string) => void;
+  pendingStreamId: string | null;
+  confirmStreamSwitch: () => void;
+  cancelStreamSwitch: () => void;
 
   // Cart contents
   cart: CartItem[];
@@ -116,15 +137,20 @@ export function useCart(): CartContextValue {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [allRewards, setAllRewards] = useState<Reward[]>([]);
+  const [allPolls, setAllPolls] = useState<Poll[]>([]);
+  const [allGoals, setAllGoals] = useState<Goal[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
 
   const initialStored = useRef(loadStoredCart());
   const [cart, setCart] = useState<CartItem[]>(initialStored.current.cart);
   const [topUp, setTopUp] = useState(initialStored.current.topUp);
   const [comment, setComment] = useState(initialStored.current.comment);
+  const [selectedStreamId, setSelectedStreamId] = useState<string | null>(
+    initialStored.current.streamId,
+  );
+  const [pendingStreamId, setPendingStreamId] = useState<string | null>(null);
   const [email, setEmail] = useState(() => localStorage.getItem(EMAIL_STORAGE_KEY) || '');
 
   const [visited, setVisited] = useState<Set<IncentiveCategory>>(new Set());
@@ -133,11 +159,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [checkoutError, setCheckoutError] = useState('');
 
   const fetchAll = useCallback(async () => {
-    const [r, p, g] = await Promise.all([getRewards(), getPolls(), getGoals()]);
-    setRewards(r);
-    setPolls(p);
-    setGoals(g);
-    return { r, p, g };
+    const [r, p, g, s] = await Promise.all([getRewards(), getPolls(), getGoals(), getStreams()]);
+    setAllRewards(r);
+    setAllPolls(p);
+    setAllGoals(g);
+    setStreams(s);
+    return { r, p, g, s };
   }, []);
 
   useEffect(() => {
@@ -149,8 +176,47 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // stale/closed items than to be a useful convenience — sessionStorage
   // (cleared when the tab closes) is the safer default.
   useEffect(() => {
-    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ cart, topUp, comment }));
-  }, [cart, topUp, comment]);
+    sessionStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({ cart, topUp, comment, streamId: selectedStreamId }),
+    );
+  }, [cart, topUp, comment, selectedStreamId]);
+
+  // Visible incentive lists — shared (stream_id null) + whichever stream is
+  // currently selected. Until a stream is selected, only shared incentives
+  // are shown; the /donate stream picker requires a selection before the
+  // donor can browse stream-specific incentives at all.
+  const rewards = useMemo(
+    () => allRewards.filter((r) => !r.stream_id || r.stream_id === selectedStreamId),
+    [allRewards, selectedStreamId],
+  );
+  const polls = useMemo(
+    () => allPolls.filter((p) => !p.stream_id || p.stream_id === selectedStreamId),
+    [allPolls, selectedStreamId],
+  );
+  const goals = useMemo(
+    () => allGoals.filter((g) => !g.stream_id || g.stream_id === selectedStreamId),
+    [allGoals, selectedStreamId],
+  );
+
+  // Resolves the stream_id of the incentive backing a cart item (null for
+  // shared incentives or items we can no longer find — the latter get
+  // surfaced separately via revalidateCart).
+  const itemStreamId = useCallback(
+    (item: CartItem): string | null => {
+      if (item.kind === 'REWARD') {
+        return allRewards.find((r) => r.id === item.target_id)?.stream_id ?? null;
+      }
+      if (item.kind === 'POLL_VOTE' || item.kind === 'POLL_CUSTOM') {
+        return allPolls.find((p) => p.id === item.poll_id)?.stream_id ?? null;
+      }
+      if (item.kind === 'GOAL') {
+        return allGoals.find((g) => g.id === item.target_id)?.stream_id ?? null;
+      }
+      return null;
+    },
+    [allRewards, allPolls, allGoals],
+  );
 
   const addToCart = useCallback((item: CartItem) => {
     setCart((prev) => {
@@ -175,6 +241,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setTopUp('');
     setComment('');
     sessionStorage.removeItem(CART_STORAGE_KEY);
+  }, []);
+
+  // Incentives cannot be mixed across streams in a single transaction (each
+  // donation routes to exactly one stream overlay). Selecting a different
+  // stream while the cart holds items tied to a *different* specific stream
+  // is held pending confirmation rather than applied immediately; shared
+  // items are always kept regardless of which stream ends up selected.
+  const selectStream = useCallback(
+    (streamId: string) => {
+      if (streamId === selectedStreamId) return;
+      const hasConflict = cart.some((item) => {
+        const itemStream = itemStreamId(item);
+        return itemStream && itemStream !== streamId;
+      });
+      if (hasConflict) {
+        setPendingStreamId(streamId);
+      } else {
+        setSelectedStreamId(streamId);
+      }
+    },
+    [cart, itemStreamId, selectedStreamId],
+  );
+
+  const confirmStreamSwitch = useCallback(() => {
+    if (!pendingStreamId) return;
+    const nextStreamId = pendingStreamId;
+    setCart((prev) =>
+      prev.filter((item) => {
+        const itemStream = itemStreamId(item);
+        return !itemStream || itemStream === nextStreamId;
+      }),
+    );
+    setSelectedStreamId(nextStreamId);
+    setPendingStreamId(null);
+  }, [pendingStreamId, itemStreamId]);
+
+  const cancelStreamSwitch = useCallback(() => {
+    setPendingStreamId(null);
   }, []);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.amount_cents, 0);
@@ -245,6 +349,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCheckoutError('Please enter your email address');
       return null;
     }
+    if (!selectedStreamId) {
+      setCheckoutError('Select a stream before checking out');
+      return null;
+    }
     if (cart.length === 0 && topUpCents <= 0) {
       setCheckoutError('Add an incentive or an additional donation to continue');
       return null;
@@ -255,6 +363,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         comment: comment.trim() || undefined,
         top_up_cents: topUpCents > 0 ? topUpCents : undefined,
+        stream_id: selectedStreamId,
         items: cart.map((item) => ({
           kind: item.kind,
           target_id: item.target_id,
@@ -280,13 +389,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setSubmitting(false);
     }
-  }, [email, comment, cart, topUpCents, clearCart]);
+  }, [email, comment, cart, topUpCents, selectedStreamId, clearCart]);
 
   const value: CartContextValue = {
     rewards,
     polls,
     goals,
     loading,
+    streams,
+    selectedStreamId,
+    selectStream,
+    pendingStreamId,
+    confirmStreamSwitch,
+    cancelStreamSwitch,
     cart,
     addToCart,
     removeFromCart,

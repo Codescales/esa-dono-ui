@@ -13,8 +13,8 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, comment, items, top_up_cents } = req.body;
-    const pledge = await createPledge({ email, comment, items, top_up_cents });
+    const { email, comment, items, top_up_cents, stream_id } = req.body;
+    const pledge = await createPledge({ email, comment, items, top_up_cents, stream_id });
 
     // Resolve authenticated donor from magic token (wallet discount) — optional.
     // Must be a valid, non-expired, non-frozen token. Wallet discount is only

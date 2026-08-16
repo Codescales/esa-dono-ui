@@ -5,6 +5,7 @@ interface CreatePledgeInput {
   email: string;
   comment?: string;
   top_up_cents?: number;
+  stream_id: string;
   items: Array<{
     kind: CartItem['kind'];
     target_id: string;

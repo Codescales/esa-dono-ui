@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import adminClient from '../../api/admin';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { apiErrorMessage, type Reward } from '../../types';
+import { apiErrorMessage, type Reward, type Stream } from '../../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -17,6 +17,7 @@ interface RewardForm {
   quantity_total: number | string | null;
   is_active: boolean;
   custom_type_label: string;
+  stream_id: string | null;
 }
 
 const EMPTY: RewardForm = {
@@ -27,12 +28,14 @@ const EMPTY: RewardForm = {
   quantity_total: '',
   is_active: true,
   custom_type_label: '',
+  stream_id: null,
 };
 
 type RewardModal = 'create' | Reward | null;
 
 export default function AdminRewards() {
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<RewardModal>(null);
   const [form, setForm] = useState<RewardForm>(EMPTY);
@@ -40,8 +43,13 @@ export default function AdminRewards() {
 
   const reload = () => adminClient.get('/rewards').then((r) => setRewards(r.data));
   useEffect(() => {
-    reload().finally(() => setLoading(false));
+    Promise.all([reload(), adminClient.get('/streams').then((r) => setStreams(r.data))]).finally(
+      () => setLoading(false),
+    );
   }, []);
+
+  const streamName = (id: string | null | undefined) =>
+    id ? (streams.find((s) => s.id === id)?.name ?? 'unknown stream') : 'shared';
 
   const openCreate = () => {
     setForm(EMPTY);
@@ -53,6 +61,7 @@ export default function AdminRewards() {
       ...r,
       cost_cents: r.cost_cents,
       quantity_total: r.quantity_total ?? '',
+      stream_id: r.stream_id ?? null,
     } as RewardForm);
     setModal(r);
     setError('');
@@ -99,7 +108,7 @@ export default function AdminRewards() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: 'rgba(239,238,236,.03)' }}>
-              {['title', 'type', 'cost', 'qty', 'active', 'actions'].map((h) => (
+              {['title', 'type', 'cost', 'qty', 'stream', 'active', 'actions'].map((h) => (
                 <th
                   key={h}
                   className="text-left px-4 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55"
@@ -125,6 +134,7 @@ export default function AdminRewards() {
                 <td className="px-4 py-2 font-data text-off-white/55">
                   {r.quantity_total ?? '∞'} ({r.quantity_claimed} claimed)
                 </td>
+                <td className="px-4 py-2 font-data text-off-white/55">{streamName(r.stream_id)}</td>
                 <td className="px-4 py-2 font-data text-off-white/55">{r.is_active ? '✓' : '✗'}</td>
                 <td className="px-4 py-2 flex gap-2">
                   <button
@@ -182,6 +192,21 @@ export default function AdminRewards() {
             >
               {['DIGITAL', 'PHYSICAL', 'SHOUTOUT', 'CUSTOM'].map((t) => (
                 <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">stream</label>
+            <select
+              className="w-full px-3 py-2 text-sm"
+              value={form.stream_id ?? ''}
+              onChange={(e) => setForm((d) => ({ ...d, stream_id: e.target.value || null }))}
+            >
+              <option value="">shared (any stream)</option>
+              {streams.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
               ))}
             </select>
           </div>

@@ -43,7 +43,11 @@ export default function CartDrawer() {
     setCheckoutError,
     checkout,
     revalidateCart,
+    streams,
+    selectedStreamId,
   } = useCart();
+
+  const activeStream = streams.find((s) => s.id === selectedStreamId);
 
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -147,7 +151,10 @@ export default function CartDrawer() {
   };
 
   const disableCheckout =
-    submitting || phase === 'checking' || (cart.length === 0 && topUpCents <= 0);
+    submitting ||
+    phase === 'checking' ||
+    !selectedStreamId ||
+    (cart.length === 0 && topUpCents <= 0);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-label="cart">
@@ -181,6 +188,15 @@ export default function CartDrawer() {
               <p className="font-display text-2xl text-off-white">{fmt(donor.balance_remaining)}</p>
             </div>
           )}
+
+          <div className="mb-4 text-sm">
+            <span className="font-mono text-[10px] tracking-widest uppercase text-off-white/40">
+              stream:{' '}
+            </span>
+            <span className="font-data font-bold text-off-white">
+              {activeStream?.name ?? 'none selected'}
+            </span>
+          </div>
 
           {cart.length === 0 ? (
             <p className="font-body text-sm text-off-white/55">No items selected yet.</p>

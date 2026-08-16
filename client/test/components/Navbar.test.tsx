@@ -9,11 +9,13 @@ vi.mock('../../src/api/donor', () => ({ getDonor: vi.fn() }));
 vi.mock('../../src/api/rewards', () => ({ getRewards: vi.fn() }));
 vi.mock('../../src/api/polls', () => ({ getPolls: vi.fn() }));
 vi.mock('../../src/api/goals', () => ({ getGoals: vi.fn() }));
+vi.mock('../../src/api/streams', () => ({ getStreams: vi.fn() }));
 
 import { getDonor } from '../../src/api/donor';
 import { getRewards } from '../../src/api/rewards';
 import { getPolls } from '../../src/api/polls';
 import { getGoals } from '../../src/api/goals';
+import { getStreams } from '../../src/api/streams';
 
 function renderNavbar() {
   return render(
@@ -48,6 +50,7 @@ describe('Navbar', () => {
     vi.mocked(getRewards).mockResolvedValue([]);
     vi.mocked(getPolls).mockResolvedValue([]);
     vi.mocked(getGoals).mockResolvedValue([]);
+    vi.mocked(getStreams).mockResolvedValue([]);
   });
 
   it('shows a plain login link when no donor token is present', async () => {

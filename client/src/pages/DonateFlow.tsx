@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Modal from '../components/Modal';
 import { CheckBadgeIcon } from '../components/icons';
 import RewardList from '../components/incentives/RewardList';
 import PollList from '../components/incentives/PollList';
@@ -26,7 +27,17 @@ function tabFromPathname(pathname: string): Tab {
 }
 
 export default function DonateFlow() {
-  const { loading, openDrawer, hasVisited } = useCart();
+  const {
+    loading,
+    openDrawer,
+    hasVisited,
+    streams,
+    selectedStreamId,
+    selectStream,
+    pendingStreamId,
+    confirmStreamSwitch,
+    cancelStreamSwitch,
+  } = useCart();
   const location = useLocation();
 
   const [tab, setTab] = useState<Tab>(() => tabFromPathname(location.pathname));
@@ -94,69 +105,130 @@ export default function DonateFlow() {
 
   return (
     <div className="max-w-3xl mx-auto p-8">
-      {/* Tab bar — still clickable for jumping directly to a category. A
-          checkmark marks any category the donor has already opened. */}
-      <div className="flex justify-center gap-2 mb-8">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => selectTab(t)}
-            className={`flex items-center gap-1.5 font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
-              tab === t ? 'text-black' : 'text-off-white/55 hover:text-off-white'
-            }`}
-            style={{ background: tab === t ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)' }}
-          >
-            {t}
-            {hasVisited(t) && (
-              <CheckBadgeIcon
-                className="w-3.5 h-3.5 shrink-0"
-                style={{ color: tab === t ? 'black' : 'var(--green)' }}
-                data-testid={`visited-check-${t}`}
-              />
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div className={`transition-all duration-300 ${slideClass}`}>
-        {tab === 'rewards' && <RewardList />}
-        {tab === 'polls' && <PollList />}
-        {tab === 'goals' && <GoalList />}
-      </div>
-
-      {/* Previous/Next always available and always cycle through every
-          category — there's no "last" step to fall off of. */}
-      <div className="flex justify-between items-center mt-8">
-        <button onClick={goPrevious} className="btrl-button btrl-button-outline">
-          &larr; previous
-        </button>
-        <button onClick={goNext} className="btrl-button">
-          next &rarr;
-        </button>
-      </div>
-
-      {showWarning && (
-        <div className="mt-4 p-3 rounded-sm text-sm" style={{ background: 'rgba(208,152,70,.16)' }}>
-          <p className="font-data text-d-yellow mb-1">
-            You haven't reviewed {unvisited.map((t) => TAB_LABELS[t]).join(' or ')} yet.
+      {/* Stream picker — required before browsing incentives. Every donation
+          routes to exactly one stream, and incentives tied to a specific
+          stream cannot be mixed with another stream's in the same cart, so
+          the picker filters what's shown below. */}
+      <div className="btrl-panel p-4 mb-6">
+        <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-2">stream</p>
+        {streams.length === 0 ? (
+          <p className="font-body text-sm text-off-white/55">No streams are open right now.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {streams.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => selectStream(s.id)}
+                className={`font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
+                  selectedStreamId === s.id
+                    ? 'text-black'
+                    : 'text-off-white/55 hover:text-off-white'
+                }`}
+                style={{
+                  background:
+                    selectedStreamId === s.id ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)',
+                }}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {!selectedStreamId && streams.length > 0 && (
+          <p className="font-body text-xs text-off-white/55 mt-2">
+            Select a stream to see its rewards, polls, and fund goals.
           </p>
-          <p className="font-body text-xs text-off-white/55">
-            Click "review &amp; checkout" again to skip ahead anyway — your cart is always reachable
-            from the cart button too.
+        )}
+      </div>
+
+      {pendingStreamId && (
+        <Modal title="switch stream?" onClose={cancelStreamSwitch}>
+          <p className="font-body text-sm text-off-white/55 mb-4">
+            Your cart has items tied to your current stream. Incentives can't be mixed across
+            streams in one donation — switching will remove those items from your cart (shared items
+            stay).
           </p>
-        </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={cancelStreamSwitch} className="btrl-button btrl-button-outline">
+              cancel
+            </button>
+            <button onClick={confirmStreamSwitch} className="btrl-button">
+              switch &amp; clear those items
+            </button>
+          </div>
+        </Modal>
       )}
 
-      {/* Review/checkout lives on its own row, separate from the Previous/
+      {!selectedStreamId ? null : (
+        <>
+          {/* Tab bar — still clickable for jumping directly to a category. A
+          checkmark marks any category the donor has already opened. */}
+          <div className="flex justify-center gap-2 mb-8">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => selectTab(t)}
+                className={`flex items-center gap-1.5 font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
+                  tab === t ? 'text-black' : 'text-off-white/55 hover:text-off-white'
+                }`}
+                style={{ background: tab === t ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)' }}
+              >
+                {t}
+                {hasVisited(t) && (
+                  <CheckBadgeIcon
+                    className="w-3.5 h-3.5 shrink-0"
+                    style={{ color: tab === t ? 'black' : 'var(--green)' }}
+                    data-testid={`visited-check-${t}`}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className={`transition-all duration-300 ${slideClass}`}>
+            {tab === 'rewards' && <RewardList />}
+            {tab === 'polls' && <PollList />}
+            {tab === 'goals' && <GoalList />}
+          </div>
+
+          {/* Previous/Next always available and always cycle through every
+          category — there's no "last" step to fall off of. */}
+          <div className="flex justify-between items-center mt-8">
+            <button onClick={goPrevious} className="btrl-button btrl-button-outline">
+              &larr; previous
+            </button>
+            <button onClick={goNext} className="btrl-button">
+              next &rarr;
+            </button>
+          </div>
+
+          {showWarning && (
+            <div
+              className="mt-4 p-3 rounded-sm text-sm"
+              style={{ background: 'rgba(208,152,70,.16)' }}
+            >
+              <p className="font-data text-d-yellow mb-1">
+                You haven't reviewed {unvisited.map((t) => TAB_LABELS[t]).join(' or ')} yet.
+              </p>
+              <p className="font-body text-xs text-off-white/55">
+                Click "review &amp; checkout" again to skip ahead anyway — your cart is always
+                reachable from the cart button too.
+              </p>
+            </div>
+          )}
+
+          {/* Review/checkout lives on its own row, separate from the Previous/
           Next loop, so it reads as a deliberate exit rather than another
           step in the cycle. It's never hard-disabled — clicking it before
           every category has been reviewed shows the warning above instead
           of opening the drawer; a second click bypasses that and proceeds. */}
-      <div className="flex justify-center mt-4">
-        <button onClick={handleReviewClick} className="btrl-button text-lg py-3 px-8">
-          review &amp; checkout
-        </button>
-      </div>
+          <div className="flex justify-center mt-4">
+            <button onClick={handleReviewClick} className="btrl-button text-lg py-3 px-8">
+              review &amp; checkout
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

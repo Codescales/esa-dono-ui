@@ -3,7 +3,7 @@ import moderatorClient from '../../api/moderator';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { apiErrorMessage, type Reward } from '../../types';
+import { apiErrorMessage, type Reward, type Stream } from '../../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -18,6 +18,7 @@ interface RewardForm {
   quantity_total: number | string | null;
   is_active: boolean;
   custom_type_label: string;
+  stream_id: string | null;
 }
 
 const EMPTY: RewardForm = {
@@ -28,12 +29,14 @@ const EMPTY: RewardForm = {
   quantity_total: '',
   is_active: true,
   custom_type_label: '',
+  stream_id: null,
 };
 
 type RewardModal = 'create' | Reward | null;
 
 export default function ModeratorRewards() {
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<RewardModal>(null);
   const [form, setForm] = useState<RewardForm>(EMPTY);
@@ -41,8 +44,14 @@ export default function ModeratorRewards() {
 
   const reload = () => moderatorClient.get('/rewards').then((r) => setRewards(r.data));
   useEffect(() => {
-    reload().finally(() => setLoading(false));
+    Promise.all([
+      reload(),
+      moderatorClient.get('/streams').then((r) => setStreams(r.data)),
+    ]).finally(() => setLoading(false));
   }, []);
+
+  const streamName = (id: string | null | undefined) =>
+    id ? (streams.find((s) => s.id === id)?.name ?? 'unknown stream') : 'shared';
 
   const openCreate = () => {
     setForm(EMPTY);
@@ -54,6 +63,7 @@ export default function ModeratorRewards() {
       ...r,
       cost_cents: String(r.cost_cents),
       quantity_total: r.quantity_total ?? '',
+      stream_id: r.stream_id ?? null,
     } as RewardForm);
     setModal(r);
     setError('');
@@ -107,6 +117,9 @@ export default function ModeratorRewards() {
                     {r.quantity_claimed}/{r.quantity_total} claimed
                   </p>
                 )}
+                <p className="font-data text-xs text-off-white/40">
+                  stream: {streamName(r.stream_id)}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -197,6 +210,21 @@ export default function ModeratorRewards() {
               value={form.quantity_total ?? ''}
               onChange={(e) => setForm((d) => ({ ...d, quantity_total: e.target.value }))}
             />
+          </div>
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">stream</label>
+            <select
+              className="w-full px-3 py-2 text-sm"
+              value={form.stream_id ?? ''}
+              onChange={(e) => setForm((d) => ({ ...d, stream_id: e.target.value || null }))}
+            >
+              <option value="">shared (any stream)</option>
+              {streams.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="mb-3 flex items-center gap-2">
             <input

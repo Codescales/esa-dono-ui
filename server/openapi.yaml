@@ -45,6 +45,7 @@ tags:
   - name: Rewards
   - name: Polls
   - name: Goals
+  - name: Streams
   - name: Pledge
   - name: Webhook
   - name: Admin
@@ -267,6 +268,30 @@ paths:
         '200':
           description: Contribution recorded
 
+  # ─── Streams ───
+  /streams:
+    get:
+      tags: [Streams]
+      summary: List active streams
+      description: |
+        Every donation is routed to exactly one stream (for correct overlay
+        routing). Rewards, polls, and fund goals may be tied to a specific
+        stream (`stream_id` set) or shared across all streams (`stream_id`
+        null). Used by the /donate stream picker.
+      responses:
+        '200':
+          description: Active streams ordered by created_at ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    is_active: { type: boolean }
+
   # ─── Pledge ───
   /pledge:
     post:
@@ -276,6 +301,13 @@ paths:
         Creates a pending pledge from cart items and (when Stripe is configured)
         a Stripe Checkout Session. When a valid donor token is provided via
         `?token=`, the donor's wallet balance is applied as a discount.
+
+        **Streams:** every pledge is routed to exactly one stream via the
+        required `stream_id` (used to route the donation to the correct
+        overlay). Each cart item's underlying reward/poll/goal must either be
+        shared (its own `stream_id` is null) or match the pledge's
+        `stream_id` — incentives cannot be mixed across streams in a single
+        transaction.
 
         **Wallet discount flow:**
         - `?token=` present & valid → donor's `balance_remaining` deducted from Stripe charge
@@ -294,7 +326,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [items]
+              required: [items, stream_id]
               properties:
                 email:
                   type: string
@@ -303,6 +335,9 @@ paths:
                 comment:
                   type: string
                   maxLength: 500
+                stream_id:
+                  type: string
+                  description: Required. The stream this donation is routed to.
                 top_up_cents:
                   type: integer
                   minimum: 0
@@ -429,6 +464,79 @@ paths:
                   claims: { type: integer }
                   pledges: { type: integer }
                   total_raised_cents: { type: integer }
+                  streams:
+                    type: array
+                    description: Per-stream raised totals (admin-only; not shown publicly)
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        raised_cents: { type: integer }
+                        donations: { type: integer }
+
+  /admin/streams:
+    get:
+      tags: [Admin]
+      summary: List all streams
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: All streams ordered by created_at ascending
+    post:
+      tags: [Admin]
+      summary: Create a stream
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                is_active: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Stream created
+        '409':
+          description: Stream name already exists
+
+  /admin/streams/{id}:
+    put:
+      tags: [Admin]
+      summary: Update a stream
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: Stream updated
+    delete:
+      tags: [Admin]
+      summary: Deactivate a stream
+      description: Soft-delete — sets is_active false rather than removing the row, to preserve references from incentives/donations/pledges.
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Stream deactivated
 
   /admin/donations:
     get:
@@ -502,6 +610,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean, default: true }
                 custom_type_label: { type: string }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Reward created
@@ -529,6 +638,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean }
                 custom_type_label: { type: string }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Reward updated
@@ -805,6 +915,7 @@ paths:
                 allow_custom_entries: { type: boolean, default: false }
                 max_entry_chars: { type: integer, nullable: true }
                 auto_approve: { type: boolean, default: true }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Poll created
@@ -832,6 +943,7 @@ paths:
                 allow_custom_entries: { type: boolean }
                 max_entry_chars: { type: integer, nullable: true }
                 auto_approve: { type: boolean }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Poll updated
@@ -980,6 +1092,7 @@ paths:
                 title: { type: string }
                 description: { type: string }
                 target_cents: { type: integer }
+                stream_id: { type: string, nullable: true }
                 is_active: { type: boolean, default: true }
       responses:
         '200':
@@ -1004,6 +1117,7 @@ paths:
                 title: { type: string }
                 description: { type: string }
                 target_cents: { type: integer }
+                stream_id: { type: string, nullable: true }
                 is_active: { type: boolean }
                 is_complete: { type: boolean }
       responses:
@@ -1067,6 +1181,83 @@ paths:
                   total_rewards: { type: integer }
                   total_goals: { type: integer }
 
+  /moderator/streams:
+    get:
+      tags: [Moderator]
+      summary: List all streams
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: All streams ordered by created_at ascending
+    post:
+      tags: [Moderator]
+      summary: Create a stream
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                is_active: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Stream created
+        '409':
+          description: Stream name already exists
+
+  /moderator/streams/{id}:
+    put:
+      tags: [Moderator]
+      summary: Update a stream
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: Stream updated
+    delete:
+      tags: [Moderator]
+      summary: Deactivate a stream
+      description: Soft-delete — sets is_active false rather than removing the row, to preserve references from incentives/donations/pledges.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Stream deactivated
+
   /moderator/polls:
     get:
       tags: [Moderator]
@@ -1108,6 +1299,7 @@ paths:
                 allow_custom_entries: { type: boolean, default: false }
                 max_entry_chars: { type: integer, nullable: true }
                 auto_approve: { type: boolean, default: true }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Poll created
@@ -1138,6 +1330,7 @@ paths:
                 allow_custom_entries: { type: boolean }
                 max_entry_chars: { type: integer, nullable: true }
                 auto_approve: { type: boolean }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Poll updated
@@ -1283,6 +1476,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean, default: true }
                 custom_type_label: { type: string }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Reward created
@@ -1313,6 +1507,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean }
                 custom_type_label: { type: string }
+                stream_id: { type: string, nullable: true }
       responses:
         '200':
           description: Reward updated
@@ -1449,6 +1644,7 @@ paths:
                 title: { type: string }
                 description: { type: string }
                 target_cents: { type: integer }
+                stream_id: { type: string, nullable: true }
                 is_active: { type: boolean, default: true }
       responses:
         '200':
@@ -1476,6 +1672,7 @@ paths:
                 title: { type: string }
                 description: { type: string }
                 target_cents: { type: integer }
+                stream_id: { type: string, nullable: true }
                 is_active: { type: boolean }
                 is_complete: { type: boolean }
       responses:

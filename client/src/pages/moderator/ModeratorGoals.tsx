@@ -4,7 +4,7 @@ import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ProgressBar from '../../components/ProgressBar';
-import { apiErrorMessage, type Goal } from '../../types';
+import { apiErrorMessage, type Goal, type Stream } from '../../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -17,14 +17,22 @@ interface GoalForm {
   target_cents: number | string;
   is_active: boolean;
   is_complete?: boolean;
+  stream_id: string | null;
 }
 
-const EMPTY: GoalForm = { title: '', description: '', target_cents: '', is_active: true };
+const EMPTY: GoalForm = {
+  title: '',
+  description: '',
+  target_cents: '',
+  is_active: true,
+  stream_id: null,
+};
 
 type GoalModal = 'create' | Goal | null;
 
 export default function ModeratorGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [streams, setStreams] = useState<Stream[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<GoalModal>(null);
   const [form, setForm] = useState<GoalForm>(EMPTY);
@@ -32,8 +40,14 @@ export default function ModeratorGoals() {
 
   const reload = () => moderatorClient.get('/goals').then((r) => setGoals(r.data));
   useEffect(() => {
-    reload().finally(() => setLoading(false));
+    Promise.all([
+      reload(),
+      moderatorClient.get('/streams').then((r) => setStreams(r.data)),
+    ]).finally(() => setLoading(false));
   }, []);
+
+  const streamName = (id: string | null | undefined) =>
+    id ? (streams.find((s) => s.id === id)?.name ?? 'unknown stream') : 'shared';
 
   const openCreate = () => {
     setForm(EMPTY);
@@ -41,7 +55,11 @@ export default function ModeratorGoals() {
     setError('');
   };
   const openEdit = (g: Goal) => {
-    setForm({ ...g, target_cents: String(g.target_cents) } as GoalForm);
+    setForm({
+      ...g,
+      target_cents: String(g.target_cents),
+      stream_id: g.stream_id ?? null,
+    } as GoalForm);
     setModal(g);
     setError('');
   };
@@ -84,6 +102,9 @@ export default function ModeratorGoals() {
                 <h2 className="font-data font-bold text-lg text-off-white">{g.title}</h2>
                 <p className="font-data text-sm text-off-white/55">
                   {fmt(g.current_cents)} / {fmt(g.target_cents)} {g.is_complete && '· complete'}
+                </p>
+                <p className="font-data text-xs text-off-white/40">
+                  stream: {streamName(g.stream_id)}
                 </p>
                 <ProgressBar value={g.current_cents} max={g.target_cents} />
               </div>
@@ -150,6 +171,21 @@ export default function ModeratorGoals() {
               </label>
             </div>
           )}
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">stream</label>
+            <select
+              className="w-full px-3 py-2 text-sm"
+              value={form.stream_id ?? ''}
+              onChange={(e) => setForm((d) => ({ ...d, stream_id: e.target.value || null }))}
+            >
+              <option value="">shared (any stream)</option>
+              {streams.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="mb-3 flex items-center gap-2">
             <input
               type="checkbox"

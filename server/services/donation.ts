@@ -15,6 +15,7 @@ interface ProcessDonationOptions {
   pledgeToken?: string | null;
   shippingCents?: number;
   shippingAddress?: ShippingAddress | null;
+  streamId?: string | null;
 }
 
 /**
@@ -50,6 +51,7 @@ export async function processDonation({
   pledgeToken,
   shippingCents = 0,
   shippingAddress = null,
+  streamId = null,
 }: ProcessDonationOptions) {
   const normalizedEmail = email.trim().toLowerCase();
   // Shipping is passed through to Stripe, not donated — exclude it from the
@@ -88,6 +90,7 @@ export async function processDonation({
           amount_cents: amountCents,
           donor_name: donorName,
           comment: comment ?? null,
+          stream_id: streamId ?? null,
         },
       });
 
@@ -106,6 +109,7 @@ export async function processDonation({
             data: {
               pledge: { connect: { id: pledge.id } },
               ...(pledge.comment ? { comment: pledge.comment } : {}),
+              ...(pledge.stream_id ? { stream_id: pledge.stream_id } : {}),
             },
           });
         }

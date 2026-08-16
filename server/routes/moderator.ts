@@ -37,6 +37,58 @@ router.get('/stats', async (req, res) => {
   });
 });
 
+// Streams CRUD
+router.get('/streams', async (req, res) => {
+  res.json(await prisma.stream.findMany({ orderBy: { created_at: 'asc' } }));
+});
+
+router.post('/streams', async (req, res) => {
+  const { name, is_active } = req.body;
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+  try {
+    const stream = await prisma.stream.create({
+      data: { name: String(name).trim(), is_active: is_active ?? true },
+    });
+    res.json(stream);
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') {
+      return res.status(409).json({ error: 'Stream name already exists' });
+    }
+    throw e;
+  }
+});
+
+router.put('/streams/:id', async (req, res) => {
+  const { name, is_active } = req.body;
+  try {
+    const stream = await prisma.stream.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(is_active !== undefined ? { is_active } : {}),
+      },
+    });
+    res.json(stream);
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') {
+      return res.status(409).json({ error: 'Stream name already exists' });
+    }
+    throw e;
+  }
+});
+
+// Soft-delete: streams may be referenced by incentives/donations/pledges, so
+// deactivate instead of hard-deleting to preserve those references.
+router.delete('/streams/:id', async (req, res) => {
+  const stream = await prisma.stream.update({
+    where: { id: req.params.id },
+    data: { is_active: false },
+  });
+  res.json({ success: true, stream });
+});
+
 // Polls CRUD
 router.get('/polls', async (req, res) => {
   res.json(
@@ -57,6 +109,7 @@ router.post('/polls', async (req, res) => {
     allow_custom_entries,
     max_entry_chars,
     auto_approve,
+    stream_id,
   } = req.body;
   const poll = await prisma.poll.create({
     data: {
@@ -67,6 +120,7 @@ router.post('/polls', async (req, res) => {
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
       auto_approve: auto_approve ?? true,
+      stream_id: stream_id || null,
       options: options?.length
         ? { create: options.map((o: { label: string }) => ({ label: o.label })) }
         : undefined,
@@ -85,6 +139,7 @@ router.put('/polls/:id', async (req, res) => {
     allow_custom_entries,
     max_entry_chars,
     auto_approve,
+    stream_id,
   } = req.body;
   const poll = await prisma.poll.update({
     where: { id: req.params.id },
@@ -96,6 +151,7 @@ router.put('/polls/:id', async (req, res) => {
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
       auto_approve: auto_approve ?? true,
+      stream_id: stream_id || null,
     },
     include: { options: true },
   });
@@ -216,8 +272,16 @@ router.get('/rewards', async (req, res) => {
 });
 
 router.post('/rewards', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
-    req.body;
+  const {
+    title,
+    description,
+    type,
+    cost_cents,
+    quantity_total,
+    is_active,
+    custom_type_label,
+    stream_id,
+  } = req.body;
   const reward = await prisma.reward.create({
     data: {
       title,
@@ -227,14 +291,23 @@ router.post('/rewards', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active: is_active ?? true,
       custom_type_label,
+      stream_id: stream_id || null,
     },
   });
   res.json(reward);
 });
 
 router.put('/rewards/:id', async (req, res) => {
-  const { title, description, type, cost_cents, quantity_total, is_active, custom_type_label } =
-    req.body;
+  const {
+    title,
+    description,
+    type,
+    cost_cents,
+    quantity_total,
+    is_active,
+    custom_type_label,
+    stream_id,
+  } = req.body;
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
     data: {
@@ -245,6 +318,7 @@ router.put('/rewards/:id', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active,
       custom_type_label,
+      stream_id: stream_id || null,
     },
   });
   res.json(reward);
@@ -295,6 +369,7 @@ router.patch('/claims/:id', async (req, res) => {
 // (see file-level invariant above; caught by moderator-donor-email.test.ts).
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
+    include: { stream: { select: { id: true, name: true } } },
     orderBy: { created_at: 'desc' },
   });
   res.json(donations);
@@ -321,18 +396,31 @@ router.get('/goals', async (req, res) => {
 });
 
 router.post('/goals', async (req, res) => {
-  const { title, description, target_cents, is_active } = req.body;
+  const { title, description, target_cents, is_active, stream_id } = req.body;
   const goal = await prisma.fundGoal.create({
-    data: { title, description, target_cents, is_active: is_active ?? true },
+    data: {
+      title,
+      description,
+      target_cents,
+      is_active: is_active ?? true,
+      stream_id: stream_id || null,
+    },
   });
   res.json(goal);
 });
 
 router.put('/goals/:id', async (req, res) => {
-  const { title, description, target_cents, is_active, is_complete } = req.body;
+  const { title, description, target_cents, is_active, is_complete, stream_id } = req.body;
   const goal = await prisma.fundGoal.update({
     where: { id: req.params.id },
-    data: { title, description, target_cents, is_active, is_complete },
+    data: {
+      title,
+      description,
+      target_cents,
+      is_active,
+      is_complete,
+      stream_id: stream_id || null,
+    },
   });
   res.json(goal);
 });
