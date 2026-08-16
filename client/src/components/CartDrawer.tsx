@@ -43,11 +43,11 @@ export default function CartDrawer() {
     setCheckoutError,
     checkout,
     revalidateCart,
-    streams,
-    selectedStreamId,
+    events,
+    selectedEventId,
   } = useCart();
 
-  const activeStream = streams.find((s) => s.id === selectedStreamId);
+  const activeEvent = events.find((s) => s.id === selectedEventId);
 
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -153,7 +153,7 @@ export default function CartDrawer() {
   const disableCheckout =
     submitting ||
     phase === 'checking' ||
-    !selectedStreamId ||
+    !selectedEventId ||
     (cart.length === 0 && topUpCents <= 0);
 
   return (
@@ -191,10 +191,10 @@ export default function CartDrawer() {
 
           <div className="mb-4 text-sm">
             <span className="font-mono text-[10px] tracking-widest uppercase text-off-white/40">
-              stream:{' '}
+              event:{' '}
             </span>
             <span className="font-data font-bold text-off-white">
-              {activeStream?.name ?? 'none selected'}
+              {activeEvent?.name ?? 'none selected'}
             </span>
           </div>
 

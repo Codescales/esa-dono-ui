@@ -18,7 +18,7 @@ import {
 const NAV: SidebarNavItem[] = [
   { to: '/admin', label: 'dashboard', end: true, icon: DashboardIcon },
   { to: '/admin/donors', label: 'donors', icon: UsersIcon },
-  { to: '/admin/streams', label: 'streams', icon: PlayIcon },
+  { to: '/admin/events', label: 'events', icon: PlayIcon },
   { to: '/admin/rewards', label: 'rewards', icon: GiftIcon },
   { to: '/admin/polls', label: 'polls', icon: PollIcon },
   { to: '/admin/goals', label: 'goals', icon: GoalIcon },

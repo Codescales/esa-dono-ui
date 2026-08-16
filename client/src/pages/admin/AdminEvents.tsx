@@ -3,26 +3,26 @@ import adminClient from '../../api/admin';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { apiErrorMessage, type Stream } from '../../types';
+import { apiErrorMessage, type Event } from '../../types';
 
-interface StreamForm {
+interface EventForm {
   id?: string;
   name: string;
   is_active: boolean;
 }
 
-const EMPTY: StreamForm = { name: '', is_active: true };
+const EMPTY: EventForm = { name: '', is_active: true };
 
-type StreamModal = 'create' | Stream | null;
+type EventModal = 'create' | Event | null;
 
-export default function AdminStreams() {
-  const [streams, setStreams] = useState<Stream[]>([]);
+export default function AdminEvents() {
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState<StreamModal>(null);
-  const [form, setForm] = useState<StreamForm>(EMPTY);
+  const [modal, setModal] = useState<EventModal>(null);
+  const [form, setForm] = useState<EventForm>(EMPTY);
   const [error, setError] = useState('');
 
-  const reload = () => adminClient.get('/streams').then((r) => setStreams(r.data));
+  const reload = () => adminClient.get('/events').then((r) => setEvents(r.data));
   useEffect(() => {
     reload().finally(() => setLoading(false));
   }, []);
@@ -32,7 +32,7 @@ export default function AdminStreams() {
     setModal('create');
     setError('');
   };
-  const openEdit = (s: Stream) => {
+  const openEdit = (s: Event) => {
     setForm({ ...s });
     setModal(s);
     setError('');
@@ -41,8 +41,8 @@ export default function AdminStreams() {
   const handleSave = async () => {
     setError('');
     try {
-      if (modal === 'create') await adminClient.post('/streams', form);
-      else if (modal) await adminClient.put(`/streams/${modal.id}`, form);
+      if (modal === 'create') await adminClient.post('/events', form);
+      else if (modal) await adminClient.put(`/events/${modal.id}`, form);
       await reload();
       setModal(null);
     } catch (e) {
@@ -51,9 +51,9 @@ export default function AdminStreams() {
   };
 
   const handleDeactivate = async (id: string) => {
-    if (!confirm('Deactivate this stream? Existing incentives/donations keep referencing it.'))
+    if (!confirm('Deactivate this event? Existing incentives/donations keep referencing it.'))
       return;
-    await adminClient.delete(`/streams/${id}`);
+    await adminClient.delete(`/events/${id}`);
     await reload();
   };
 
@@ -62,20 +62,20 @@ export default function AdminStreams() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-display text-4xl lowercase">streams</h1>
+        <h1 className="font-display text-4xl lowercase">events</h1>
         <button onClick={openCreate} className="btrl-button">
-          + new stream
+          + new event
         </button>
       </div>
 
       <p className="font-body text-sm text-off-white/55 mb-6">
-        Every donation is routed to exactly one stream. Rewards, polls, and fund goals can be tied
-        to a specific stream or left shared (available to any stream). Deactivating a stream hides
-        it from the /donate picker without deleting its history.
+        Every donation is routed to exactly one event. Rewards, polls, and fund goals can be tied to
+        a specific event or left shared (available to any event). Deactivating an event hides it
+        from the /donate picker without deleting its history.
       </p>
 
       <div className="space-y-3">
-        {streams.map((s) => (
+        {events.map((s) => (
           <Card key={s.id}>
             <div className="flex justify-between items-center">
               <div>
@@ -104,14 +104,14 @@ export default function AdminStreams() {
             </div>
           </Card>
         ))}
-        {streams.length === 0 && (
-          <p className="font-body text-sm text-off-white/55">No streams yet.</p>
+        {events.length === 0 && (
+          <p className="font-body text-sm text-off-white/55">No events yet.</p>
         )}
       </div>
 
       {modal && (
         <Modal
-          title={modal === 'create' ? 'new stream' : 'edit stream'}
+          title={modal === 'create' ? 'new event' : 'edit event'}
           onClose={() => setModal(null)}
         >
           <div className="mb-3">
@@ -125,11 +125,11 @@ export default function AdminStreams() {
           <div className="mb-3 flex items-center gap-2">
             <input
               type="checkbox"
-              id="stream_active"
+              id="event_active"
               checked={form.is_active}
               onChange={(e) => setForm((d) => ({ ...d, is_active: e.target.checked }))}
             />
-            <label htmlFor="stream_active" className="font-data text-sm text-off-white">
+            <label htmlFor="event_active" className="font-data text-sm text-off-white">
               active
             </label>
           </div>

@@ -31,12 +31,12 @@ export default function DonateFlow() {
     loading,
     openDrawer,
     hasVisited,
-    streams,
-    selectedStreamId,
-    selectStream,
-    pendingStreamId,
-    confirmStreamSwitch,
-    cancelStreamSwitch,
+    events,
+    selectedEventId,
+    selectEvent,
+    pendingEventId,
+    confirmEventSwitch,
+    cancelEventSwitch,
   } = useCart();
   const location = useLocation();
 
@@ -105,28 +105,26 @@ export default function DonateFlow() {
 
   return (
     <div className="max-w-3xl mx-auto p-8">
-      {/* Stream picker — required before browsing incentives. Every donation
-          routes to exactly one stream, and incentives tied to a specific
-          stream cannot be mixed with another stream's in the same cart, so
+      {/* Event picker — required before browsing incentives. Every donation
+          routes to exactly one event, and incentives tied to a specific
+          event cannot be mixed with another event's in the same cart, so
           the picker filters what's shown below. */}
       <div className="btrl-panel p-4 mb-6">
-        <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-2">stream</p>
-        {streams.length === 0 ? (
-          <p className="font-body text-sm text-off-white/55">No streams are open right now.</p>
+        <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-2">event</p>
+        {events.length === 0 ? (
+          <p className="font-body text-sm text-off-white/55">No events are open right now.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {streams.map((s) => (
+            {events.map((s) => (
               <button
                 key={s.id}
-                onClick={() => selectStream(s.id)}
+                onClick={() => selectEvent(s.id)}
                 className={`font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
-                  selectedStreamId === s.id
-                    ? 'text-black'
-                    : 'text-off-white/55 hover:text-off-white'
+                  selectedEventId === s.id ? 'text-black' : 'text-off-white/55 hover:text-off-white'
                 }`}
                 style={{
                   background:
-                    selectedStreamId === s.id ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)',
+                    selectedEventId === s.id ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)',
                 }}
               >
                 {s.name}
@@ -134,32 +132,31 @@ export default function DonateFlow() {
             ))}
           </div>
         )}
-        {!selectedStreamId && streams.length > 0 && (
+        {!selectedEventId && events.length > 0 && (
           <p className="font-body text-xs text-off-white/55 mt-2">
-            Select a stream to see its rewards, polls, and fund goals.
+            Select an event to see its rewards, polls, and fund goals.
           </p>
         )}
       </div>
 
-      {pendingStreamId && (
-        <Modal title="switch stream?" onClose={cancelStreamSwitch}>
+      {pendingEventId && (
+        <Modal title="switch event?" onClose={cancelEventSwitch}>
           <p className="font-body text-sm text-off-white/55 mb-4">
-            Your cart has items tied to your current stream. Incentives can't be mixed across
-            streams in one donation — switching will remove those items from your cart (shared items
-            stay).
+            Your cart has items tied to your current event. Incentives can't be mixed across events
+            in one donation — switching will remove those items from your cart (shared items stay).
           </p>
           <div className="flex justify-end gap-2">
-            <button onClick={cancelStreamSwitch} className="btrl-button btrl-button-outline">
+            <button onClick={cancelEventSwitch} className="btrl-button btrl-button-outline">
               cancel
             </button>
-            <button onClick={confirmStreamSwitch} className="btrl-button">
+            <button onClick={confirmEventSwitch} className="btrl-button">
               switch &amp; clear those items
             </button>
           </div>
         </Modal>
       )}
 
-      {!selectedStreamId ? null : (
+      {!selectedEventId ? null : (
         <>
           {/* Tab bar — still clickable for jumping directly to a category. A
           checkmark marks any category the donor has already opened. */}

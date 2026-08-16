@@ -42,14 +42,14 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {stats.streams && stats.streams.length > 0 && (
+      {stats.events && stats.events.length > 0 && (
         <div className="mt-8">
-          <h2 className="font-display text-2xl lowercase mb-4">per-stream totals</h2>
+          <h2 className="font-display text-2xl lowercase mb-4">per-event totals</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: 'rgba(239,238,236,.03)' }}>
-                  {['stream', 'raised', 'donations'].map((h) => (
+                  {['event', 'raised', 'donations'].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-2 font-mono text-[10px] tracking-wider uppercase text-off-white/55"
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {stats.streams.map((s) => (
+                {stats.events.map((s) => (
                   <tr key={s.id} style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
                     <td className="px-4 py-2 font-data font-bold text-off-white">{s.name}</td>
                     <td className="px-4 py-2 font-data text-d-yellow">{fmt(s.raised_cents)}</td>

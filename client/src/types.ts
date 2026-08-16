@@ -101,7 +101,7 @@ export interface Reward {
   quantity_claimed: number;
   is_active?: boolean;
   custom_type_label?: string | null;
-  stream_id?: string | null;
+  event_id?: string | null;
 }
 
 export interface PollOption {
@@ -124,7 +124,7 @@ export interface Poll {
   max_entry_chars?: number | null;
   auto_approve?: boolean;
   custom_entries?: CustomEntry[];
-  stream_id?: string | null;
+  event_id?: string | null;
 }
 
 export interface CustomEntry {
@@ -142,10 +142,10 @@ export interface Goal {
   target_cents: number;
   is_complete?: boolean;
   is_active?: boolean;
-  stream_id?: string | null;
+  event_id?: string | null;
 }
 
-export interface Stream {
+export interface Event {
   id: string;
   name: string;
   is_active: boolean;
@@ -204,7 +204,7 @@ export interface AdminStats {
   donations: number;
   claims: number;
   pledges: number;
-  streams?: { id: string; name: string; raised_cents: number; donations: number }[];
+  events?: { id: string; name: string; raised_cents: number; donations: number }[];
 }
 
 export interface BlockedWord {
@@ -222,7 +222,7 @@ export interface AdminDonation {
   moderated?: boolean;
   moderated_at?: string | null;
   moderated_by?: string | null;
-  stream?: { id: string; name: string } | null;
+  event?: { id: string; name: string } | null;
 }
 
 export interface AdminClaim {

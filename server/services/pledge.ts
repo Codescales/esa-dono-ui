@@ -23,7 +23,7 @@ interface CreatePledgeInput {
   comment?: string | null;
   items: PledgeItemInput[];
   top_up_cents?: number;
-  stream_id?: string | null;
+  event_id?: string | null;
 }
 
 const COMMENT_MAX_LENGTH = 500;
@@ -33,19 +33,19 @@ const COMMENT_MAX_LENGTH = 500;
  * Validates each item against live state, computes total, persists.
  * Returns { pledge_token, total_cents, donate_url }.
  *
- * Every pledge is routed to exactly one stream: `stream_id` is required and
- * must reference an active Stream. Each cart item's underlying incentive
- * must either be shared (its own `stream_id` is null) or belong to the same
- * stream as the pledge — incentives cannot be mixed across streams in a
+ * Every pledge is routed to exactly one event: `event_id` is required and
+ * must reference an active Event. Each cart item's underlying incentive
+ * must either be shared (its own `event_id` is null) or belong to the same
+ * event as the pledge — incentives cannot be mixed across events in a
  * single transaction. This is what lets the amount be routed to the correct
- * stream overlay.
+ * event overlay.
  */
 export async function createPledge({
   email,
   comment,
   items,
   top_up_cents,
-  stream_id,
+  event_id,
 }: CreatePledgeInput) {
   if (!items || !Array.isArray(items)) {
     throw Object.assign(new Error('At least one item required'), { status: 400 });
@@ -62,12 +62,12 @@ export async function createPledge({
     });
   }
 
-  if (!stream_id || typeof stream_id !== 'string') {
-    throw Object.assign(new Error('stream_id is required'), { status: 400 });
+  if (!event_id || typeof event_id !== 'string') {
+    throw Object.assign(new Error('event_id is required'), { status: 400 });
   }
-  const stream = await prisma.stream.findUnique({ where: { id: stream_id } });
-  if (!stream || !stream.is_active) {
-    throw Object.assign(new Error('Stream not found or inactive'), { status: 404 });
+  const event = await prisma.event.findUnique({ where: { id: event_id } });
+  if (!event || !event.is_active) {
+    throw Object.assign(new Error('Event not found or inactive'), { status: 404 });
   }
 
   let commentValue: string | null = null;
@@ -89,14 +89,14 @@ export async function createPledge({
   let totalCents = 0;
   let requiresShipping = false;
 
-  // An incentive with a null stream_id is "shared" and may be added to any
-  // stream's cart. An incentive tied to a specific stream may only be added
-  // when it matches the pledge's stream — incentives cannot be mixed across
-  // streams in a single transaction.
-  const assertStreamMatch = (incentiveStreamId: string | null, label: string) => {
-    if (incentiveStreamId && incentiveStreamId !== stream_id) {
+  // An incentive with a null event_id is "shared" and may be added to any
+  // event's cart. An incentive tied to a specific event may only be added
+  // when it matches the pledge's event — incentives cannot be mixed across
+  // events in a single transaction.
+  const assertEventMatch = (incentiveEventId: string | null, label: string) => {
+    if (incentiveEventId && incentiveEventId !== event_id) {
       throw Object.assign(
-        new Error(`${label} belongs to a different stream and cannot be added to this cart`),
+        new Error(`${label} belongs to a different event and cannot be added to this cart`),
         { status: 400 },
       );
     }
@@ -114,7 +114,7 @@ export async function createPledge({
       if (!reward || !reward.is_active) {
         throw Object.assign(new Error(`Reward not found: ${target_id}`), { status: 404 });
       }
-      assertStreamMatch(reward.stream_id, `Reward "${reward.title}"`);
+      assertEventMatch(reward.event_id, `Reward "${reward.title}"`);
       if (reward.quantity_total !== null && reward.quantity_claimed >= reward.quantity_total) {
         throw Object.assign(new Error(`Reward sold out: ${reward.title}`), { status: 400 });
       }
@@ -135,7 +135,7 @@ export async function createPledge({
       if (!poll || !poll.is_active) {
         throw Object.assign(new Error(`Poll not found or inactive: ${poll_id}`), { status: 404 });
       }
-      assertStreamMatch(poll.stream_id, `Poll "${poll.title}"`);
+      assertEventMatch(poll.event_id, `Poll "${poll.title}"`);
       if (poll.ends_at && new Date() > poll.ends_at) {
         throw Object.assign(new Error(`Poll has ended: ${poll.title}`), { status: 400 });
       }
@@ -156,7 +156,7 @@ export async function createPledge({
           status: 404,
         });
       }
-      assertStreamMatch(goal.stream_id, `Goal "${goal.title}"`);
+      assertEventMatch(goal.event_id, `Goal "${goal.title}"`);
       totalCents += amount_cents!;
     } else if (kind === 'POLL_CUSTOM') {
       if (!Number.isInteger(amount_cents) || amount_cents! < MIN_SPEND_CENTS) {
@@ -182,7 +182,7 @@ export async function createPledge({
       if (!poll || !poll.is_active) {
         throw Object.assign(new Error(`Poll not found or inactive: ${poll_id}`), { status: 404 });
       }
-      assertStreamMatch(poll.stream_id, `Poll "${poll.title}"`);
+      assertEventMatch(poll.event_id, `Poll "${poll.title}"`);
       if (!poll.allow_custom_entries) {
         throw Object.assign(new Error(`Poll does not allow custom entries: ${poll.title}`), {
           status: 400,
@@ -218,7 +218,7 @@ export async function createPledge({
       requires_shipping: requiresShipping,
       status: 'OPEN',
       expires_at: expiresAt,
-      stream_id,
+      event_id,
       items: {
         create: items.map((item) => ({
           kind: item.kind,

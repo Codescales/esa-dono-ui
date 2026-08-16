@@ -11,7 +11,7 @@ import {
 import { getRewards } from '../api/rewards';
 import { getPolls } from '../api/polls';
 import { getGoals } from '../api/goals';
-import { getStreams } from '../api/streams';
+import { getEvents } from '../api/events';
 import { createPledge } from '../api/pledge';
 import {
   apiErrorMessage,
@@ -19,7 +19,7 @@ import {
   type Reward,
   type Poll,
   type Goal,
-  type Stream,
+  type Event,
   type PledgeResult,
 } from '../types';
 
@@ -37,22 +37,22 @@ interface StoredCartState {
   cart: CartItem[];
   topUp: string;
   comment: string;
-  streamId: string | null;
+  eventId: string | null;
 }
 
 function loadStoredCart(): StoredCartState {
   try {
     const raw = sessionStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return { cart: [], topUp: '', comment: '', streamId: null };
+    if (!raw) return { cart: [], topUp: '', comment: '', eventId: null };
     const parsed = JSON.parse(raw) as Partial<StoredCartState>;
     return {
       cart: Array.isArray(parsed.cart) ? parsed.cart : [],
       topUp: typeof parsed.topUp === 'string' ? parsed.topUp : '',
       comment: typeof parsed.comment === 'string' ? parsed.comment : '',
-      streamId: typeof parsed.streamId === 'string' ? parsed.streamId : null,
+      eventId: typeof parsed.eventId === 'string' ? parsed.eventId : null,
     };
   } catch {
-    return { cart: [], topUp: '', comment: '', streamId: null };
+    return { cart: [], topUp: '', comment: '', eventId: null };
   }
 }
 
@@ -60,27 +60,27 @@ interface CartContextValue {
   // Live incentive data — fetched once here so every consumer (the /donate
   // stepper, the standalone browse pages, and the cart drawer) shares a
   // single fetch instead of each re-fetching independently. Already filtered
-  // to the selected stream (shared incentives + the selected stream's own).
+  // to the selected event (shared incentives + the selected event's own).
   rewards: Reward[];
   polls: Poll[];
   goals: Goal[];
   loading: boolean;
 
-  // Streams — every donation is routed to exactly one stream (required, for
-  // overlay routing). Incentives with a null stream_id are shared and appear
-  // regardless of which stream is selected; incentives tied to a specific
-  // stream only appear (and can only be added to the cart) when that stream
+  // Events — every donation is routed to exactly one event (required, for
+  // overlay routing). Incentives with a null event_id are shared and appear
+  // regardless of which event is selected; incentives tied to a specific
+  // event only appear (and can only be added to the cart) when that event
   // is selected. A cart therefore can never mix incentives from two
-  // different streams.
-  streams: Stream[];
-  selectedStreamId: string | null;
-  // Attempts to select a stream. If the current cart holds items tied to a
-  // *different* specific stream, the switch is held pending confirmation
-  // (see pendingStreamId) instead of applied immediately.
-  selectStream: (streamId: string) => void;
-  pendingStreamId: string | null;
-  confirmStreamSwitch: () => void;
-  cancelStreamSwitch: () => void;
+  // different events.
+  events: Event[];
+  selectedEventId: string | null;
+  // Attempts to select an event. If the current cart holds items tied to a
+  // *different* specific event, the switch is held pending confirmation
+  // (see pendingEventId) instead of applied immediately.
+  selectEvent: (eventId: string) => void;
+  pendingEventId: string | null;
+  confirmEventSwitch: () => void;
+  cancelEventSwitch: () => void;
 
   // Cart contents
   cart: CartItem[];
@@ -140,17 +140,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [allRewards, setAllRewards] = useState<Reward[]>([]);
   const [allPolls, setAllPolls] = useState<Poll[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
-  const [streams, setStreams] = useState<Stream[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   const initialStored = useRef(loadStoredCart());
   const [cart, setCart] = useState<CartItem[]>(initialStored.current.cart);
   const [topUp, setTopUp] = useState(initialStored.current.topUp);
   const [comment, setComment] = useState(initialStored.current.comment);
-  const [selectedStreamId, setSelectedStreamId] = useState<string | null>(
-    initialStored.current.streamId,
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(
+    initialStored.current.eventId,
   );
-  const [pendingStreamId, setPendingStreamId] = useState<string | null>(null);
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
   const [email, setEmail] = useState(() => localStorage.getItem(EMAIL_STORAGE_KEY) || '');
 
   const [visited, setVisited] = useState<Set<IncentiveCategory>>(new Set());
@@ -159,11 +159,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [checkoutError, setCheckoutError] = useState('');
 
   const fetchAll = useCallback(async () => {
-    const [r, p, g, s] = await Promise.all([getRewards(), getPolls(), getGoals(), getStreams()]);
+    const [r, p, g, s] = await Promise.all([getRewards(), getPolls(), getGoals(), getEvents()]);
     setAllRewards(r);
     setAllPolls(p);
     setAllGoals(g);
-    setStreams(s);
+    setEvents(s);
     return { r, p, g, s };
   }, []);
 
@@ -178,40 +178,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     sessionStorage.setItem(
       CART_STORAGE_KEY,
-      JSON.stringify({ cart, topUp, comment, streamId: selectedStreamId }),
+      JSON.stringify({ cart, topUp, comment, eventId: selectedEventId }),
     );
-  }, [cart, topUp, comment, selectedStreamId]);
+  }, [cart, topUp, comment, selectedEventId]);
 
-  // Visible incentive lists — shared (stream_id null) + whichever stream is
-  // currently selected. Until a stream is selected, only shared incentives
-  // are shown; the /donate stream picker requires a selection before the
-  // donor can browse stream-specific incentives at all.
+  // Visible incentive lists — shared (event_id null) + whichever event is
+  // currently selected. Until an event is selected, only shared incentives
+  // are shown; the /donate event picker requires a selection before the
+  // donor can browse event-specific incentives at all.
   const rewards = useMemo(
-    () => allRewards.filter((r) => !r.stream_id || r.stream_id === selectedStreamId),
-    [allRewards, selectedStreamId],
+    () => allRewards.filter((r) => !r.event_id || r.event_id === selectedEventId),
+    [allRewards, selectedEventId],
   );
   const polls = useMemo(
-    () => allPolls.filter((p) => !p.stream_id || p.stream_id === selectedStreamId),
-    [allPolls, selectedStreamId],
+    () => allPolls.filter((p) => !p.event_id || p.event_id === selectedEventId),
+    [allPolls, selectedEventId],
   );
   const goals = useMemo(
-    () => allGoals.filter((g) => !g.stream_id || g.stream_id === selectedStreamId),
-    [allGoals, selectedStreamId],
+    () => allGoals.filter((g) => !g.event_id || g.event_id === selectedEventId),
+    [allGoals, selectedEventId],
   );
 
-  // Resolves the stream_id of the incentive backing a cart item (null for
+  // Resolves the event_id of the incentive backing a cart item (null for
   // shared incentives or items we can no longer find — the latter get
   // surfaced separately via revalidateCart).
-  const itemStreamId = useCallback(
+  const itemEventId = useCallback(
     (item: CartItem): string | null => {
       if (item.kind === 'REWARD') {
-        return allRewards.find((r) => r.id === item.target_id)?.stream_id ?? null;
+        return allRewards.find((r) => r.id === item.target_id)?.event_id ?? null;
       }
       if (item.kind === 'POLL_VOTE' || item.kind === 'POLL_CUSTOM') {
-        return allPolls.find((p) => p.id === item.poll_id)?.stream_id ?? null;
+        return allPolls.find((p) => p.id === item.poll_id)?.event_id ?? null;
       }
       if (item.kind === 'GOAL') {
-        return allGoals.find((g) => g.id === item.target_id)?.stream_id ?? null;
+        return allGoals.find((g) => g.id === item.target_id)?.event_id ?? null;
       }
       return null;
     },
@@ -243,42 +243,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(CART_STORAGE_KEY);
   }, []);
 
-  // Incentives cannot be mixed across streams in a single transaction (each
-  // donation routes to exactly one stream overlay). Selecting a different
-  // stream while the cart holds items tied to a *different* specific stream
+  // Incentives cannot be mixed across events in a single transaction (each
+  // donation routes to exactly one event overlay). Selecting a different
+  // event while the cart holds items tied to a *different* specific event
   // is held pending confirmation rather than applied immediately; shared
-  // items are always kept regardless of which stream ends up selected.
-  const selectStream = useCallback(
-    (streamId: string) => {
-      if (streamId === selectedStreamId) return;
+  // items are always kept regardless of which event ends up selected.
+  const selectEvent = useCallback(
+    (eventId: string) => {
+      if (eventId === selectedEventId) return;
       const hasConflict = cart.some((item) => {
-        const itemStream = itemStreamId(item);
-        return itemStream && itemStream !== streamId;
+        const itemEventValue = itemEventId(item);
+        return itemEventValue && itemEventValue !== eventId;
       });
       if (hasConflict) {
-        setPendingStreamId(streamId);
+        setPendingEventId(eventId);
       } else {
-        setSelectedStreamId(streamId);
+        setSelectedEventId(eventId);
       }
     },
-    [cart, itemStreamId, selectedStreamId],
+    [cart, itemEventId, selectedEventId],
   );
 
-  const confirmStreamSwitch = useCallback(() => {
-    if (!pendingStreamId) return;
-    const nextStreamId = pendingStreamId;
+  const confirmEventSwitch = useCallback(() => {
+    if (!pendingEventId) return;
+    const nextEventId = pendingEventId;
     setCart((prev) =>
       prev.filter((item) => {
-        const itemStream = itemStreamId(item);
-        return !itemStream || itemStream === nextStreamId;
+        const itemEventValue = itemEventId(item);
+        return !itemEventValue || itemEventValue === nextEventId;
       }),
     );
-    setSelectedStreamId(nextStreamId);
-    setPendingStreamId(null);
-  }, [pendingStreamId, itemStreamId]);
+    setSelectedEventId(nextEventId);
+    setPendingEventId(null);
+  }, [pendingEventId, itemEventId]);
 
-  const cancelStreamSwitch = useCallback(() => {
-    setPendingStreamId(null);
+  const cancelEventSwitch = useCallback(() => {
+    setPendingEventId(null);
   }, []);
 
   const cartTotal = cart.reduce((sum, item) => sum + item.amount_cents, 0);
@@ -349,8 +349,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCheckoutError('Please enter your email address');
       return null;
     }
-    if (!selectedStreamId) {
-      setCheckoutError('Select a stream before checking out');
+    if (!selectedEventId) {
+      setCheckoutError('Select an event before checking out');
       return null;
     }
     if (cart.length === 0 && topUpCents <= 0) {
@@ -363,7 +363,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         comment: comment.trim() || undefined,
         top_up_cents: topUpCents > 0 ? topUpCents : undefined,
-        stream_id: selectedStreamId,
+        event_id: selectedEventId,
         items: cart.map((item) => ({
           kind: item.kind,
           target_id: item.target_id,
@@ -389,19 +389,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setSubmitting(false);
     }
-  }, [email, comment, cart, topUpCents, selectedStreamId, clearCart]);
+  }, [email, comment, cart, topUpCents, selectedEventId, clearCart]);
 
   const value: CartContextValue = {
     rewards,
     polls,
     goals,
     loading,
-    streams,
-    selectedStreamId,
-    selectStream,
-    pendingStreamId,
-    confirmStreamSwitch,
-    cancelStreamSwitch,
+    events,
+    selectedEventId,
+    selectEvent,
+    pendingEventId,
+    confirmEventSwitch,
+    cancelEventSwitch,
     cart,
     addToCart,
     removeFromCart,

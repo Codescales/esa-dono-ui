@@ -73,7 +73,7 @@ describe('OpenAPI route coverage', () => {
     const { default: rewardsRouter } = await import('../routes/rewards.js');
     const { default: pollsRouter } = await import('../routes/polls.js');
     const { default: goalsRouter } = await import('../routes/goals.js');
-    const { default: streamsRouter } = await import('../routes/streams.js');
+    const { default: eventsRouter } = await import('../routes/events.js');
     const { default: pledgeRouter } = await import('../routes/pledge.js');
     const { default: adminRouter } = await import('../routes/admin.js');
     const { default: moderatorRouter } = await import('../routes/moderator.js');
@@ -86,7 +86,7 @@ describe('OpenAPI route coverage', () => {
     app.use('/api/rewards', rewardsRouter);
     app.use('/api/polls', pollsRouter);
     app.use('/api/goals', goalsRouter);
-    app.use('/api/streams', streamsRouter);
+    app.use('/api/events', eventsRouter);
     app.use('/api/pledge', pledgeRouter);
     app.use('/api/admin', adminRouter);
     app.use('/api/moderator', moderatorRouter);

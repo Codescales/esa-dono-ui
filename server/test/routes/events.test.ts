@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
-import streamsRouter from '../../routes/streams.js';
+import eventsRouter from '../../routes/events.js';
 import adminRouter from '../../routes/admin.js';
 import moderatorRouter from '../../routes/moderator.js';
 
@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 function createApp() {
   const app = express();
   app.use(express.json());
-  app.use('/api/streams', streamsRouter);
+  app.use('/api/events', eventsRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/moderator', moderatorRouter);
   return app;
@@ -22,7 +22,7 @@ async function makeModerator() {
   const token = crypto.randomBytes(16).toString('hex');
   const donor = await prisma.donor.create({
     data: {
-      email: `mod-streams-${Date.now()}-${Math.random()}@example.com`,
+      email: `mod-events-${Date.now()}-${Math.random()}@example.com`,
       role: 'MODERATOR',
       magic_token: token,
       token_expires_at: new Date(Date.now() + 60_000),
@@ -31,8 +31,8 @@ async function makeModerator() {
   return { donor, token };
 }
 
-describe('Streams', () => {
-  const createdStreamIds: string[] = [];
+describe('Events', () => {
+  const createdEventIds: string[] = [];
   const createdDonorIds: string[] = [];
 
   beforeAll(() => {
@@ -42,21 +42,21 @@ describe('Streams', () => {
   afterAll(async () => {
     await prisma.donation.deleteMany({ where: { donor_id: { in: createdDonorIds } } });
     await prisma.donor.deleteMany({ where: { id: { in: createdDonorIds } } });
-    await prisma.stream.deleteMany({ where: { id: { in: createdStreamIds } } });
+    await prisma.event.deleteMany({ where: { id: { in: createdEventIds } } });
     await prisma.$disconnect();
   });
 
-  describe('GET /api/streams (public)', () => {
-    it('returns only active streams', async () => {
-      const active = await prisma.stream.create({
+  describe('GET /api/events (public)', () => {
+    it('returns only active events', async () => {
+      const active = await prisma.event.create({
         data: { name: `Public Active ${crypto.randomUUID()}` },
       });
-      const inactive = await prisma.stream.create({
+      const inactive = await prisma.event.create({
         data: { name: `Public Inactive ${crypto.randomUUID()}`, is_active: false },
       });
-      createdStreamIds.push(active.id, inactive.id);
+      createdEventIds.push(active.id, inactive.id);
 
-      const res = await request(createApp()).get('/api/streams');
+      const res = await request(createApp()).get('/api/events');
 
       expect(res.status).toBe(200);
       const ids = res.body.map((s: any) => s.id);
@@ -65,55 +65,55 @@ describe('Streams', () => {
     });
   });
 
-  describe('Admin streams CRUD', () => {
+  describe('Admin events CRUD', () => {
     const auth = { 'x-admin-key': 'test-admin-key' };
 
     it('rejects non-admin requests', async () => {
-      const res = await request(createApp()).get('/api/admin/streams');
+      const res = await request(createApp()).get('/api/admin/events');
       expect(res.status).toBe(401);
     });
 
-    it('creates, updates, and deactivates a stream', async () => {
+    it('creates, updates, and deactivates an event', async () => {
       const createRes = await request(createApp())
-        .post('/api/admin/streams')
-        .send({ name: `Admin Stream ${crypto.randomUUID()}` })
+        .post('/api/admin/events')
+        .send({ name: `Admin Event ${crypto.randomUUID()}` })
         .set(auth);
       expect(createRes.status).toBe(200);
       expect(createRes.body.is_active).toBe(true);
-      createdStreamIds.push(createRes.body.id);
+      createdEventIds.push(createRes.body.id);
 
       const updateRes = await request(createApp())
-        .put(`/api/admin/streams/${createRes.body.id}`)
-        .send({ name: 'Renamed Stream' })
+        .put(`/api/admin/events/${createRes.body.id}`)
+        .send({ name: 'Renamed Event' })
         .set(auth);
       expect(updateRes.status).toBe(200);
-      expect(updateRes.body.name).toBe('Renamed Stream');
+      expect(updateRes.body.name).toBe('Renamed Event');
 
       const deleteRes = await request(createApp())
-        .delete(`/api/admin/streams/${createRes.body.id}`)
+        .delete(`/api/admin/events/${createRes.body.id}`)
         .set(auth);
       expect(deleteRes.status).toBe(200);
-      expect(deleteRes.body.stream.is_active).toBe(false);
+      expect(deleteRes.body.event.is_active).toBe(false);
 
       // Soft-deleted, not removed — still fetchable via admin list.
-      const listRes = await request(createApp()).get('/api/admin/streams').set(auth);
+      const listRes = await request(createApp()).get('/api/admin/events').set(auth);
       expect(listRes.body.some((s: any) => s.id === createRes.body.id)).toBe(true);
     });
 
-    it('rejects duplicate stream names', async () => {
-      const name = `Dup Stream ${crypto.randomUUID()}`;
-      const first = await request(createApp()).post('/api/admin/streams').send({ name }).set(auth);
-      createdStreamIds.push(first.body.id);
+    it('rejects duplicate event names', async () => {
+      const name = `Dup Event ${crypto.randomUUID()}`;
+      const first = await request(createApp()).post('/api/admin/events').send({ name }).set(auth);
+      createdEventIds.push(first.body.id);
 
-      const second = await request(createApp()).post('/api/admin/streams').send({ name }).set(auth);
+      const second = await request(createApp()).post('/api/admin/events').send({ name }).set(auth);
       expect(second.status).toBe(409);
     });
 
-    it('includes per-stream raised totals in /admin/stats', async () => {
-      const stream = await prisma.stream.create({
-        data: { name: `Stats Stream ${crypto.randomUUID()}` },
+    it('includes per-event raised totals in /admin/stats', async () => {
+      const event = await prisma.event.create({
+        data: { name: `Stats Event ${crypto.randomUUID()}` },
       });
-      createdStreamIds.push(stream.id);
+      createdEventIds.push(event.id);
 
       const donor = await prisma.donor.create({
         data: {
@@ -129,37 +129,37 @@ describe('Streams', () => {
           external_id: `stats-${crypto.randomUUID()}`,
           donor_id: donor.id,
           amount_cents: 1000,
-          stream_id: stream.id,
+          event_id: event.id,
         },
       });
 
       const res = await request(createApp()).get('/api/admin/stats').set(auth);
       expect(res.status).toBe(200);
-      const entry = res.body.streams.find((s: any) => s.id === stream.id);
+      const entry = res.body.events.find((s: any) => s.id === event.id);
       expect(entry).toBeTruthy();
       expect(entry.raised_cents).toBe(1000);
       expect(entry.donations).toBe(1);
     });
   });
 
-  describe('Moderator streams CRUD', () => {
+  describe('Moderator events CRUD', () => {
     it('rejects non-moderator requests', async () => {
-      const res = await request(createApp()).get('/api/moderator/streams');
+      const res = await request(createApp()).get('/api/moderator/events');
       expect(res.status).toBe(401);
     });
 
-    it('creates and updates a stream', async () => {
+    it('creates and updates an event', async () => {
       const { token } = await makeModerator();
 
       const createRes = await request(createApp())
-        .post('/api/moderator/streams')
+        .post('/api/moderator/events')
         .query({ token })
-        .send({ name: `Moderator Stream ${crypto.randomUUID()}` });
+        .send({ name: `Moderator Event ${crypto.randomUUID()}` });
       expect(createRes.status).toBe(200);
-      createdStreamIds.push(createRes.body.id);
+      createdEventIds.push(createRes.body.id);
 
       const updateRes = await request(createApp())
-        .put(`/api/moderator/streams/${createRes.body.id}`)
+        .put(`/api/moderator/events/${createRes.body.id}`)
         .query({ token })
         .send({ is_active: false });
       expect(updateRes.status).toBe(200);

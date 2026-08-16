@@ -4,15 +4,15 @@ import prisma from '../lib/prisma.js';
 const router = Router();
 
 /**
- * GET /api/streams
- * Public list of active streams, for the /donate stream picker.
+ * GET /api/events
+ * Public list of active events, for the /donate event picker.
  */
 router.get('/', async (_req: Request, res: Response) => {
-  const streams = await prisma.stream.findMany({
+  const events = await prisma.event.findMany({
     where: { is_active: true },
     orderBy: { created_at: 'asc' },
   });
-  res.json(streams);
+  res.json(events);
 });
 
 export default router;
