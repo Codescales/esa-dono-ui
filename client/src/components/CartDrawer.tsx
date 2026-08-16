@@ -153,10 +153,10 @@ export default function CartDrawer() {
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-label="cart">
       <div className="absolute inset-0 bg-black/60" onClick={closeDrawer} />
       <div
-        className="relative w-full max-w-sm h-full overflow-y-auto p-4 flex flex-col animate-slide-in-right"
+        className="relative w-full max-w-sm h-full flex flex-col animate-slide-in-right"
         style={{ background: 'var(--dark-gray)', borderLeft: '1px solid rgba(239,238,236,.08)' }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between p-4 pb-0">
           <h3 className="font-data font-bold text-sm text-off-white uppercase tracking-wider">
             your cart
           </h3>
@@ -168,16 +168,20 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {donor && (
-          <div className="btrl-panel p-3 mb-4">
-            <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-1">
-              wallet balance
-            </p>
-            <p className="font-display text-2xl text-off-white">{fmt(donor.balance_remaining)}</p>
-          </div>
-        )}
+        {/* Scrollable body — everything except the header and the checkout
+            button below, which stay pinned so the button is never pushed
+            offscreen by a long cart, additional-donation/email/comment
+            fields, or a nudge/issues warning. */}
+        <div className="flex-1 overflow-y-auto p-4 pt-3">
+          {donor && (
+            <div className="btrl-panel p-3 mb-4">
+              <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-1">
+                wallet balance
+              </p>
+              <p className="font-display text-2xl text-off-white">{fmt(donor.balance_remaining)}</p>
+            </div>
+          )}
 
-        <div className="flex-1">
           {cart.length === 0 ? (
             <p className="font-body text-sm text-off-white/55">No items selected yet.</p>
           ) : (
@@ -335,18 +339,20 @@ export default function CartDrawer() {
           )}
         </div>
 
-        <button
-          onClick={handleCheckoutClick}
-          disabled={disableCheckout}
-          className="btrl-button w-full text-center text-lg py-3"
-          style={{ background: 'var(--d-yellow)', color: 'black' }}
-        >
-          {submitting
-            ? 'redirecting to checkout...'
-            : phase === 'checking'
-              ? 'checking availability...'
-              : `donate ${fmt(totalCents)}`}
-        </button>
+        <div className="p-4 pt-3" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+          <button
+            onClick={handleCheckoutClick}
+            disabled={disableCheckout}
+            className="btrl-button w-full text-center text-lg py-3"
+            style={{ background: 'var(--d-yellow)', color: 'black' }}
+          >
+            {submitting
+              ? 'redirecting to checkout...'
+              : phase === 'checking'
+                ? 'checking availability...'
+                : `donate ${fmt(totalCents)}`}
+          </button>
+        </div>
       </div>
     </div>
   );
