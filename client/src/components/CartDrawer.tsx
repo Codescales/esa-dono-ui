@@ -101,7 +101,14 @@ export default function CartDrawer() {
       return;
     }
     setPhase('idle');
-    await checkout();
+    const result = await checkout();
+    // checkout() redirects away itself when result.donate_url is present.
+    // A non-null result with no donate_url means Stripe isn't configured
+    // (dev/local only) — the pledge was created but there's nowhere to send
+    // the donor, so surface that inline instead of silently doing nothing.
+    if (result && !result.donate_url) {
+      setCheckoutError('Checkout unavailable — contact the event organizer.');
+    }
   };
 
   const handleCheckoutClick = () => {

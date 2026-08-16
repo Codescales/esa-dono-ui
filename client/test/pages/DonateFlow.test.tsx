@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Rewards from '../../src/pages/Rewards';
+import DonateFlow from '../../src/pages/DonateFlow';
 import { CartProvider } from '../../src/context/CartContext';
 
 vi.mock('../../src/api/rewards', () => ({
@@ -18,17 +18,17 @@ import { getRewards } from '../../src/api/rewards';
 import { getPolls } from '../../src/api/polls';
 import { getGoals } from '../../src/api/goals';
 
-function renderRewards() {
+function renderAt(path: string) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <CartProvider>
-        <Rewards />
+        <DonateFlow />
       </CartProvider>
     </MemoryRouter>,
   );
 }
 
-describe('Rewards page', () => {
+describe('DonateFlow (tabbed browse page)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -36,7 +36,7 @@ describe('Rewards page', () => {
     vi.mocked(getGoals).mockResolvedValue([]);
   });
 
-  it('renders rewards list', async () => {
+  it('renders the rewards tab when visiting /rewards', async () => {
     localStorage.setItem('donor_token', 'test-token');
     vi.mocked(getRewards).mockResolvedValue([
       {
@@ -61,10 +61,29 @@ describe('Rewards page', () => {
       },
     ]);
 
-    renderRewards();
+    renderAt('/rewards');
 
     expect(await screen.findByText('Digital Reward')).toBeDefined();
     expect(screen.getByText('Physical Reward')).toBeDefined();
+  });
+
+  it('defaults to the rewards tab when visiting /donate', async () => {
+    vi.mocked(getRewards).mockResolvedValue([
+      {
+        id: '1',
+        title: 'Digital Reward',
+        description: 'A digital item',
+        type: 'DIGITAL',
+        cost_cents: 500,
+        quantity_total: null,
+        quantity_claimed: 0,
+        is_active: true,
+      },
+    ]);
+
+    renderAt('/donate');
+
+    expect(await screen.findByText('Digital Reward')).toBeDefined();
   });
 
   it('adds a reward to the cart without collecting an address (Stripe collects it)', async () => {
@@ -81,11 +100,32 @@ describe('Rewards page', () => {
       },
     ]);
 
-    renderRewards();
+    renderAt('/rewards');
 
     const addButton = await screen.findByText('add');
     addButton.click();
 
     expect(await screen.findByText('remove')).toBeDefined();
+  });
+
+  it('switches to the polls tab when clicked', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([
+      {
+        id: 'p1',
+        title: 'Favorite game',
+        options: [],
+        total_votes_cents: 0,
+        is_active: true,
+        allow_custom_entries: false,
+      },
+    ]);
+
+    renderAt('/rewards');
+
+    const pollsTabButtons = await screen.findAllByText('polls');
+    pollsTabButtons[0]!.click();
+
+    expect(await screen.findByText('Favorite game')).toBeDefined();
   });
 });
