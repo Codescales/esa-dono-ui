@@ -3,8 +3,8 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { getDonor } from '../api/donor';
 import { clearDonorToken } from '../utils/authToken';
 import { useCart } from '../context/CartContext';
+import UserMenu from './UserMenu';
 import type { DonorWallet } from '../types';
-import { hasModeratorAccess } from '../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -60,14 +60,6 @@ export default function Navbar() {
         home
       </NavLink>
       <NavLink
-        to="/wallet"
-        className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
-        }
-      >
-        wallet
-      </NavLink>
-      <NavLink
         to="/rewards"
         className={({ isActive }) =>
           `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
@@ -115,31 +107,8 @@ export default function Navbar() {
             </span>
           )}
         </button>
-        {donor && (
-          <div className="hidden lg:flex flex-col text-right leading-tight">
-            <span className="font-mono text-[10px] tracking-widest uppercase text-d-yellow">
-              logged in as
-            </span>
-            <span className="font-data font-bold text-sm text-off-white">
-              {donor.email} &middot; {fmt(donor.balance_remaining)}
-            </span>
-          </div>
-        )}
-        {hasModeratorAccess(donor?.role) && (
-          <NavLink
-            to="/moderate"
-            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
-          >
-            moderate
-          </NavLink>
-        )}
         {donor ? (
-          <button
-            onClick={logout}
-            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
-          >
-            logout
-          </button>
+          <UserMenu donor={donor} onLogout={logout} />
         ) : (
           <NavLink
             to="/wallet"
@@ -148,12 +117,6 @@ export default function Navbar() {
             login
           </NavLink>
         )}
-        <NavLink
-          to="/admin"
-          className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
-        >
-          admin
-        </NavLink>
       </div>
     </nav>
   );

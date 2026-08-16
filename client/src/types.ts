@@ -19,6 +19,11 @@ export function hasModeratorAccess(role: Role | string | null | undefined): bool
   return role === 'MODERATOR' || role === 'ADMIN';
 }
 
+/** True for ADMIN only. */
+export function hasAdminAccess(role: Role | string | null | undefined): boolean {
+  return role === 'ADMIN';
+}
+
 export interface Donor {
   id: string;
   email: string;
