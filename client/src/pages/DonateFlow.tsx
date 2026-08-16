@@ -10,6 +10,12 @@ import GoalList from '../components/incentives/GoalList';
 const TABS = ['rewards', 'polls', 'goals'] as const;
 type Tab = (typeof TABS)[number];
 
+const TAB_LABELS: Record<Tab, string> = {
+  rewards: 'rewards',
+  polls: 'polls',
+  goals: 'fund goals',
+};
+
 /** Map a pathname to the tab it should activate. /donate (and anything else
  * under the public tree) defaults to rewards — the same default the old
  * stepper's first step used. */
@@ -26,6 +32,12 @@ export default function DonateFlow() {
   const [tab, setTab] = useState<Tab>(() => tabFromPathname(location.pathname));
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
 
+  // Warning shown when "review & checkout" is clicked before every category
+  // has been opened. A second click while it's showing bypasses it and
+  // proceeds anyway — the donor has now been told twice, once by name.
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningAcknowledged, setWarningAcknowledged] = useState(false);
+
   // /rewards, /polls, /goals, and /donate all render this same component
   // instance at the same position in the tree, so React won't remount it on
   // navigation between them — sync the active tab to the URL explicitly
@@ -34,6 +46,13 @@ export default function DonateFlow() {
   useEffect(() => {
     setTab(tabFromPathname(location.pathname));
   }, [location.pathname]);
+
+  // Dismiss a lingering warning banner once the donor moves to a different
+  // category — it did its job (or was bypassed) and shouldn't stick around
+  // while they browse.
+  useEffect(() => {
+    setShowWarning(false);
+  }, [tab]);
 
   const selectTab = (next: Tab) => {
     const nextIndex = TABS.indexOf(next);
@@ -46,22 +65,36 @@ export default function DonateFlow() {
 
   const slideClass = direction === 'next' ? 'animate-slide-in-right' : 'animate-slide-in-left';
   const tabIndex = TABS.indexOf(tab);
-  const isLastTab = tabIndex === TABS.length - 1;
+  const unvisited = TABS.filter((t) => !hasVisited(t));
+  const allVisited = unvisited.length === 0;
 
+  // Previous/Next always cycle — rewards -> polls -> goals -> rewards -> ...
+  // — so donors keep circling through every category rather than hitting a
+  // dead end, with "review & checkout" living on its own row as the
+  // separate, deliberate exit from the loop.
   const goPrevious = () => {
-    if (tabIndex > 0) selectTab(TABS[tabIndex - 1]!);
+    setDirection('prev');
+    setTab(TABS[(tabIndex - 1 + TABS.length) % TABS.length]!);
   };
 
   const goNext = () => {
-    if (tabIndex < TABS.length - 1) selectTab(TABS[tabIndex + 1]!);
+    setDirection('next');
+    setTab(TABS[(tabIndex + 1) % TABS.length]!);
+  };
+
+  const handleReviewClick = () => {
+    if (allVisited || warningAcknowledged) {
+      setShowWarning(false);
+      openDrawer();
+      return;
+    }
+    setShowWarning(true);
+    setWarningAcknowledged(true);
   };
 
   return (
     <div className="max-w-3xl mx-auto p-8">
-      {/* Tab bar — still clickable for jumping directly to a category, but
-          the footer Previous/Next buttons below are the primary path so a
-          first-time donor is naturally carried through every category
-          instead of checking out after only seeing the first one. A
+      {/* Tab bar — still clickable for jumping directly to a category. A
           checkmark marks any category the donor has already opened. */}
       <div className="flex justify-center gap-2 mb-8">
         {TABS.map((t) => (
@@ -91,23 +124,38 @@ export default function DonateFlow() {
         {tab === 'goals' && <GoalList />}
       </div>
 
+      {/* Previous/Next always available and always cycle through every
+          category — there's no "last" step to fall off of. */}
       <div className="flex justify-between items-center mt-8">
-        <button
-          onClick={goPrevious}
-          disabled={tabIndex === 0}
-          className="btrl-button btrl-button-outline"
-        >
+        <button onClick={goPrevious} className="btrl-button btrl-button-outline">
           &larr; previous
         </button>
-        {isLastTab ? (
-          <button onClick={openDrawer} className="btrl-button text-lg py-3 px-8">
-            review &amp; checkout
-          </button>
-        ) : (
-          <button onClick={goNext} className="btrl-button">
-            next &rarr;
-          </button>
-        )}
+        <button onClick={goNext} className="btrl-button">
+          next &rarr;
+        </button>
+      </div>
+
+      {showWarning && (
+        <div className="mt-4 p-3 rounded-sm text-sm" style={{ background: 'rgba(208,152,70,.16)' }}>
+          <p className="font-data text-d-yellow mb-1">
+            You haven't reviewed {unvisited.map((t) => TAB_LABELS[t]).join(' or ')} yet.
+          </p>
+          <p className="font-body text-xs text-off-white/55">
+            Click "review &amp; checkout" again to skip ahead anyway — your cart is always reachable
+            from the cart button too.
+          </p>
+        </div>
+      )}
+
+      {/* Review/checkout lives on its own row, separate from the Previous/
+          Next loop, so it reads as a deliberate exit rather than another
+          step in the cycle. It's never hard-disabled — clicking it before
+          every category has been reviewed shows the warning above instead
+          of opening the drawer; a second click bypasses that and proceeds. */}
+      <div className="flex justify-center mt-4">
+        <button onClick={handleReviewClick} className="btrl-button text-lg py-3 px-8">
+          review &amp; checkout
+        </button>
       </div>
     </div>
   );

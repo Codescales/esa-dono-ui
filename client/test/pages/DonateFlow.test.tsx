@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DonateFlow from '../../src/pages/DonateFlow';
-import { CartProvider } from '../../src/context/CartContext';
+import { CartProvider, useCart } from '../../src/context/CartContext';
 
 vi.mock('../../src/api/rewards', () => ({
   getRewards: vi.fn(),
@@ -18,10 +18,19 @@ import { getRewards } from '../../src/api/rewards';
 import { getPolls } from '../../src/api/polls';
 import { getGoals } from '../../src/api/goals';
 
+// Exposes the drawer's open/closed state as text so tests can assert
+// whether clicking "review & checkout" actually opened it, without needing
+// to render the full CartDrawer component.
+function DrawerOpenIndicator() {
+  const { drawerOpen } = useCart();
+  return <div data-testid="drawer-state">{drawerOpen ? 'open' : 'closed'}</div>;
+}
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <CartProvider>
+        <DrawerOpenIndicator />
         <DonateFlow />
       </CartProvider>
     </MemoryRouter>,
@@ -129,7 +138,7 @@ describe('DonateFlow (tabbed browse page)', () => {
     expect(await screen.findByText('Favorite game')).toBeDefined();
   });
 
-  it('disables "previous" on the first tab and walks forward via "next"', async () => {
+  it('cycles forward through categories via "next", wrapping back to rewards', async () => {
     vi.mocked(getRewards).mockResolvedValue([]);
     vi.mocked(getPolls).mockResolvedValue([]);
     vi.mocked(getGoals).mockResolvedValue([]);
@@ -137,27 +146,95 @@ describe('DonateFlow (tabbed browse page)', () => {
     renderAt('/rewards');
 
     expect(await screen.findByText(/no rewards available/i)).toBeDefined();
-    const prevButton = screen.getByText(/previous/i).closest('button')!;
-    expect(prevButton).toHaveProperty('disabled', true);
 
     screen.getByText(/next/i).click();
     expect(await screen.findByText(/no active polls/i)).toBeDefined();
-    expect(screen.getByText(/previous/i).closest('button')).toHaveProperty('disabled', false);
 
     screen.getByText(/next/i).click();
     expect(await screen.findByText(/no active fund goals/i)).toBeDefined();
+
+    // Wraps back to rewards instead of dead-ending on the last category.
+    screen.getByText(/next/i).click();
+    expect(await screen.findByText(/no rewards available/i)).toBeDefined();
   });
 
-  it('shows "review & checkout" instead of "next" on the last tab', async () => {
+  it('cycles backward through categories via "previous", wrapping from rewards to goals', async () => {
     vi.mocked(getRewards).mockResolvedValue([]);
     vi.mocked(getPolls).mockResolvedValue([]);
     vi.mocked(getGoals).mockResolvedValue([]);
 
-    renderAt('/goals');
+    renderAt('/rewards');
 
+    expect(await screen.findByText(/no rewards available/i)).toBeDefined();
+
+    screen.getByText(/previous/i).click();
     expect(await screen.findByText(/no active fund goals/i)).toBeDefined();
-    expect(screen.getByText(/review & checkout/i)).toBeDefined();
-    expect(screen.queryByText(/^next/i)).toBeNull();
+  });
+
+  it('always shows "review & checkout" on its own row alongside next/previous', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+
+    await screen.findByText(/no rewards available/i);
+    expect(screen.getByText(/previous/i)).toBeDefined();
+    expect(screen.getByText(/^next/i)).toBeDefined();
+    expect(screen.getByRole('button', { name: /review & checkout/i })).toBeDefined();
+  });
+
+  it('warns instead of opening the drawer when checking out before every category is reviewed', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+    await screen.findByText(/no rewards available/i);
+
+    screen.getByRole('button', { name: /review & checkout/i }).click();
+
+    expect(await screen.findByText(/haven't reviewed/i)).toBeDefined();
+    expect(screen.getByText(/haven't reviewed.*polls/i)).toBeDefined();
+    expect(screen.getByTestId('drawer-state').textContent).toBe('closed');
+  });
+
+  it('opens the drawer on a second checkout click, bypassing the warning', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+    await screen.findByText(/no rewards available/i);
+
+    screen.getByRole('button', { name: /review & checkout/i }).click();
+    await screen.findByText(/haven't reviewed/i);
+
+    screen.getByRole('button', { name: /review & checkout/i }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('drawer-state').textContent).toBe('open');
+    });
+  });
+
+  it('opens the drawer directly, with no warning, once every category has been reviewed', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+    await screen.findByText(/no rewards available/i);
+    screen.getByText(/next/i).click();
+    await screen.findByText(/no active polls/i);
+    screen.getByText(/next/i).click();
+    await screen.findByText(/no active fund goals/i);
+
+    screen.getByRole('button', { name: /review & checkout/i }).click();
+
+    expect(screen.queryByText(/haven't reviewed/i)).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByTestId('drawer-state').textContent).toBe('open');
+    });
   });
 
   it('marks a tab as visited (checkmark) once its list has been shown', async () => {
