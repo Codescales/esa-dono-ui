@@ -104,7 +104,7 @@ export default function PledgeReturn() {
         ) : isExpired ? (
           <div className="mb-4 p-3 rounded-sm" style={{ background: 'rgba(208,152,70,.16)' }}>
             <p className="font-data text-sm" style={{ color: 'var(--d-yellow)' }}>
-              This pledge has expired. Donations without a matching pledge are credited to your
+              This pledge has expired. Pledges without a matching payment are credited to your
               wallet balance.
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function PledgeReturn() {
         ) : (
           <div className="mb-4 p-3 rounded-sm" style={{ background: 'rgba(115,78,158,.3)' }}>
             <p className="font-data text-sm text-off-white">
-              Processing your donation... this usually takes a few seconds.
+              Processing your pledge... this usually takes a few seconds.
             </p>
           </div>
         )}

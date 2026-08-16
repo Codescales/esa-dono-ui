@@ -73,7 +73,7 @@ describe('CartDrawer', () => {
   it('shows the checkout button in a footer separate from the scrollable body, even with a long cart', async () => {
     renderDrawer(manyPollVotes(30));
 
-    const checkoutButton = await screen.findByRole('button', { name: /^donate/i });
+    const checkoutButton = await screen.findByRole('button', { name: /^support/i });
     expect(checkoutButton).toBeDefined();
 
     // The button must live in a footer container that is NOT the scrollable
@@ -88,6 +88,6 @@ describe('CartDrawer', () => {
 
   it('shows the checkout button even with an empty cart', async () => {
     renderDrawer([]);
-    expect(await screen.findByRole('button', { name: /^donate/i })).toBeDefined();
+    expect(await screen.findByRole('button', { name: /^support/i })).toBeDefined();
   });
 });

@@ -215,7 +215,8 @@ export default function CartDrawer() {
 
           <div className="btrl-panel p-3 mb-4">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              additional donation <span className="text-off-white/40 font-normal">(optional)</span>
+              additional contribution{' '}
+              <span className="text-off-white/40 font-normal">(optional)</span>
             </label>
             <input
               type="number"
@@ -277,7 +278,7 @@ export default function CartDrawer() {
               className="w-full px-3 py-2 text-sm"
               rows={2}
               maxLength={500}
-              placeholder="Leave a message with your donation"
+              placeholder="Leave a message with your contribution"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
@@ -350,7 +351,11 @@ export default function CartDrawer() {
               ? 'redirecting to checkout...'
               : phase === 'checking'
                 ? 'checking availability...'
-                : `donate ${fmt(totalCents)}`}
+                : !donor
+                  ? `support ${fmt(totalCents)}`
+                  : estimatedOwed === 0
+                    ? 'confirm — covered by your wallet'
+                    : `support — pay ${fmt(estimatedOwed)}`}
           </button>
         </div>
       </div>
