@@ -15,7 +15,22 @@ for i in $(seq 1 30); do
 done
 echo " ready."
 
+# --- Events ---
+echo "==> Creating events..."
+E_MAIN=$(curl -sf -X POST $BASE/api/admin/events \
+  -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
+  -d '{"name":"Main Marathon","is_active":true}' | jq -r .id)
+
+E_BONUS=$(curl -sf -X POST $BASE/api/admin/events \
+  -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
+  -d '{"name":"Bonus Stream","is_active":true}' | jq -r .id)
+
+echo "   Events: $E_MAIN (Main Marathon) $E_BONUS (Bonus Stream)"
+
 # --- Rewards ---
+# Shoutouts and the Discord role are left shared (no event_id) — available
+# from either event's donate flow. The t-shirt and game pick are scoped to
+# the Main Marathon, to demonstrate an event-specific incentive.
 echo "==> Creating rewards..."
 R_SHOUT=$(curl -sf -X POST $BASE/api/admin/rewards \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
@@ -27,22 +42,25 @@ R_DISC=$(curl -sf -X POST $BASE/api/admin/rewards \
 
 R_SHIRT=$(curl -sf -X POST $BASE/api/admin/rewards \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
-  -d '{"title":"ESA T-Shirt","description":"Official ESA charity event t-shirt, shipped to you","type":"PHYSICAL","cost_cents":2500,"quantity_total":20,"is_active":true}' | jq -r .id)
+  -d "{\"title\":\"ESA T-Shirt\",\"description\":\"Official ESA charity event t-shirt, shipped to you\",\"type\":\"PHYSICAL\",\"cost_cents\":2500,\"quantity_total\":20,\"is_active\":true,\"event_id\":\"$E_MAIN\"}" | jq -r .id)
 
 R_GAME=$(curl -sf -X POST $BASE/api/admin/rewards \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
-  -d '{"title":"Pick the Next Game","description":"Choose the next game the runners play","type":"CUSTOM","cost_cents":5000,"quantity_total":1,"is_active":true,"custom_type_label":"Your game pick"}' | jq -r .id)
+  -d "{\"title\":\"Pick the Next Game\",\"description\":\"Choose the next game the runners play\",\"type\":\"CUSTOM\",\"cost_cents\":5000,\"quantity_total\":1,\"is_active\":true,\"custom_type_label\":\"Your game pick\",\"event_id\":\"$E_MAIN\"}" | jq -r .id)
 
 echo "   Rewards: $R_SHOUT $R_DISC $R_SHIRT $R_GAME"
 
 # --- Polls ---
+# P1 (pick the finale game) belongs to the Main Marathon; P2 (bonus
+# challenge) belongs to the Bonus Stream — each only shows up once its
+# event is selected on /donate.
 echo "==> Creating polls..."
 P1_JSON=$(curl -sf -X POST $BASE/api/admin/polls \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
-  -d '{"title":"Which game should be the finale run?","description":"Vote with your donor balance — $1 = 1 vote","is_active":true,"options":[{"label":"Celeste"},{"label":"Hollow Knight"},{"label":"Hades"},{"label":"Disco Elysium"}]}')
+  -d "{\"title\":\"Which game should be the finale run?\",\"description\":\"Vote with your donor balance — \$1 = 1 vote\",\"is_active\":true,\"event_id\":\"$E_MAIN\",\"options\":[{\"label\":\"Celeste\"},{\"label\":\"Hollow Knight\"},{\"label\":\"Hades\"},{\"label\":\"Disco Elysium\"}]}")
 P2_JSON=$(curl -sf -X POST $BASE/api/admin/polls \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
-  -d '{"title":"Bonus challenge for the speedrun?","description":"Pick what happens during the bonus block","is_active":true,"options":[{"label":"Blindfolded segment"},{"label":"Developers commentary"},{"label":"Donation war: blinds vs. no blinds"},{"label":"Community race"}]}')
+  -d "{\"title\":\"Bonus challenge for the speedrun?\",\"description\":\"Pick what happens during the bonus block\",\"is_active\":true,\"event_id\":\"$E_BONUS\",\"options\":[{\"label\":\"Blindfolded segment\"},{\"label\":\"Developers commentary\"},{\"label\":\"Donation war: blinds vs. no blinds\"},{\"label\":\"Community race\"}]}")
 
 P1=$(echo $P1_JSON | jq -r .id)
 P2=$(echo $P2_JSON | jq -r .id)
@@ -58,10 +76,12 @@ OPT_RACE=$(echo $P2_JSON         | jq -r '.options[] | select(.label=="Community
 echo "   Polls: $P1 $P2"
 
 # --- Goals ---
+# G1 (bonus couch stream) belongs to the Bonus Stream; G2 and G3 are left
+# shared (fed by donations to either event).
 echo "==> Creating goals..."
 G1=$(curl -sf -X POST $BASE/api/admin/goals \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
-  -d '{"title":"Unlock Bonus Couch Stream","description":"Hit this goal and the team does an extra 2-hour couch commentary stream","target_cents":100000,"is_active":true}' | jq -r .id)
+  -d "{\"title\":\"Unlock Bonus Couch Stream\",\"description\":\"Hit this goal and the team does an extra 2-hour couch commentary stream\",\"target_cents\":100000,\"is_active\":true,\"event_id\":\"$E_BONUS\"}" | jq -r .id)
 
 G2=$(curl -sf -X POST $BASE/api/admin/goals \
   -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
@@ -74,25 +94,32 @@ G3=$(curl -sf -X POST $BASE/api/admin/goals \
 echo "   Goals: $G1 $G2 $G3"
 
 # --- Donations (creates donors) ---
-echo "==> Firing donation webhooks..."
-for payload in \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-001","amount_total":10000,"customer_details":{"email":"alice@example.com","name":"Alice Speedrun"}}}}' \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-002","amount_total":5000,"customer_details":{"email":"bob@example.com","name":"Bob Gamer"}}}}' \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-003","amount_total":2500,"customer_details":{"email":"carol@example.com","name":"Carol Plays"}}}}' \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-004","amount_total":20000,"customer_details":{"email":"dave@example.com","name":"Dave"}}}}' \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-005","amount_total":7500,"customer_details":{"email":"eve@example.com","name":"Eve the Runner"}}}}' \
-  '{"type":"checkout.session.completed","data":{"object":{"id":"fake-006","amount_total":3000,"customer_details":{"email":"alice@example.com","name":"Alice Speedrun"}}}}'; do
-  curl -sf -X POST $BASE/api/webhooks/stripe -H "Content-Type: application/json" --data-raw "$payload" > /dev/null
-done
-echo "   6 donations created."
+# Uses /api/admin/simulate-donation (rather than a raw webhook payload) so
+# each donation can carry an event_id, giving the admin dashboard's
+# per-event totals something to show. Alice/Dave donate to the Main
+# Marathon, Bob/Carol to the Bonus Stream, Eve donates without an event
+# (simulating a legacy/direct donation not tied to either).
+echo "==> Simulating donations..."
+sim_donation() {
+  local email=$1 name=$2 cents=$3 event=$4
+  local body
+  if [ -n "$event" ]; then
+    body=$(printf '{"email":"%s","donor_name":"%s","amount_cents":%s,"event_id":"%s"}' "$email" "$name" "$cents" "$event")
+  else
+    body=$(printf '{"email":"%s","donor_name":"%s","amount_cents":%s}' "$email" "$name" "$cents")
+  fi
+  curl -sf -X POST $BASE/api/admin/simulate-donation \
+    -H "Content-Type: application/json" -H "X-Admin-Key: $KEY" \
+    -d "$body"
+}
 
-# --- Fetch donor tokens ---
-DONATIONS=$(curl -sf $BASE/api/admin/donations -H "X-Admin-Key: $KEY")
-ALICE=$(echo $DONATIONS | jq -r '[.[] | select(.donor.email=="alice@example.com")] | .[0].donor.magic_token')
-BOB=$(echo $DONATIONS   | jq -r '[.[] | select(.donor.email=="bob@example.com")]   | .[0].donor.magic_token')
-CAROL=$(echo $DONATIONS | jq -r '[.[] | select(.donor.email=="carol@example.com")] | .[0].donor.magic_token')
-DAVE=$(echo $DONATIONS  | jq -r '[.[] | select(.donor.email=="dave@example.com")]  | .[0].donor.magic_token')
-EVE=$(echo $DONATIONS   | jq -r '[.[] | select(.donor.email=="eve@example.com")]   | .[0].donor.magic_token')
+ALICE=$(sim_donation "alice@example.com" "Alice Speedrun" 10000 "$E_MAIN" | jq -r .token)
+BOB=$(sim_donation "bob@example.com" "Bob Gamer" 5000 "$E_BONUS" | jq -r .token)
+CAROL=$(sim_donation "carol@example.com" "Carol Plays" 2500 "$E_BONUS" | jq -r .token)
+DAVE=$(sim_donation "dave@example.com" "Dave" 20000 "$E_MAIN" | jq -r .token)
+EVE=$(sim_donation "eve@example.com" "Eve the Runner" 7500 "" | jq -r .token)
+sim_donation "alice@example.com" "Alice Speedrun" 3000 "$E_MAIN" > /dev/null
+echo "   6 donations created (Alice/Dave -> Main Marathon, Bob/Carol -> Bonus Stream, Eve -> no event)."
 
 # --- Reward claims ---
 echo "==> Claiming rewards..."
@@ -135,6 +162,7 @@ echo ""
 echo "==> Done. Summary:"
 curl -sf $BASE/api/admin/stats -H "X-Admin-Key: $KEY" | jq .
 echo ""
+echo "Events:       Main Marathon ($E_MAIN), Bonus Stream ($E_BONUS)"
 echo "Alice wallet: $BASE/wallet?token=$ALICE"
 echo "Dave wallet:  $BASE/wallet?token=$DAVE"
 echo "Admin panel:  ${BASE/3001/5173}/admin  (key: $KEY)"
