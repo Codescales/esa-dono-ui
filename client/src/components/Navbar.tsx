@@ -79,30 +79,6 @@ export default function Navbar() {
         home
       </NavLink>
       <NavLink
-        to="/rewards"
-        className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
-        }
-      >
-        rewards
-      </NavLink>
-      <NavLink
-        to="/polls"
-        className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
-        }
-      >
-        polls
-      </NavLink>
-      <NavLink
-        to="/goals"
-        className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
-        }
-      >
-        goals
-      </NavLink>
-      <NavLink
         to="/donate"
         className={({ isActive }) =>
           `font-data font-bold text-sm tracking-wider lowercase text-black no-underline px-3 py-1 rounded-sm hover:opacity-90 ${isActive ? 'opacity-80' : ''}`
