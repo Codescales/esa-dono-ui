@@ -33,6 +33,7 @@ export default function RewardList() {
   const { rewards, loading, cart, addToCart, removeFromCart, markVisited } = useCart();
   const [claiming, setClaiming] = useState<Reward | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   useEffect(() => {
     markVisited('rewards');
@@ -55,6 +56,8 @@ export default function RewardList() {
       label: reward.title,
       data,
     });
+    setFlashId(reward.id);
+    setTimeout(() => setFlashId((id) => (id === reward.id ? null : id)), 300);
   };
 
   const handleAddClick = (reward: Reward) => {
@@ -107,7 +110,7 @@ export default function RewardList() {
                   {inCart(r.id) ? (
                     <button
                       onClick={() => removeFromCart('REWARD', r.id)}
-                      className="btrl-button btrl-button-outline mt-2 text-sm"
+                      className={`btrl-button btrl-button-outline mt-2 text-sm ${flashId === r.id ? 'animate-add-flash' : ''}`}
                     >
                       remove
                     </button>

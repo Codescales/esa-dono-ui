@@ -406,3 +406,101 @@ tr.border-t:hover {
 .text-red-600 {
   color: var(--red) !important;
 }
+
+/* ─── Game-styled motion ───
+ * Panel/tab slide transitions, plus "juice" feedback for cart updates
+ * (badge pop, add-button flash, total pulse). Stepped timing functions give
+ * these a chunky, sprite-like feel rather than smooth easing.
+ * All wrapped in a no-preference media query so prefers-reduced-motion
+ * users get instant, unanimated updates instead. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.22s ease-out;
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.22s ease-out;
+  }
+
+  @keyframes cart-pop {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(208, 152, 70, 0);
+    }
+    30% {
+      transform: scale(1.3);
+      box-shadow: 0 0 0 4px rgba(208, 152, 70, 0.55);
+    }
+    60% {
+      transform: scale(0.94);
+      box-shadow: 0 0 0 2px rgba(208, 152, 70, 0.3);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(208, 152, 70, 0);
+    }
+  }
+
+  .animate-cart-pop {
+    animation: cart-pop 0.4s steps(4, end);
+  }
+
+  @keyframes add-flash {
+    0% {
+      filter: brightness(1);
+    }
+    40% {
+      filter: brightness(1.6);
+      box-shadow: 0 0 0 2px var(--d-yellow);
+    }
+    100% {
+      filter: brightness(1);
+      box-shadow: none;
+    }
+  }
+
+  .animate-add-flash {
+    animation: add-flash 0.3s steps(3, end);
+  }
+
+  @keyframes total-pulse {
+    0% {
+      transform: scale(1);
+      color: var(--d-yellow);
+    }
+    50% {
+      transform: scale(1.12);
+      color: var(--yellow);
+    }
+    100% {
+      transform: scale(1);
+      color: var(--d-yellow);
+    }
+  }
+
+  .animate-total-pulse {
+    animation: total-pulse 0.3s steps(3, end);
+  }
+}

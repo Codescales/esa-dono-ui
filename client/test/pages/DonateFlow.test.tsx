@@ -128,4 +128,51 @@ describe('DonateFlow (tabbed browse page)', () => {
 
     expect(await screen.findByText('Favorite game')).toBeDefined();
   });
+
+  it('disables "previous" on the first tab and walks forward via "next"', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+
+    expect(await screen.findByText(/no rewards available/i)).toBeDefined();
+    const prevButton = screen.getByText(/previous/i).closest('button')!;
+    expect(prevButton).toHaveProperty('disabled', true);
+
+    screen.getByText(/next/i).click();
+    expect(await screen.findByText(/no active polls/i)).toBeDefined();
+    expect(screen.getByText(/previous/i).closest('button')).toHaveProperty('disabled', false);
+
+    screen.getByText(/next/i).click();
+    expect(await screen.findByText(/no active fund goals/i)).toBeDefined();
+  });
+
+  it('shows "review & checkout" instead of "next" on the last tab', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/goals');
+
+    expect(await screen.findByText(/no active fund goals/i)).toBeDefined();
+    expect(screen.getByText(/review & checkout/i)).toBeDefined();
+    expect(screen.queryByText(/^next/i)).toBeNull();
+  });
+
+  it('marks a tab as visited (checkmark) once its list has been shown', async () => {
+    vi.mocked(getRewards).mockResolvedValue([]);
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
+
+    renderAt('/rewards');
+
+    await screen.findByText(/no rewards available/i);
+    expect(await screen.findByTestId('visited-check-rewards')).toBeDefined();
+    expect(screen.queryByTestId('visited-check-polls')).toBeNull();
+
+    screen.getByText(/next/i).click();
+    await screen.findByText(/no active polls/i);
+    expect(await screen.findByTestId('visited-check-polls')).toBeDefined();
+  });
 });

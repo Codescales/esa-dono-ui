@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { getDonor } from '../api/donor';
 import { clearDonorToken } from '../utils/authToken';
@@ -14,6 +14,25 @@ export default function Navbar() {
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const location = useLocation();
   const { cart, totalCents, toggleDrawer } = useCart();
+
+  // Brief "juice" pop on the cart badge whenever the cart total actually
+  // changes, so adding/removing an item is felt, not just reflected. Skips
+  // the very first render (a cart restored from sessionStorage shouldn't
+  // pop on page load, only on subsequent changes).
+  const [pop, setPop] = useState(false);
+  const prevSignature = useRef<string | null>(null);
+  useEffect(() => {
+    const signature = `${cart.length}:${totalCents}`;
+    if (prevSignature.current === null) {
+      prevSignature.current = signature;
+      return;
+    }
+    if (prevSignature.current === signature) return;
+    prevSignature.current = signature;
+    setPop(true);
+    const timer = setTimeout(() => setPop(false), 400);
+    return () => clearTimeout(timer);
+  }, [cart.length, totalCents]);
 
   useEffect(() => {
     const refresh = () => {
@@ -100,7 +119,7 @@ export default function Navbar() {
           <span>cart</span>
           {cart.length > 0 && (
             <span
-              className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
+              className={`font-data text-xs font-bold px-2 py-0.5 rounded-sm ${pop ? 'animate-cart-pop' : ''}`}
               style={{ background: 'var(--d-yellow)', color: 'black' }}
             >
               {cart.length} &middot; {fmt(totalCents)}

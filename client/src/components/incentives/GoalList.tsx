@@ -19,6 +19,7 @@ function fmt(cents: number) {
 export default function GoalList() {
   const { goals, loading, cart, addToCart, removeFromCart, markVisited } = useCart();
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   useEffect(() => {
     markVisited('goals');
@@ -50,6 +51,8 @@ export default function GoalList() {
       amount_cents: cents,
       label: goal.title,
     });
+    setFlashId(goal.id);
+    setTimeout(() => setFlashId((id) => (id === goal.id ? null : id)), 300);
   };
 
   const syncCartAmount = (goal: Goal, value: string) => {
@@ -122,7 +125,7 @@ export default function GoalList() {
                 {inCart(g.id) ? (
                   <button
                     onClick={() => removeFromCart('GOAL', g.id)}
-                    className="btrl-button btrl-button-outline text-sm"
+                    className={`btrl-button btrl-button-outline text-sm ${flashId === g.id ? 'animate-add-flash' : ''}`}
                   >
                     remove
                   </button>

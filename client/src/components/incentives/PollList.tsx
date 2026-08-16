@@ -25,6 +25,7 @@ export default function PollList() {
   const [writeInLabel, setWriteInLabel] = useState('');
   const [writeInAmount, setWriteInAmount] = useState(DEFAULT_VOTE_AMOUNT);
   const [writeInError, setWriteInError] = useState('');
+  const [flashKey, setFlashKey] = useState<string | null>(null);
 
   useEffect(() => {
     markVisited('polls');
@@ -66,6 +67,8 @@ export default function PollList() {
       amount_cents: cents,
       label: option.label,
     });
+    setFlashKey(key);
+    setTimeout(() => setFlashKey((k) => (k === key ? null : k)), 300);
   };
 
   const syncCartAmount = (poll: Poll, option: PollOption, value: string) => {
@@ -185,7 +188,7 @@ export default function PollList() {
                       {added ? (
                         <button
                           onClick={() => removeFromCart('POLL_VOTE', opt.id)}
-                          className="btrl-button btrl-button-outline text-sm"
+                          className={`btrl-button btrl-button-outline text-sm ${flashKey === `${poll.id}-${opt.id}` ? 'animate-add-flash' : ''}`}
                         >
                           remove
                         </button>

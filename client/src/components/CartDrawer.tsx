@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart, type CartIssue } from '../context/CartContext';
 import { getDonor } from '../api/donor';
 import { sanitizeMoneyInput } from '../utils/money';
@@ -49,6 +49,23 @@ export default function CartDrawer() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [issues, setIssues] = useState<CartIssue[]>([]);
   const [nudgeAcknowledged, setNudgeAcknowledged] = useState(false);
+
+  // Brief "juice" pulse on the total whenever it changes, so the drawer
+  // itself gives tactile feedback when items are added/removed/edited, not
+  // just a static number update. Skips the initial render.
+  const [totalPulse, setTotalPulse] = useState(false);
+  const prevTotal = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevTotal.current === null) {
+      prevTotal.current = totalCents;
+      return;
+    }
+    if (prevTotal.current === totalCents) return;
+    prevTotal.current = totalCents;
+    setTotalPulse(true);
+    const timer = setTimeout(() => setTotalPulse(false), 300);
+    return () => clearTimeout(timer);
+  }, [totalCents]);
 
   useEffect(() => {
     const refresh = () => {
@@ -212,7 +229,11 @@ export default function CartDrawer() {
             style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
           >
             <span className="text-off-white">total</span>
-            <span className="text-d-yellow">{fmt(totalCents)}</span>
+            <span
+              className={`text-d-yellow inline-block ${totalPulse ? 'animate-total-pulse' : ''}`}
+            >
+              {fmt(totalCents)}
+            </span>
           </div>
 
           {donor && donor.balance_remaining > 0 && totalCents > 0 && (

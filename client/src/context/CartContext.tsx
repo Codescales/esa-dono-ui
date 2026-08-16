@@ -84,6 +84,7 @@ interface CartContextValue {
   // drawer can nudge about categories skipped via direct checkout.
   markVisited: (category: IncentiveCategory) => void;
   unvisitedAvailableCategories: IncentiveCategory[];
+  hasVisited: (category: IncentiveCategory) => boolean;
 
   // Global cart drawer open state
   drawerOpen: boolean;
@@ -198,6 +199,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return result;
   }, [visited, rewards, polls, goals]);
 
+  const hasVisited = useCallback((category: IncentiveCategory) => visited.has(category), [visited]);
+
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setDrawerOpen((v) => !v), []);
@@ -298,6 +301,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     totalCents,
     markVisited,
     unvisitedAvailableCategories,
+    hasVisited,
     drawerOpen,
     openDrawer,
     closeDrawer,
