@@ -1,127 +1,59 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { getRewards } from '../api/rewards';
-import { getPolls } from '../api/polls';
-import { getGoals } from '../api/goals';
-import { createPledge } from '../api/pledge';
+import { useState } from 'react';
+import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
-import ProgressBar from '../components/ProgressBar';
-import Modal from '../components/Modal';
+import RewardList from '../components/incentives/RewardList';
+import PollList from '../components/incentives/PollList';
+import GoalList from '../components/incentives/GoalList';
 import { sanitizeMoneyInput } from '../utils/money';
-import {
-  CART_SYNC_DEBOUNCE_MS,
-  DEFAULT_VOTE_AMOUNT,
-  DEFAULT_GOAL_AMOUNT,
-  MIN_SPEND_CENTS,
-  MIN_SPEND_DOLLARS,
-} from '../config';
-import {
-  apiErrorMessage,
-  type Reward,
-  type Poll,
-  type PollOption,
-  type Goal,
-  type CartItem,
-  type PledgeResult,
-} from '../types';
+import type { PledgeResult } from '../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
 const STEPS = ['rewards', 'polls', 'goals', 'checkout'];
+const COMMENT_MAX_LENGTH = 500;
 
 export default function DonateFlow() {
+  const {
+    loading,
+    cart,
+    cartTotal,
+    totalCents,
+    email,
+    setEmail,
+    comment,
+    setComment,
+    topUp,
+    setTopUp,
+    submitting,
+    checkoutError,
+    checkout,
+  } = useCart();
+
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [email, setEmail] = useState(() => localStorage.getItem('last_donor_email') || '');
-  const [comment, setComment] = useState('');
-  const [topUp, setTopUp] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
   const [pledgeResult, setPledgeResult] = useState<PledgeResult | null>(null);
 
-  useEffect(() => {
-    Promise.all([getRewards(), getPolls(), getGoals()])
-      .then(([r, p, g]) => {
-        setRewards(r);
-        setPolls(p);
-        setGoals(g);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const cartTotal = cart.reduce((sum, item) => sum + item.amount_cents, 0);
-  const topUpCents = Math.round(parseFloat(topUp || '0') * 100);
-  const totalCents = cartTotal + (isNaN(topUpCents) ? 0 : topUpCents);
-
-  const goNext = useCallback(() => {
+  const goNext = () => {
     setDirection('next');
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  }, []);
+  };
 
-  const goBack = useCallback(() => {
+  const goBack = () => {
     setDirection('prev');
     setStep((s) => Math.max(s - 1, 0));
-  }, []);
-
-  const addToCart = useCallback((item: CartItem) => {
-    setCart((prev) => {
-      const idx = prev.findIndex(
-        (i) => i.kind === item.kind && i.target_id === item.target_id && i.poll_id === item.poll_id,
-      );
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx]!, amount_cents: item.amount_cents, data: item.data };
-        return updated;
-      }
-      return [...prev, item];
-    });
-  }, []);
-
-  const removeFromCart = useCallback((kind: CartItem['kind'], targetId: string) => {
-    setCart((prev) => prev.filter((i) => !(i.kind === kind && i.target_id === targetId)));
-  }, []);
+  };
 
   const handleCheckout = async () => {
-    if (!email.trim()) {
-      setError('Please enter your email address');
-      return;
-    }
-    const topUp = isNaN(topUpCents) ? 0 : topUpCents;
-    if (cart.length === 0 && topUp <= 0) {
-      setError('Add an incentive or an additional donation to continue');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
-    try {
-      const result = await createPledge({
-        email: email.trim(),
-        comment: comment.trim() || undefined,
-        top_up_cents: topUp > 0 ? topUp : undefined,
-        items: cart.map((item) => ({
-          kind: item.kind,
-          target_id: item.target_id,
-          amount_cents: item.amount_cents,
-          poll_id: item.poll_id,
-          data: item.data,
-        })),
-      });
-      localStorage.setItem('last_donor_email', email.trim());
+    const result = await checkout();
+    // If a donate_url came back, checkout() has already redirected away.
+    // Only surfaces a confirmation here for the rare case where Stripe
+    // isn't configured (result.donate_url is null) and there's nowhere
+    // else to send the donor.
+    if (result && !result.donate_url) {
       setPledgeResult(result);
-      if (result.donate_url) {
-        window.location.href = result.donate_url;
-      }
-    } catch (e) {
-      setError(apiErrorMessage(e, 'Failed to create pledge'));
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -155,23 +87,11 @@ export default function DonateFlow() {
                     you'll be charged {fmt(pledgeResult.total_cents - discount)}
                   </p>
                 )}
-                {discount >= pledgeResult.total_cents && (
-                  <p className="font-body text-sm mt-2" style={{ color: 'var(--green)' }}>
-                    Your wallet balance covers this pledge. No payment needed — redirecting to your
-                    wallet...
-                  </p>
-                )}
               </div>
             )}
           </div>
-          {!pledgeResult.donate_url && (
-            <p className="font-body text-xs text-off-white/55">
-              No checkout URL configured. Contact the event organizer.
-            </p>
-          )}
-          <p className="font-body text-xs text-off-white/55 text-center">
-            After donating, your magic link will arrive by email. Your selected incentives will be
-            processed automatically.
+          <p className="font-body text-xs text-off-white/55">
+            No checkout URL configured. Contact the event organizer.
           </p>
         </Card>
       </div>
@@ -181,7 +101,7 @@ export default function DonateFlow() {
   const slideClass = direction === 'next' ? 'animate-slide-in-right' : 'animate-slide-in-left';
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
+    <div className="max-w-3xl mx-auto p-8">
       {/* Step indicator */}
       <div className="flex justify-center gap-2 mb-8">
         {STEPS.map((s, i) => (
@@ -208,655 +128,48 @@ export default function DonateFlow() {
         ))}
       </div>
 
-      <div className="flex gap-8">
-        {/* Main content area */}
-        <div className="flex-1 min-w-0">
-          <div className={`transition-all duration-300 ${slideClass}`}>
-            {step === 0 && (
-              <RewardsStep
-                rewards={rewards}
-                cart={cart}
-                onAdd={addToCart}
-                onRemove={removeFromCart}
-              />
-            )}
-            {step === 1 && (
-              <PollsStep polls={polls} cart={cart} onAdd={addToCart} onRemove={removeFromCart} />
-            )}
-            {step === 2 && (
-              <GoalsStep goals={goals} cart={cart} onAdd={addToCart} onRemove={removeFromCart} />
-            )}
-            {step === 3 && (
-              <CheckoutStep
-                cart={cart}
-                cartTotal={cartTotal}
-                totalCents={totalCents}
-                email={email}
-                onEmailChange={setEmail}
-                comment={comment}
-                onCommentChange={setComment}
-                topUp={topUp}
-                onTopUpChange={setTopUp}
-                error={error}
-                submitting={submitting}
-                onSubmit={handleCheckout}
-              />
-            )}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex justify-between items-center mt-8">
-            <button
-              onClick={goBack}
-              disabled={step === 0}
-              className="btrl-button btrl-button-outline"
-            >
-              &larr; back
-            </button>
-            <div className="flex items-center gap-4">
-              {step < STEPS.length - 1 ? (
-                <button onClick={goNext} disabled={cart.length === 0} className="btrl-button">
-                  next &rarr;
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {/* Sticky cart sidebar */}
-        <div className="w-72 shrink-0 hidden lg:block">
-          <div className="btrl-panel p-4 sticky top-4">
-            <h3 className="font-data font-bold text-sm text-off-white mb-3 uppercase tracking-wider">
-              your cart
-            </h3>
-            {cart.length === 0 ? (
-              <p className="font-body text-sm text-off-white/55">No items selected yet.</p>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {cart.map((item) => (
-                  <div
-                    key={`${item.kind}-${item.target_id}`}
-                    className="flex justify-between items-start text-sm"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-data text-off-white truncate">
-                        {item.label || item.kind.toLowerCase()}
-                      </p>
-                      <p className="font-mono text-[10px] text-off-white/55 uppercase">
-                        {item.kind === 'REWARD'
-                          ? 'reward'
-                          : item.kind === 'POLL_VOTE'
-                            ? 'poll vote'
-                            : item.kind === 'POLL_CUSTOM'
-                              ? 'your own option'
-                              : 'goal'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span className="font-data text-d-yellow">{fmt(item.amount_cents)}</span>
-                      <button
-                        onClick={() => removeFromCart(item.kind, item.target_id)}
-                        className="text-off-white/55 hover:text-red text-xs"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {topUpCents > 0 && (
-              <div className="flex justify-between items-start text-sm">
-                <div className="flex-1 min-w-0">
-                  <p className="font-data text-off-white truncate">additional donation</p>
-                </div>
-                <div className="flex items-center gap-2 ml-2">
-                  <span className="font-data text-d-yellow">{fmt(topUpCents)}</span>
-                </div>
-              </div>
-            )}
-            <div
-              className="flex justify-between font-data font-bold pt-3"
-              style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
-            >
-              <span className="text-off-white">total</span>
-              <span className="text-d-yellow">{fmt(totalCents)}</span>
-            </div>
-            <p className="font-body text-[10px] text-off-white/55 mt-2">
-              You'll donate at least this amount. Anything extra becomes wallet balance.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Step 1: Rewards ─── */
-function RewardsStep({
-  rewards,
-  cart,
-  onAdd,
-  onRemove,
-}: {
-  rewards: Reward[];
-  cart: CartItem[];
-  onAdd: (item: CartItem) => void;
-  onRemove: (kind: CartItem['kind'], targetId: string) => void;
-}) {
-  const [claimData, setClaimData] = useState<Record<string, Record<string, string>>>({});
-
-  const inCart = (id: string) => cart.some((i) => i.kind === 'REWARD' && i.target_id === id);
-
-  const handleAdd = (reward: Reward) => {
-    const data = claimData[reward.id] || {};
-    onAdd({
-      kind: 'REWARD',
-      target_id: reward.id,
-      amount_cents: reward.cost_cents,
-      label: reward.title,
-      data,
-    });
-  };
-
-  return (
-    <div>
-      <h2 className="font-display text-3xl lowercase text-off-white mb-2">choose rewards</h2>
-      <p className="font-body text-sm text-off-white/55 mb-6">
-        Select rewards to add to your donation. Each reward costs a fixed amount.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {rewards.map((r) => {
-          const soldOut = r.quantity_total !== null && r.quantity_claimed >= r.quantity_total;
-          return (
-            <Card key={r.id} className={soldOut ? 'opacity-50' : ''}>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="font-data font-bold text-lg text-off-white">{r.title}</h3>
-                  {r.description && (
-                    <p className="font-body text-sm text-off-white/55 mt-1">{r.description}</p>
-                  )}
-                  <span
-                    className="inline-block font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm mt-2"
-                    style={{ background: 'rgba(115,78,158,.3)', color: 'var(--off-white)' }}
-                  >
-                    {r.type}
-                  </span>
-                  {r.quantity_total !== null && (
-                    <span className="font-mono text-[10px] text-off-white/55 ml-2">
-                      {r.quantity_total - r.quantity_claimed} left
-                    </span>
-                  )}
-                </div>
-                <div className="text-right ml-4">
-                  <p className="font-display text-2xl text-d-yellow">{fmt(r.cost_cents)}</p>
-                  {inCart(r.id) ? (
-                    <button
-                      onClick={() => onRemove('REWARD', r.id)}
-                      className="btrl-button btrl-button-outline mt-2 text-sm"
-                    >
-                      remove
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleAdd(r)}
-                      disabled={soldOut}
-                      className="btrl-button mt-2 text-sm"
-                    >
-                      {soldOut ? 'sold out' : 'add'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-        {rewards.length === 0 && (
-          <p className="font-body text-sm text-off-white/55 col-span-2">No rewards available.</p>
+      <div className={`transition-all duration-300 ${slideClass}`}>
+        {step === 0 && <RewardList />}
+        {step === 1 && <PollList />}
+        {step === 2 && <GoalList />}
+        {step === 3 && (
+          <CheckoutStep
+            cart={cart}
+            cartTotal={cartTotal}
+            totalCents={totalCents}
+            email={email}
+            onEmailChange={setEmail}
+            comment={comment}
+            onCommentChange={setComment}
+            topUp={topUp}
+            onTopUpChange={setTopUp}
+            error={checkoutError}
+            submitting={submitting}
+            onSubmit={handleCheckout}
+          />
         )}
       </div>
-    </div>
-  );
-}
 
-/* ─── Step 2: Polls ─── */
-function PollsStep({
-  polls,
-  cart,
-  onAdd,
-  onRemove,
-}: {
-  polls: Poll[];
-  cart: CartItem[];
-  onAdd: (item: CartItem) => void;
-  onRemove: (kind: CartItem['kind'], targetId: string) => void;
-}) {
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [writingIn, setWritingIn] = useState<Poll | null>(null);
-  const [writeInLabel, setWriteInLabel] = useState('');
-  const [writeInAmount, setWriteInAmount] = useState(DEFAULT_VOTE_AMOUNT);
-  const [writeInError, setWriteInError] = useState('');
-
-  // Debounce syncing an edited amount to an already-in-cart option: firing
-  // onAdd on every keystroke caused the cart sidebar to re-render on every
-  // digit typed. Wait for a short pause in typing instead.
-  const cartSyncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => {
-    const timers = cartSyncTimers.current;
-    return () => {
-      Object.values(timers).forEach(clearTimeout);
-    };
-  }, []);
-
-  const getAmount = (pollId: string, optionId: string) => {
-    const key = `${pollId}-${optionId}`;
-    return amounts[key] ?? DEFAULT_VOTE_AMOUNT;
-  };
-
-  const inCart = (pollId: string, optionId: string) =>
-    cart.some((i) => i.kind === 'POLL_VOTE' && i.target_id === optionId && i.poll_id === pollId);
-
-  const writeInInCart = (pollId: string) =>
-    cart.find((i) => i.kind === 'POLL_CUSTOM' && i.poll_id === pollId);
-
-  const handleAdd = (poll: Poll, option: PollOption) => {
-    const key = `${poll.id}-${option.id}`;
-    const cents = Math.round(parseFloat(amounts[key] ?? DEFAULT_VOTE_AMOUNT) * 100);
-    if (isNaN(cents) || cents < MIN_SPEND_CENTS) return;
-    onAdd({
-      kind: 'POLL_VOTE',
-      target_id: option.id,
-      poll_id: poll.id,
-      amount_cents: cents,
-      label: option.label,
-    });
-  };
-
-  const syncCartAmount = (poll: Poll, option: PollOption, value: string) => {
-    const cents = Math.round(parseFloat(value) * 100);
-    if (!isNaN(cents) && cents >= MIN_SPEND_CENTS) {
-      onAdd({
-        kind: 'POLL_VOTE',
-        target_id: option.id,
-        poll_id: poll.id,
-        amount_cents: cents,
-        label: option.label,
-      });
-    }
-  };
-
-  const handleAmountChange = (poll: Poll, option: PollOption, value: string) => {
-    const key = `${poll.id}-${option.id}`;
-    const sanitized = sanitizeMoneyInput(value);
-    setAmounts((a) => ({ ...a, [key]: sanitized }));
-
-    // If this option is already in the cart, keep the cart amount in sync,
-    // but debounced so it only fires once typing pauses rather than on
-    // every keystroke.
-    if (!inCart(poll.id, option.id)) return;
-
-    if (cartSyncTimers.current[key]) {
-      clearTimeout(cartSyncTimers.current[key]);
-    }
-    cartSyncTimers.current[key] = setTimeout(() => {
-      delete cartSyncTimers.current[key];
-      syncCartAmount(poll, option, sanitized);
-    }, CART_SYNC_DEBOUNCE_MS);
-  };
-
-  const handleAmountBlur = (poll: Poll, option: PollOption) => {
-    const key = `${poll.id}-${option.id}`;
-
-    // Leaving the field commits immediately rather than waiting out the
-    // debounce, so the cart never shows a stale amount after the donor
-    // has moved on.
-    if (cartSyncTimers.current[key]) {
-      clearTimeout(cartSyncTimers.current[key]);
-      delete cartSyncTimers.current[key];
-      if (inCart(poll.id, option.id)) {
-        syncCartAmount(poll, option, amounts[key] ?? DEFAULT_VOTE_AMOUNT);
-      }
-    }
-
-    if (!amounts[key] || !amounts[key].trim()) {
-      setAmounts((a) => ({ ...a, [key]: DEFAULT_VOTE_AMOUNT }));
-    }
-  };
-
-  const openWriteIn = (poll: Poll) => {
-    setWritingIn(poll);
-    setWriteInLabel('');
-    setWriteInAmount(DEFAULT_VOTE_AMOUNT);
-    setWriteInError('');
-  };
-
-  const handleWriteIn = () => {
-    setWriteInError('');
-    if (!writeInLabel.trim()) {
-      setWriteInError('Please enter your option');
-      return;
-    }
-    const cents = Math.round(parseFloat(writeInAmount) * 100);
-    if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
-      setWriteInError(`Minimum amount is $${MIN_SPEND_DOLLARS.toFixed(2)}`);
-      return;
-    }
-    onAdd({
-      kind: 'POLL_CUSTOM',
-      target_id: writingIn!.id,
-      poll_id: writingIn!.id,
-      amount_cents: cents,
-      label: writeInLabel.trim(),
-      data: { label: writeInLabel.trim() },
-    });
-    setWritingIn(null);
-  };
-
-  return (
-    <div>
-      <h2 className="font-display text-3xl lowercase text-off-white mb-2">vote in polls</h2>
-      <p className="font-body text-sm text-off-white/55 mb-6">
-        Cast votes in active polls. $1 = 1 vote. Your donation will be split between your vote and
-        your other selections.
-      </p>
-      {polls.map((poll) => {
-        const writeIn = writeInInCart(poll.id);
-        return (
-          <Card key={poll.id} className="mb-4">
-            <h3 className="font-data font-bold text-lg text-off-white mb-1">{poll.title}</h3>
-            {poll.description && (
-              <p className="font-body text-sm text-off-white/55 mb-3">{poll.description}</p>
-            )}
-            <div className="space-y-3">
-              {poll.options.map((opt) => {
-                const added = inCart(poll.id, opt.id);
-                return (
-                  <div key={opt.id} className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-data font-bold text-sm text-off-white">
-                          {opt.label}
-                        </span>
-                        <span className="font-data text-sm text-off-white/55">
-                          {fmt(opt.votes_cents)}
-                        </span>
-                      </div>
-                      <ProgressBar value={opt.votes_cents} max={poll.total_votes_cents || 1} />
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={MIN_SPEND_DOLLARS}
-                        className="w-20 px-2 py-1 text-sm"
-                        value={getAmount(poll.id, opt.id)}
-                        onChange={(e) => handleAmountChange(poll, opt, e.target.value)}
-                        onBlur={() => handleAmountBlur(poll, opt)}
-                      />
-                      {added ? (
-                        <button
-                          onClick={() => onRemove('POLL_VOTE', opt.id)}
-                          className="btrl-button btrl-button-outline text-sm"
-                        >
-                          remove
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleAdd(poll, opt)}
-                          className="btrl-button text-sm"
-                        >
-                          add
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {poll.allow_custom_entries && (
-              <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
-                {writeIn ? (
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <span className="font-data font-bold text-off-white">
-                        your option: "{writeIn.label}"
-                      </span>
-                      <span className="font-data text-off-white/55 ml-2">
-                        {fmt(writeIn.amount_cents)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => onRemove('POLL_CUSTOM', writeIn.target_id)}
-                      className="btrl-button btrl-button-outline text-sm"
-                    >
-                      remove
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => openWriteIn(poll)}
-                    className="btrl-button btrl-button-ghost text-sm"
-                  >
-                    + add your own option
-                  </button>
-                )}
-              </div>
-            )}
-          </Card>
-        );
-      })}
-      {polls.length === 0 && (
-        <p className="font-body text-sm text-off-white/55">No active polls.</p>
-      )}
-
-      {writingIn && (
-        <Modal title="add your own option" onClose={() => setWritingIn(null)}>
-          <p className="font-body text-sm text-off-white/55 mb-3">
-            Poll: <strong className="text-off-white">{writingIn.title}</strong>
-          </p>
-          <p className="font-body text-xs text-off-white/55 mb-3">
-            {writingIn.auto_approve === false
-              ? 'Your funds are committed now. A moderator reviews new options before they go live; if rejected, the amount is refunded to your wallet.'
-              : 'Your funds are committed now and your option goes live immediately (subject to moderator review afterward).'}
-          </p>
-          <div className="mb-3">
-            <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              your option
-            </label>
-            <input
-              className="w-full px-3 py-2 text-sm"
-              placeholder="Type your option..."
-              value={writeInLabel}
-              onChange={(e) => setWriteInLabel(e.target.value)}
-              maxLength={writingIn.max_entry_chars || undefined}
-            />
-            {writingIn.max_entry_chars && (
-              <p className="font-mono text-xs text-off-white/55 mt-1">
-                {writeInLabel.length}/{writingIn.max_entry_chars} characters
-              </p>
-            )}
-          </div>
-          <div className="mb-3">
-            <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              amount ($1 minimum)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min={MIN_SPEND_DOLLARS}
-              className="w-full px-3 py-2 text-sm"
-              value={writeInAmount}
-              onChange={(e) => setWriteInAmount(sanitizeMoneyInput(e.target.value))}
-              onKeyDown={(e) => e.key === 'Enter' && handleWriteIn()}
-            />
-          </div>
-          {writeInError && (
-            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
-              {writeInError}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setWritingIn(null)} className="btrl-button btrl-button-outline">
-              cancel
+      {/* Navigation. No empty-cart gate — the point of the stepper is to
+          guarantee donors see every incentive category, not to force a
+          purchase; browsing without adding anything is a valid outcome. */}
+      <div className="flex justify-between items-center mt-8">
+        <button onClick={goBack} disabled={step === 0} className="btrl-button btrl-button-outline">
+          &larr; back
+        </button>
+        <div className="flex items-center gap-4">
+          {step < STEPS.length - 1 ? (
+            <button onClick={goNext} className="btrl-button">
+              next &rarr;
             </button>
-            <button onClick={handleWriteIn} className="btrl-button">
-              add to cart — funds it now
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-/* ─── Step 3: Goals ─── */
-function GoalsStep({
-  goals,
-  cart,
-  onAdd,
-  onRemove,
-}: {
-  goals: Goal[];
-  cart: CartItem[];
-  onAdd: (item: CartItem) => void;
-  onRemove: (kind: CartItem['kind'], targetId: string) => void;
-}) {
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-
-  // Debounce syncing an edited amount to an already-in-cart goal — see the
-  // matching pattern in PollsStep for why.
-  const cartSyncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => {
-    const timers = cartSyncTimers.current;
-    return () => {
-      Object.values(timers).forEach(clearTimeout);
-    };
-  }, []);
-
-  const getAmount = (goalId: string) => amounts[goalId] ?? DEFAULT_GOAL_AMOUNT;
-
-  const inCart = (id: string) => cart.some((i) => i.kind === 'GOAL' && i.target_id === id);
-
-  const handleAdd = (goal: Goal) => {
-    const cents = Math.round(parseFloat(amounts[goal.id] ?? DEFAULT_GOAL_AMOUNT) * 100);
-    if (isNaN(cents) || cents < MIN_SPEND_CENTS) return;
-    onAdd({
-      kind: 'GOAL',
-      target_id: goal.id,
-      amount_cents: cents,
-      label: goal.title,
-    });
-  };
-
-  const syncCartAmount = (goal: Goal, value: string) => {
-    const cents = Math.round(parseFloat(value) * 100);
-    if (!isNaN(cents) && cents >= MIN_SPEND_CENTS) {
-      onAdd({
-        kind: 'GOAL',
-        target_id: goal.id,
-        amount_cents: cents,
-        label: goal.title,
-      });
-    }
-  };
-
-  const handleAmountChange = (goal: Goal, value: string) => {
-    const sanitized = sanitizeMoneyInput(value);
-    setAmounts((a) => ({ ...a, [goal.id]: sanitized }));
-
-    // If this goal is already in the cart, keep the cart amount in sync,
-    // debounced so it only fires once typing pauses rather than on every
-    // keystroke.
-    if (!inCart(goal.id)) return;
-
-    if (cartSyncTimers.current[goal.id]) {
-      clearTimeout(cartSyncTimers.current[goal.id]);
-    }
-    cartSyncTimers.current[goal.id] = setTimeout(() => {
-      delete cartSyncTimers.current[goal.id];
-      syncCartAmount(goal, sanitized);
-    }, CART_SYNC_DEBOUNCE_MS);
-  };
-
-  const handleAmountBlur = (goal: Goal) => {
-    // Leaving the field commits immediately rather than waiting out the
-    // debounce, so the cart never shows a stale amount after the donor has
-    // moved on.
-    if (cartSyncTimers.current[goal.id]) {
-      clearTimeout(cartSyncTimers.current[goal.id]);
-      delete cartSyncTimers.current[goal.id];
-      if (inCart(goal.id)) {
-        syncCartAmount(goal, amounts[goal.id] ?? DEFAULT_GOAL_AMOUNT);
-      }
-    }
-
-    if (!amounts[goal.id] || !amounts[goal.id]!.trim()) {
-      setAmounts((a) => ({ ...a, [goal.id]: DEFAULT_GOAL_AMOUNT }));
-    }
-  };
-
-  return (
-    <div>
-      <h2 className="font-display text-3xl lowercase text-off-white mb-2">support fund goals</h2>
-      <p className="font-body text-sm text-off-white/55 mb-6">
-        Contribute to fundraising goals. Your donation will be split between your contributions and
-        your other selections.
-      </p>
-      {goals.map((g) => (
-        <Card key={g.id} className={`mb-4 ${g.is_complete ? 'opacity-50' : ''}`}>
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <h3 className="font-data font-bold text-lg text-off-white">{g.title}</h3>
-              {g.description && (
-                <p className="font-body text-sm text-off-white/55">{g.description}</p>
-              )}
-            </div>
-            {!g.is_complete && (
-              <div className="flex items-center gap-2 shrink-0 ml-4">
-                <input
-                  type="number"
-                  step="0.01"
-                  min={MIN_SPEND_DOLLARS}
-                  className="w-20 px-2 py-1 text-sm"
-                  value={getAmount(g.id)}
-                  onChange={(e) => handleAmountChange(g, e.target.value)}
-                  onBlur={() => handleAmountBlur(g)}
-                />
-                {inCart(g.id) ? (
-                  <button
-                    onClick={() => onRemove('GOAL', g.id)}
-                    className="btrl-button btrl-button-outline text-sm"
-                  >
-                    remove
-                  </button>
-                ) : (
-                  <button onClick={() => handleAdd(g)} className="btrl-button text-sm">
-                    add
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          <ProgressBar value={g.current_cents} max={g.target_cents} />
-          <div className="flex justify-between font-data text-sm text-off-white/55 mt-1">
-            <span>{fmt(g.current_cents)} raised</span>
-            <span>goal: {fmt(g.target_cents)}</span>
-          </div>
-        </Card>
-      ))}
-      {goals.length === 0 && (
-        <p className="font-body text-sm text-off-white/55">No active fund goals.</p>
-      )}
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ─── Step 4: Checkout ─── */
-const COMMENT_MAX_LENGTH = 500;
-
 function CheckoutStep({
   cart,
   cartTotal,
@@ -871,7 +184,7 @@ function CheckoutStep({
   submitting,
   onSubmit,
 }: {
-  cart: CartItem[];
+  cart: { kind: string; target_id: string; amount_cents: number; label?: string }[];
   cartTotal: number;
   totalCents: number;
   email: string;

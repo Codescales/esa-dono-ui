@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { getDonor } from '../api/donor';
 import { clearDonorToken } from '../utils/authToken';
+import { useCart } from '../context/CartContext';
 import type { DonorWallet } from '../types';
 import { hasModeratorAccess } from '../types';
 
@@ -12,6 +13,7 @@ function fmt(cents: number) {
 export default function Navbar() {
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const location = useLocation();
+  const { cart, totalCents, toggleDrawer } = useCart();
 
   useEffect(() => {
     const refresh = () => {
@@ -99,6 +101,20 @@ export default function Navbar() {
         donate
       </NavLink>
       <div className="ml-auto flex items-center gap-4">
+        <button
+          onClick={toggleDrawer}
+          className="relative font-data font-bold text-sm tracking-wider lowercase text-off-white/80 hover:text-off-white flex items-center gap-2"
+        >
+          <span>cart</span>
+          {cart.length > 0 && (
+            <span
+              className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
+              style={{ background: 'var(--d-yellow)', color: 'black' }}
+            >
+              {cart.length} &middot; {fmt(totalCents)}
+            </span>
+          )}
+        </button>
         {donor && (
           <div className="hidden lg:flex flex-col text-right leading-tight">
             <span className="font-mono text-[10px] tracking-widest uppercase text-d-yellow">

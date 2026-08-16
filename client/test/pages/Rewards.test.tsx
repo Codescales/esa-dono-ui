@@ -2,18 +2,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Rewards from '../../src/pages/Rewards';
+import { CartProvider } from '../../src/context/CartContext';
 
 vi.mock('../../src/api/rewards', () => ({
   getRewards: vi.fn(),
-  claimReward: vi.fn(),
+}));
+vi.mock('../../src/api/polls', () => ({
+  getPolls: vi.fn(),
+}));
+vi.mock('../../src/api/goals', () => ({
+  getGoals: vi.fn(),
 }));
 
 import { getRewards } from '../../src/api/rewards';
+import { getPolls } from '../../src/api/polls';
+import { getGoals } from '../../src/api/goals';
 
 function renderRewards() {
   return render(
     <MemoryRouter>
-      <Rewards />
+      <CartProvider>
+        <Rewards />
+      </CartProvider>
     </MemoryRouter>,
   );
 }
@@ -22,12 +32,8 @@ describe('Rewards page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-  });
-
-  it('shows warning when no donor token', async () => {
-    vi.mocked(getRewards).mockResolvedValue([]);
-    renderRewards();
-    expect(await screen.findByText(/Visit your wallet link/)).toBeDefined();
+    vi.mocked(getPolls).mockResolvedValue([]);
+    vi.mocked(getGoals).mockResolvedValue([]);
   });
 
   it('renders rewards list', async () => {
@@ -59,5 +65,27 @@ describe('Rewards page', () => {
 
     expect(await screen.findByText('Digital Reward')).toBeDefined();
     expect(screen.getByText('Physical Reward')).toBeDefined();
+  });
+
+  it('adds a reward to the cart without collecting an address (Stripe collects it)', async () => {
+    vi.mocked(getRewards).mockResolvedValue([
+      {
+        id: '2',
+        title: 'Physical Reward',
+        description: 'A physical item',
+        type: 'PHYSICAL',
+        cost_cents: 1000,
+        quantity_total: 10,
+        quantity_claimed: 3,
+        is_active: true,
+      },
+    ]);
+
+    renderRewards();
+
+    const addButton = await screen.findByText('add');
+    addButton.click();
+
+    expect(await screen.findByText('remove')).toBeDefined();
   });
 });

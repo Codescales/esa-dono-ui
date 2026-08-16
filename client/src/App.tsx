@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import CartDrawer from './components/CartDrawer';
+import { CartProvider } from './context/CartContext';
 import Home from './pages/Home';
 import DonateFlow from './pages/DonateFlow';
 import PledgeReturn from './pages/PledgeReturn';
@@ -52,16 +54,19 @@ export default function App() {
           path="*"
           element={
             <div className="min-h-screen">
-              <Navbar />
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/donate" element={<DonateFlow />} />
-                <Route path="/pledge/:token" element={<PledgeReturn />} />
-                <Route path="/wallet" element={<MyWallet />} />
-                <Route path="/rewards" element={<Rewards />} />
-                <Route path="/polls" element={<Polls />} />
-                <Route path="/goals" element={<Goals />} />
-              </Routes>
+              <CartProvider>
+                <Navbar />
+                <CartDrawer />
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/donate" element={<DonateFlow />} />
+                  <Route path="/pledge/:token" element={<PledgeReturn />} />
+                  <Route path="/wallet" element={<MyWallet />} />
+                  <Route path="/rewards" element={<Rewards />} />
+                  <Route path="/polls" element={<Polls />} />
+                  <Route path="/goals" element={<Goals />} />
+                </Routes>
+              </CartProvider>
             </div>
           }
         />

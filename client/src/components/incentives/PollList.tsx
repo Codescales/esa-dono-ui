@@ -1,0 +1,301 @@
+import { useEffect, useRef, useState } from 'react';
+import Card from '../Card';
+import Modal from '../Modal';
+import ProgressBar from '../ProgressBar';
+import LoadingSpinner from '../LoadingSpinner';
+import { useCart } from '../../context/CartContext';
+import { sanitizeMoneyInput } from '../../utils/money';
+import {
+  CART_SYNC_DEBOUNCE_MS,
+  DEFAULT_VOTE_AMOUNT,
+  MIN_SPEND_CENTS,
+  MIN_SPEND_DOLLARS,
+} from '../../config';
+import type { Poll, PollOption } from '../../types';
+
+function fmt(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function PollList() {
+  const { polls, loading, cart, addToCart, removeFromCart, markVisited } = useCart();
+
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [writingIn, setWritingIn] = useState<Poll | null>(null);
+  const [writeInLabel, setWriteInLabel] = useState('');
+  const [writeInAmount, setWriteInAmount] = useState(DEFAULT_VOTE_AMOUNT);
+  const [writeInError, setWriteInError] = useState('');
+
+  useEffect(() => {
+    markVisited('polls');
+  }, [markVisited]);
+
+  // Debounce syncing an edited amount to an already-in-cart option: firing
+  // addToCart on every keystroke caused the cart drawer to re-render on
+  // every digit typed. Wait for a short pause in typing instead.
+  const cartSyncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timers = cartSyncTimers.current;
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, []);
+
+  if (loading) return <LoadingSpinner />;
+
+  const getAmount = (pollId: string, optionId: string) => {
+    const key = `${pollId}-${optionId}`;
+    return amounts[key] ?? DEFAULT_VOTE_AMOUNT;
+  };
+
+  const inCart = (pollId: string, optionId: string) =>
+    cart.some((i) => i.kind === 'POLL_VOTE' && i.target_id === optionId && i.poll_id === pollId);
+
+  const writeInInCart = (pollId: string) =>
+    cart.find((i) => i.kind === 'POLL_CUSTOM' && i.poll_id === pollId);
+
+  const handleAdd = (poll: Poll, option: PollOption) => {
+    const key = `${poll.id}-${option.id}`;
+    const cents = Math.round(parseFloat(amounts[key] ?? DEFAULT_VOTE_AMOUNT) * 100);
+    if (isNaN(cents) || cents < MIN_SPEND_CENTS) return;
+    addToCart({
+      kind: 'POLL_VOTE',
+      target_id: option.id,
+      poll_id: poll.id,
+      amount_cents: cents,
+      label: option.label,
+    });
+  };
+
+  const syncCartAmount = (poll: Poll, option: PollOption, value: string) => {
+    const cents = Math.round(parseFloat(value) * 100);
+    if (!isNaN(cents) && cents >= MIN_SPEND_CENTS) {
+      addToCart({
+        kind: 'POLL_VOTE',
+        target_id: option.id,
+        poll_id: poll.id,
+        amount_cents: cents,
+        label: option.label,
+      });
+    }
+  };
+
+  const handleAmountChange = (poll: Poll, option: PollOption, value: string) => {
+    const key = `${poll.id}-${option.id}`;
+    const sanitized = sanitizeMoneyInput(value);
+    setAmounts((a) => ({ ...a, [key]: sanitized }));
+
+    if (!inCart(poll.id, option.id)) return;
+
+    if (cartSyncTimers.current[key]) {
+      clearTimeout(cartSyncTimers.current[key]);
+    }
+    cartSyncTimers.current[key] = setTimeout(() => {
+      delete cartSyncTimers.current[key];
+      syncCartAmount(poll, option, sanitized);
+    }, CART_SYNC_DEBOUNCE_MS);
+  };
+
+  const handleAmountBlur = (poll: Poll, option: PollOption) => {
+    const key = `${poll.id}-${option.id}`;
+
+    if (cartSyncTimers.current[key]) {
+      clearTimeout(cartSyncTimers.current[key]);
+      delete cartSyncTimers.current[key];
+      if (inCart(poll.id, option.id)) {
+        syncCartAmount(poll, option, amounts[key] ?? DEFAULT_VOTE_AMOUNT);
+      }
+    }
+
+    if (!amounts[key] || !amounts[key].trim()) {
+      setAmounts((a) => ({ ...a, [key]: DEFAULT_VOTE_AMOUNT }));
+    }
+  };
+
+  const openWriteIn = (poll: Poll) => {
+    setWritingIn(poll);
+    setWriteInLabel('');
+    setWriteInAmount(DEFAULT_VOTE_AMOUNT);
+    setWriteInError('');
+  };
+
+  const handleWriteIn = () => {
+    setWriteInError('');
+    if (!writeInLabel.trim()) {
+      setWriteInError('Please enter your option');
+      return;
+    }
+    const cents = Math.round(parseFloat(writeInAmount) * 100);
+    if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
+      setWriteInError(`Minimum amount is $${MIN_SPEND_DOLLARS.toFixed(2)}`);
+      return;
+    }
+    addToCart({
+      kind: 'POLL_CUSTOM',
+      target_id: writingIn!.id,
+      poll_id: writingIn!.id,
+      amount_cents: cents,
+      label: writeInLabel.trim(),
+      data: { label: writeInLabel.trim() },
+    });
+    setWritingIn(null);
+  };
+
+  return (
+    <div>
+      <h2 className="font-display text-3xl lowercase text-off-white mb-2">vote in polls</h2>
+      <p className="font-body text-sm text-off-white/55 mb-6">
+        Add votes to your cart. $1 = 1 vote. Votes are cast when you check out.
+      </p>
+      {polls.map((poll) => {
+        const writeIn = writeInInCart(poll.id);
+        return (
+          <Card key={poll.id} className="mb-4">
+            <h3 className="font-data font-bold text-lg text-off-white mb-1">{poll.title}</h3>
+            {poll.description && (
+              <p className="font-body text-sm text-off-white/55 mb-3">{poll.description}</p>
+            )}
+            <div className="space-y-3">
+              {poll.options.map((opt) => {
+                const added = inCart(poll.id, opt.id);
+                return (
+                  <div key={opt.id} className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-data font-bold text-sm text-off-white">
+                          {opt.label}
+                        </span>
+                        <span className="font-data text-sm text-off-white/55">
+                          {fmt(opt.votes_cents)}
+                        </span>
+                      </div>
+                      <ProgressBar value={opt.votes_cents} max={poll.total_votes_cents || 1} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={MIN_SPEND_DOLLARS}
+                        className="w-20 px-2 py-1 text-sm"
+                        value={getAmount(poll.id, opt.id)}
+                        onChange={(e) => handleAmountChange(poll, opt, e.target.value)}
+                        onBlur={() => handleAmountBlur(poll, opt)}
+                      />
+                      {added ? (
+                        <button
+                          onClick={() => removeFromCart('POLL_VOTE', opt.id)}
+                          className="btrl-button btrl-button-outline text-sm"
+                        >
+                          remove
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleAdd(poll, opt)}
+                          className="btrl-button text-sm"
+                        >
+                          add
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {poll.allow_custom_entries && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}>
+                {writeIn ? (
+                  <div className="flex justify-between items-center text-sm">
+                    <div>
+                      <span className="font-data font-bold text-off-white">
+                        your option: "{writeIn.label}"
+                      </span>
+                      <span className="font-data text-off-white/55 ml-2">
+                        {fmt(writeIn.amount_cents)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeFromCart('POLL_CUSTOM', writeIn.target_id)}
+                      className="btrl-button btrl-button-outline text-sm"
+                    >
+                      remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openWriteIn(poll)}
+                    className="btrl-button btrl-button-ghost text-sm"
+                  >
+                    + add your own option
+                  </button>
+                )}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+      {polls.length === 0 && (
+        <p className="font-body text-sm text-off-white/55">No active polls.</p>
+      )}
+
+      {writingIn && (
+        <Modal title="add your own option" onClose={() => setWritingIn(null)}>
+          <p className="font-body text-sm text-off-white/55 mb-3">
+            Poll: <strong className="text-off-white">{writingIn.title}</strong>
+          </p>
+          <p className="font-body text-xs text-off-white/55 mb-3">
+            This option will be added to your cart and submitted with your donation.{' '}
+            {writingIn.auto_approve === false
+              ? 'A moderator reviews new options before they go live; if rejected, the amount is refunded to your wallet.'
+              : 'It goes live immediately once your donation completes (subject to moderator review afterward).'}
+          </p>
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              your option
+            </label>
+            <input
+              className="w-full px-3 py-2 text-sm"
+              placeholder="Type your option..."
+              value={writeInLabel}
+              onChange={(e) => setWriteInLabel(e.target.value)}
+              maxLength={writingIn.max_entry_chars || undefined}
+            />
+            {writingIn.max_entry_chars && (
+              <p className="font-mono text-xs text-off-white/55 mt-1">
+                {writeInLabel.length}/{writingIn.max_entry_chars} characters
+              </p>
+            )}
+          </div>
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              amount ($1 minimum)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min={MIN_SPEND_DOLLARS}
+              className="w-full px-3 py-2 text-sm"
+              value={writeInAmount}
+              onChange={(e) => setWriteInAmount(sanitizeMoneyInput(e.target.value))}
+              onKeyDown={(e) => e.key === 'Enter' && handleWriteIn()}
+            />
+          </div>
+          {writeInError && (
+            <p className="text-sm mb-2" style={{ color: 'var(--red)' }}>
+              {writeInError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setWritingIn(null)} className="btrl-button btrl-button-outline">
+              cancel
+            </button>
+            <button onClick={handleWriteIn} className="btrl-button">
+              add to cart
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
