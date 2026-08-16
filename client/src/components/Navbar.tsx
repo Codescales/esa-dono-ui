@@ -85,7 +85,7 @@ export default function Navbar() {
         }
         style={{ background: 'var(--d-yellow)' }}
       >
-        support
+        contribute
       </NavLink>
       <div className="ml-auto flex items-center gap-4">
         <button

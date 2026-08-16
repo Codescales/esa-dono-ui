@@ -368,10 +368,10 @@ export default function CartDrawer() {
               : phase === 'checking'
                 ? 'checking availability...'
                 : !donor
-                  ? `support ${fmt(totalCents)}`
+                  ? `contribute ${fmt(totalCents)}`
                   : estimatedOwed === 0
                     ? 'confirm — covered by your wallet'
-                    : `support — pay ${fmt(estimatedOwed)}`}
+                    : `contribute — pay ${fmt(estimatedOwed)}`}
           </button>
         </div>
       </div>
