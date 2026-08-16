@@ -24,21 +24,36 @@ function renderLayout(storageKey = 'test_sidebar_collapsed') {
   );
 }
 
+function renderExpandedLayout(storageKey: string) {
+  // The component defaults to collapsed unless localStorage explicitly says
+  // '0' — set that up front so these tests exercise the expanded state.
+  localStorage.setItem(storageKey, '0');
+  return renderLayout(storageKey);
+}
+
 describe('SidebarLayout', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('renders nav labels and title when expanded by default', () => {
+  it('is collapsed by default (no stored preference)', () => {
     renderLayout();
+    expect(screen.queryByText('dashboard')).toBeNull();
+    expect(screen.queryByText('other page')).toBeNull();
+    expect(screen.getByTitle('expand')).toBeDefined();
+    expect(screen.getAllByTestId('dummy-icon').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders nav labels and title when explicitly expanded via storage', () => {
+    renderExpandedLayout('expanded_key');
     expect(screen.getByText('admin')).toBeDefined();
     expect(screen.getByText('dashboard')).toBeDefined();
     expect(screen.getByText('other page')).toBeDefined();
-    expect(screen.getByText('collapse')).toBeDefined();
+    expect(screen.getByTitle('collapse')).toBeDefined();
   });
 
   it('collapses on toggle click, hiding labels but keeping icons', () => {
-    renderLayout();
+    renderExpandedLayout('collapse_toggle_key');
     fireEvent.click(screen.getByTitle('collapse'));
 
     expect(screen.queryByText('dashboard')).toBeNull();
@@ -47,8 +62,17 @@ describe('SidebarLayout', () => {
     expect(screen.getByTitle('expand')).toBeDefined();
   });
 
+  it('expands on toggle click when starting collapsed', () => {
+    renderLayout('expand_toggle_key');
+    fireEvent.click(screen.getByTitle('expand'));
+
+    expect(screen.getByText('dashboard')).toBeDefined();
+    expect(screen.getByText('other page')).toBeDefined();
+    expect(screen.getByTitle('collapse')).toBeDefined();
+  });
+
   it('persists collapsed state to localStorage under the given key', () => {
-    renderLayout('my_storage_key');
+    renderExpandedLayout('my_storage_key');
     fireEvent.click(screen.getByTitle('collapse'));
     expect(localStorage.getItem('my_storage_key')).toBe('1');
   });
@@ -61,6 +85,8 @@ describe('SidebarLayout', () => {
   });
 
   it('renders the collapse-aware footer', () => {
+    const storageKey = 'footer_test_key';
+    localStorage.setItem(storageKey, '0');
     render(
       <MemoryRouter initialEntries={['/']}>
         <Routes>
@@ -70,7 +96,7 @@ describe('SidebarLayout', () => {
               <SidebarLayout
                 title="admin"
                 nav={NAV}
-                storageKey="footer_test_key"
+                storageKey={storageKey}
                 footer={(collapsed) => <div>footer-{collapsed ? 'collapsed' : 'expanded'}</div>}
               />
             }
