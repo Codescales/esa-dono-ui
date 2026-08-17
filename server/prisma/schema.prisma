@@ -222,7 +222,7 @@ model PledgeItem {
   target_id   String       // reward_id | poll_option_id | goal_id | poll_id (POLL_CUSTOM)
   poll_id     String?      // required for POLL_VOTE and POLL_CUSTOM
   amount_cents Int
-  data        String?      // JSON string for claim_data (physical reward shipping, etc.)
+  data        String?      // JSON string for claim_data (shoutout message, custom reward fields, etc.)
   created_at  DateTime     @default(now())
   pledge      PendingPledge @relation(fields: [pledge_id], references: [id], onDelete: Cascade)
 }

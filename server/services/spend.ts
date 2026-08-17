@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { MIN_SPEND_CENTS, type ClaimData, type ShippingAddress } from '@dono/shared';
+import { MIN_SPEND_CENTS, type ClaimData } from '@dono/shared';
 
 type Tx = Prisma.TransactionClient;
 
@@ -8,7 +8,6 @@ export async function claimRewardTx(
   donorId: string,
   rewardId: string,
   claimData?: ClaimData | null,
-  shippingAddress?: ShippingAddress | null,
 ) {
   const reward = await tx.reward.findUnique({ where: { id: rewardId } });
   if (!reward || !reward.is_active)
@@ -23,15 +22,6 @@ export async function claimRewardTx(
   }
 
   const data = claimData || {};
-  const mergedData = reward.type === 'PHYSICAL' ? { ...shippingAddress, ...data } : data;
-  if (reward.type === 'PHYSICAL') {
-    const { name, address, city, country } = mergedData as Record<string, unknown>;
-    if (!name || !address || !city || !country) {
-      throw Object.assign(new Error('Physical rewards require name, address, city, country'), {
-        status: 400,
-      });
-    }
-  }
 
   await tx.donor.update({
     where: { id: donorId },
@@ -41,7 +31,7 @@ export async function claimRewardTx(
     data: {
       reward_id: reward.id,
       donor_id: donorId,
-      claim_data: JSON.stringify(mergedData),
+      claim_data: JSON.stringify(data),
       status: 'PENDING',
     },
   });

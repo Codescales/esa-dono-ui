@@ -87,7 +87,6 @@ describe('POST /api/webhooks/stripe', () => {
       comment: null,
       pledgeToken: 'pledge-abc',
       shippingCents: 0,
-      shippingAddress: null,
     });
   });
 
@@ -137,7 +136,7 @@ describe('POST /api/webhooks/stripe', () => {
     expect(processDonation).not.toHaveBeenCalled();
   });
 
-  it('extracts shipping details and amount for physical rewards', async () => {
+  it('extracts shipping amount but no shipping address for physical rewards', async () => {
     vi.mocked(processDonation).mockResolvedValue({ donor: { id: 'donor-1' } } as any);
 
     const payload = JSON.stringify(
@@ -170,12 +169,6 @@ describe('POST /api/webhooks/stripe', () => {
       comment: null,
       pledgeToken: 'pledge-abc',
       shippingCents: 700,
-      shippingAddress: {
-        name: 'Recipient Name',
-        address: '123 Main St, Apt 4',
-        city: 'Springfield',
-        country: 'US',
-      },
     });
   });
 });

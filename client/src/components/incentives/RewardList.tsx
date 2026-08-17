@@ -15,14 +15,9 @@ interface FieldDef {
   required: boolean;
 }
 
-// PHYSICAL rewards intentionally collect NO fields here. Stripe Checkout
-// collects the shipping address at payment time and is the single source of
-// truth for it — every fulfillment path for a physical reward goes through
-// Stripe (server/services/pledge.ts forces Stripe even when the wallet
-// covers the full pledge, specifically to collect the address). Collecting
-// an address here too would be redundant, and worse: claimRewardTx merges
-// `{ ...shippingAddress, ...claimData }`, so a cart-collected address would
-// silently override the one the donor actually confirmed at payment.
+// PHYSICAL rewards intentionally collect NO fields here. The donor adds the
+// item to the cart and completes Stripe Checkout to pay; no shipping address
+// is captured or stored by the platform.
 const FIELDS: Record<string, FieldDef[]> = {
   SHOUTOUT: [{ key: 'message', label: 'Shoutout Message', required: false }],
   PHYSICAL: [],

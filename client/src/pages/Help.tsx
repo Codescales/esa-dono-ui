@@ -32,8 +32,8 @@ export default function Help() {
             <Term>digital</Term> — delivered electronically (a code, art, etc.); no shipping.
           </li>
           <li>
-            <Term>physical</Term> — a shipped item; requires a shipping address collected at
-            checkout.
+            <Term>physical</Term> — a shipped item; shipping is arranged through Stripe, and this
+            platform never collects or stores your shipping address.
           </li>
           <li>
             <Term>shoutout</Term> — a shoutout, with an optional message you can attach.
@@ -80,8 +80,8 @@ export default function Help() {
         </p>
         <p>
           The one exception is <Term>physical rewards</Term>: those always go through Stripe
-          checkout to collect a shipping address (and any shipping fee), even when your balance
-          covers the item cost.
+          checkout to handle shipping (and any shipping fee), even when your balance covers the item
+          cost.
         </p>
         <p>
           Payments are handled by Stripe's hosted checkout, so your card details never touch this
@@ -107,7 +107,8 @@ export default function Help() {
 
       <Section title="physical items">
         <p>
-          Physical rewards require a shipping address, collected securely during Stripe checkout.
+          Physical rewards are shipped items. Shipping is arranged through Stripe's checkout; this
+          platform does not collect or store your shipping address.
         </p>
         <p>
           After your pledge is fulfilled, the claim appears in your wallet as <Term>pending</Term>.
@@ -117,10 +118,10 @@ export default function Help() {
 
       <Section title="your data (gdpr)">
         <p>
-          This platform stores only what it needs to route your donation and ship items: your email
-          address, an optional donor name, any comment or write-in you submit, and a shipping
-          address for physical rewards. There are no passwords. Card details are held by Stripe,
-          never by this platform.
+          This platform stores only what it needs to route your donation: your email address, an
+          optional donor name, and any comment or write-in you submit. It never collects or stores
+          your shipping address. There are no passwords. Card details are held by Stripe, never by
+          this platform.
         </p>
         <p>
           Moderators never see your email address — only admins can. To request access to,

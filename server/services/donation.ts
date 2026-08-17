@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
-import type { ShippingAddress } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { sendMagicLink } from './email.js';
 import { resolvePledge, fulfillPledge } from './pledge.js';
@@ -14,7 +13,6 @@ interface ProcessDonationOptions {
   comment?: string | null;
   pledgeToken?: string | null;
   shippingCents?: number;
-  shippingAddress?: ShippingAddress | null;
   eventId?: string | null;
 }
 
@@ -50,7 +48,6 @@ export async function processDonation({
   comment,
   pledgeToken,
   shippingCents = 0,
-  shippingAddress = null,
   eventId = null,
 }: ProcessDonationOptions) {
   const normalizedEmail = email.trim().toLowerCase();
@@ -103,7 +100,7 @@ export async function processDonation({
           amountCents,
         });
         if (pledge) {
-          pledgeResult = await fulfillPledge(tx, pledge, donor.id, shippingAddress);
+          pledgeResult = await fulfillPledge(tx, pledge, donor.id);
           await tx.donation.update({
             where: { id: donation.id },
             data: {

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { Prisma } from '@prisma/client';
-import { MIN_SPEND_CENTS, type ShippingAddress } from '@dono/shared';
+import { MIN_SPEND_CENTS } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { claimRewardTx, votePollTx, contributeGoalTx, proposeCustomEntryTx } from './spend.js';
 import { checkBlockedWords } from './blockedWords.js';
@@ -249,7 +249,6 @@ export async function fulfillPledge(
   tx: Prisma.TransactionClient,
   pledge: Prisma.PendingPledgeGetPayload<{ include: { items: true } }>,
   donorId: string,
-  shippingAddress?: ShippingAddress | null,
 ) {
   const results: Array<Record<string, unknown>> = [];
   let totalSpent = 0;
@@ -260,7 +259,7 @@ export async function fulfillPledge(
       let result: { cost: number } | undefined;
       if (item.kind === 'REWARD') {
         const data = item.data ? JSON.parse(item.data) : {};
-        result = await claimRewardTx(tx, donorId, item.target_id, data, shippingAddress);
+        result = await claimRewardTx(tx, donorId, item.target_id, data);
       } else if (item.kind === 'POLL_VOTE') {
         result = await votePollTx(tx, donorId, item.poll_id!, item.target_id, item.amount_cents);
       } else if (item.kind === 'GOAL') {

@@ -32,15 +32,6 @@ router.post('/', async (req: Request, res: Response) => {
           metadata?: Record<string, string> | null;
           client_reference_id?: string | null;
           total_details?: { amount_shipping?: number | null } | null;
-          shipping_details?: {
-            name?: string | null;
-            address?: {
-              line1?: string | null;
-              line2?: string | null;
-              city?: string | null;
-              country?: string | null;
-            } | null;
-          } | null;
         }
       | undefined;
 
@@ -54,17 +45,6 @@ router.post('/', async (req: Request, res: Response) => {
     const donorName = session.customer_details?.name ?? 'Anonymous';
     const amountCents = session.amount_total ?? 0;
     const shippingCents = session.total_details?.amount_shipping ?? 0;
-
-    const ship = session.shipping_details;
-    const shippingAddress = ship
-      ? {
-          name: ship.name ?? undefined,
-          address:
-            [ship.address?.line1, ship.address?.line2].filter(Boolean).join(', ') || undefined,
-          city: ship.address?.city ?? undefined,
-          country: ship.address?.country ?? undefined,
-        }
-      : null;
 
     if (!email || !externalId) {
       return res.status(200).json({ received: true, skipped: 'missing email or id' });
@@ -81,7 +61,6 @@ router.post('/', async (req: Request, res: Response) => {
       comment: null,
       pledgeToken,
       shippingCents,
-      shippingAddress,
     });
 
     res.status(200).json({ received: true });
