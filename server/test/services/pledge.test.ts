@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
-import { createPledge, resolvePledge } from '../../services/pledge.js';
+import { createPledge, resolvePledge, createCheckoutForPledge } from '../../services/pledge.js';
 import { processDonation } from '../../services/donation.js';
 
 const prisma = new PrismaClient();
@@ -334,6 +334,53 @@ describe('Pledge Service', () => {
       expect(resolved).toBeTruthy();
       expect(resolved!.pledge_token).toBe(pledge_token);
 
+      await prisma.pendingPledge.delete({ where: { pledge_token } });
+      await prisma.reward.delete({ where: { id: reward.id } });
+    }, 10000);
+  });
+
+  describe('createCheckoutForPledge — wallet discount', () => {
+    it('never applies wallet balance to the additional contribution', async () => {
+      const reward = await prisma.reward.create({
+        data: {
+          title: 'Top-up discount reward',
+          type: 'DIGITAL',
+          cost_cents: 500,
+          quantity_total: 10,
+        },
+      });
+      const { pledge_token } = await createPledge({
+        email: 'walletdiscount@example.com',
+        items: [{ kind: 'REWARD', target_id: reward.id }],
+        top_up_cents: 1500,
+        event_id: eventId,
+      });
+      const donor = await prisma.donor.create({
+        data: {
+          email: 'walletdiscount@example.com',
+          total_donated: 10000,
+          balance_remaining: 10000,
+          magic_token: 'tok-wallet-discount',
+          token_expires_at: new Date(Date.now() + 60000),
+        },
+      });
+
+      const result = await createCheckoutForPledge(
+        pledge_token,
+        {
+          id: donor.id,
+          email: donor.email,
+          balance_remaining: donor.balance_remaining,
+          magic_token: donor.magic_token,
+        },
+        'walletdiscount@example.com',
+      );
+
+      // Incentive total is 500; the wallet covers all of it but none of the
+      // 1500 additional contribution, which must come from real money.
+      expect(result.wallet_discount_cents).toBe(500);
+
+      await prisma.donor.delete({ where: { id: donor.id } });
       await prisma.pendingPledge.delete({ where: { pledge_token } });
       await prisma.reward.delete({ where: { id: reward.id } });
     }, 10000);

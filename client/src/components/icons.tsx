@@ -165,3 +165,13 @@ export function LogoutIcon(props: IconProps) {
 export function ChevronDownIcon(props: IconProps) {
   return base(<path d="M5 7.5 10 12.5 15 7.5" />, props);
 }
+
+export function InfoIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 9v4M10 6.5v.01" />
+    </>,
+    props,
+  );
+}

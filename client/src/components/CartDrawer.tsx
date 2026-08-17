@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart, type CartIssue } from '../context/CartContext';
 import { getDonor } from '../api/donor';
 import { sanitizeMoneyInput } from '../utils/money';
+import InfoTip from './InfoTip';
 import type { DonorWallet } from '../types';
 
 function fmt(cents: number) {
@@ -34,6 +35,7 @@ export default function CartDrawer() {
     setEmail,
     comment,
     setComment,
+    cartTotal,
     totalCents,
     unvisitedAvailableCategories,
     drawerOpen,
@@ -106,7 +108,10 @@ export default function CartDrawer() {
   // rewards) that can shift the exact figure by up to ~50 cents in rare
   // cases. The authoritative amount is shown on the post-submit
   // confirmation. See CLAUDE.md / design notes for this known gap.
-  const estimatedWalletCredit = donor ? Math.min(donor.balance_remaining, totalCents) : 0;
+  // The additional contribution (topUpCents) is always paid with real money:
+  // wallet balance only offsets the incentive items (cartTotal), never the
+  // additional contribution.
+  const estimatedWalletCredit = donor ? Math.min(donor.balance_remaining, cartTotal) : 0;
   const estimatedOwed = totalCents - estimatedWalletCredit;
 
   const runCheckout = async () => {
@@ -183,7 +188,8 @@ export default function CartDrawer() {
           {donor && (
             <div className="btrl-panel p-3 mb-4">
               <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-1">
-                wallet balance
+                wallet balance{' '}
+                <InfoTip text="Your remaining spendable balance from previous donations. Applied automatically to the cost of your incentives at checkout — never to your additional contribution." />
               </p>
               <p className="font-display text-2xl text-off-white">{fmt(donor.balance_remaining)}</p>
             </div>
@@ -232,7 +238,8 @@ export default function CartDrawer() {
           <div className="btrl-panel p-3 mb-4">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
               additional contribution{' '}
-              <span className="text-off-white/40 font-normal">(optional)</span>
+              <span className="text-off-white/40 font-normal">(optional)</span>{' '}
+              <InfoTip text="An extra amount charged to your card on top of your selected incentives. This always comes from real money — your wallet balance does not cover it." />
             </label>
             <input
               type="number"
@@ -249,7 +256,10 @@ export default function CartDrawer() {
             className="flex justify-between font-data font-bold pt-3 mb-4"
             style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
           >
-            <span className="text-off-white">total</span>
+            <span className="text-off-white">
+              total{' '}
+              <InfoTip text="The full value of your cart — the cost of your incentives plus any additional contribution." />
+            </span>
             <span
               className={`text-d-yellow inline-block ${totalPulse ? 'animate-total-pulse' : ''}`}
             >
@@ -260,11 +270,17 @@ export default function CartDrawer() {
           {donor && donor.balance_remaining > 0 && totalCents > 0 && (
             <div className="btrl-panel p-3 mb-4 text-sm">
               <div className="flex justify-between mb-1">
-                <span className="text-off-white/55">estimated wallet credit</span>
+                <span className="text-off-white/55">
+                  estimated wallet credit{' '}
+                  <InfoTip text="The portion of your wallet balance applied to your incentives. Your additional contribution is never covered by wallet balance." />
+                </span>
                 <span style={{ color: 'var(--green)' }}>-{fmt(estimatedWalletCredit)}</span>
               </div>
               <div className="flex justify-between font-bold">
-                <span className="text-off-white">estimated amount owed</span>
+                <span className="text-off-white">
+                  estimated amount owed{' '}
+                  <InfoTip text="What will actually be charged to your card — your incentives not covered by wallet balance, plus your additional contribution." />
+                </span>
                 <span className="text-d-yellow">{fmt(Math.max(0, estimatedOwed))}</span>
               </div>
               <p className="font-body text-[10px] text-off-white/55 mt-1">
@@ -275,7 +291,8 @@ export default function CartDrawer() {
 
           <div className="mb-4">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              email address
+              email address{' '}
+              <InfoTip text="Where your magic link and receipt are sent. Used to link this donation to your wallet." />
             </label>
             <input
               type="email"
@@ -288,7 +305,8 @@ export default function CartDrawer() {
 
           <div className="mb-4">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              comment <span className="text-off-white/40 font-normal">(optional)</span>
+              comment <span className="text-off-white/40 font-normal">(optional)</span>{' '}
+              <InfoTip text="A message shown alongside your donation. Optional, up to 500 characters." />
             </label>
             <textarea
               className="w-full px-3 py-2 text-sm"

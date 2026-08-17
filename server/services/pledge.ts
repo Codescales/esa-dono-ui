@@ -357,8 +357,11 @@ export interface WalletDonor {
  *
  * When an authenticated donor is provided (resolved from a valid magic token),
  * their wallet balance is applied as a discount to the Stripe charge,
- * recorded as wallet_discount_cents on the pledge. If the wallet balance
- * covers the entire pledge, the pledge is fulfilled directly without Stripe —
+ * recorded as wallet_discount_cents on the pledge. The discount only ever
+ * offsets the incentive items — the additional contribution (top_up_cents) is
+ * always charged as real money. If the wallet balance covers the entire
+ * pledge (possible only when there is no additional contribution), the pledge
+ * is fulfilled directly without Stripe —
  * unless the pledge requires shipping (contains a PHYSICAL reward), in which
  * case Stripe Checkout is always used to collect a shipping address and charge
  * shipping.
@@ -379,6 +382,7 @@ export async function createCheckoutForPledge(
     select: {
       id: true,
       total_cents: true,
+      top_up_cents: true,
       donor_email: true,
       comment: true,
       requires_shipping: true,
@@ -392,10 +396,16 @@ export async function createCheckoutForPledge(
 
   let walletDiscountCents = 0;
   if (donor && donor.balance_remaining > 0) {
-    walletDiscountCents = Math.min(donor.balance_remaining, pledge.total_cents);
+    // The additional contribution (top_up_cents) always comes from real
+    // money: the donor's wallet balance only offsets the incentive items,
+    // never the additional contribution itself.
+    const walletCoverableCents = pledge.total_cents - pledge.top_up_cents;
+    walletDiscountCents = Math.min(donor.balance_remaining, walletCoverableCents);
+
     const projectedCharge = pledge.total_cents - walletDiscountCents;
     if (projectedCharge > 0 && projectedCharge < STRIPE_MIN_CHARGE_CENTS) {
-      walletDiscountCents = pledge.total_cents - STRIPE_MIN_CHARGE_CENTS;
+      walletDiscountCents = Math.max(0, pledge.total_cents - STRIPE_MIN_CHARGE_CENTS);
+      walletDiscountCents = Math.min(walletDiscountCents, walletCoverableCents);
     }
 
     // Wallet covers everything — fulfill directly, no Stripe charge. Physical
