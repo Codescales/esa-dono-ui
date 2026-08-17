@@ -53,6 +53,7 @@ tags:
   - name: Health
   - name: Campaign
   - name: Donor
+  - name: Auth
   - name: Rewards
   - name: Polls
   - name: Goals
@@ -131,6 +132,106 @@ paths:
           description: Missing/invalid/expired token
         '403':
           description: Account frozen
+
+  # ─── Auth ───
+  /auth/request-token:
+    post:
+      tags: [Auth]
+      summary: Request a new magic link by email
+      description: |
+        Rotates the donor's magic token (invalidating any prior link) and emails
+        a fresh link. Responds uniformly for existing and unknown emails so the
+        endpoint cannot be used to enumerate donors. Rate-limited by IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Request accepted (regardless of whether the email has donated)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+        '400':
+          description: Invalid email address
+        '429':
+          description: Rate limit exceeded
+
+  /auth/providers:
+    get:
+      tags: [Auth]
+      summary: List configured OAuth sign-in providers
+      responses:
+        '200':
+          description: Providers with client credentials configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: string
+                      enum: [google, discord, twitch]
+
+  /auth/{provider}:
+    get:
+      tags: [Auth]
+      summary: Begin an OAuth sign-in
+      description: |
+        Redirects the browser to the provider's authorize URL and sets a CSRF
+        state cookie. The browser is then redirected back to the callback.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, discord, twitch]
+      responses:
+        '302':
+          description: Redirect to the provider's authorize URL
+        '404':
+          description: Unknown provider
+        '503':
+          description: Provider not configured
+
+  /auth/{provider}/callback:
+    get:
+      tags: [Auth]
+      summary: OAuth sign-in callback
+      description: |
+        Verifies state, exchanges the authorization code for a verified email,
+        upserts the donor (creating an empty one on first sign-in), and
+        redirects to the wallet with a fresh magic token. On failure redirects
+        to the wallet with an `error` query param.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, discord, twitch]
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect to the wallet (with token or error)
+        '404':
+          description: Unknown provider
 
   # ─── Rewards ───
   /rewards:

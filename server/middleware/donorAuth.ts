@@ -16,8 +16,12 @@ export async function donorAuth(req: Request, res: Response, next: NextFunction)
     return res.status(403).json({ error: 'Account frozen' });
   }
   // Effective role is resolved per-request from ADMIN_EMAILS/MODERATOR_EMAILS
-  // allowlists (never downgrading below the persisted role). Roles are never
-  // granted as a side effect of donating — see resolveEffectiveRole() docs.
-  req.donor = { ...donor, role: resolveEffectiveRole(donor.email, donor.role) };
+  // allowlists (never downgrading below the persisted role), gated on the
+  // donor's verified email. Roles are never granted as a side effect of
+  // donating — see resolveEffectiveRole() docs.
+  req.donor = {
+    ...donor,
+    role: resolveEffectiveRole(donor.email, donor.role, donor.email_verified),
+  };
   next();
 }

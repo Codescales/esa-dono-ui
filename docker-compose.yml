@@ -21,6 +21,13 @@ services:
       - MODERATOR_API_KEY=${MODERATOR_API_KEY:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       - MODERATOR_EMAILS=${MODERATOR_EMAILS:-}
+      # OAuth sign-in (Google / Discord / Twitch). Leave empty to disable.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-}
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
       # Email (magic links). Omit SMTP_HOST to log links to stdout instead.
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}

@@ -14,13 +14,14 @@ function createApp() {
   return app;
 }
 
-async function makeDonor(email: string) {
+async function makeDonor(email: string, verified = false) {
   const token = crypto.randomBytes(16).toString('hex');
   const donor = await prisma.donor.create({
     data: {
       email,
       magic_token: token,
       token_expires_at: new Date(Date.now() + 60_000),
+      email_verified: verified,
     },
   });
   return { donor, token };
@@ -49,7 +50,7 @@ describe('GET /api/donor', () => {
 
   it('reports the effective ADMIN_EMAILS-resolved role, not the stale persisted role', async () => {
     const email = `admin-${Date.now()}-${Math.random()}@example.com`;
-    const { token, donor } = await makeDonor(email);
+    const { token, donor } = await makeDonor(email, true);
     process.env.ADMIN_EMAILS = email;
 
     const res = await request(createApp()).get('/api/donor').query({ token });
@@ -66,7 +67,7 @@ describe('GET /api/donor', () => {
 
   it('reports the effective MODERATOR_EMAILS-resolved role', async () => {
     const email = `mod-${Date.now()}-${Math.random()}@example.com`;
-    const { token, donor } = await makeDonor(email);
+    const { token, donor } = await makeDonor(email, true);
     process.env.MODERATOR_EMAILS = email;
 
     const res = await request(createApp()).get('/api/donor').query({ token });

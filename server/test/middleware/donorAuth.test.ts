@@ -109,6 +109,7 @@ describe('donorAuth middleware', () => {
       token_expires_at: futureDate,
       is_frozen: false,
       role: 'USER',
+      email_verified: true,
     };
     vi.mocked(prisma.donor.findUnique).mockResolvedValue(donor as any);
     process.env.ADMIN_EMAILS = 'hardcoded-admin@example.com';
@@ -119,6 +120,28 @@ describe('donorAuth middleware', () => {
     await donorAuth(req as any, res as any, next);
 
     expect((req as any).donor.role).toBe('ADMIN');
+    delete process.env.ADMIN_EMAILS;
+  });
+
+  it('does NOT resolve an allowlist role for an unverified email', async () => {
+    const futureDate = new Date(Date.now() + 100000);
+    const donor = {
+      id: 'donor-1',
+      email: 'hardcoded-admin@example.com',
+      token_expires_at: futureDate,
+      is_frozen: false,
+      role: 'USER',
+      email_verified: false,
+    };
+    vi.mocked(prisma.donor.findUnique).mockResolvedValue(donor as any);
+    process.env.ADMIN_EMAILS = 'hardcoded-admin@example.com';
+    const req = { query: { token: 'valid-token' } };
+    const res = createRes();
+    const next = vi.fn();
+
+    await donorAuth(req as any, res as any, next);
+
+    expect((req as any).donor.role).toBe('USER');
     delete process.env.ADMIN_EMAILS;
   });
 });

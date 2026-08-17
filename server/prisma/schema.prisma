@@ -15,6 +15,10 @@ model Donor {
   magic_token       String?         @unique
   token_expires_at  DateTime?
   role              String          @default("USER") // USER | MODERATOR | ADMIN
+  // Set to true only after a verified OAuth login (Google/Discord). Required
+  // for ADMIN_EMAILS/MODERATOR_EMAILS allowlist role resolution — a Stripe
+  // checkout email is self-supplied and never counts as verified.
+  email_verified    Boolean         @default(false)
   is_frozen         Boolean         @default(false)
   created_at        DateTime        @default(now())
   updated_at        DateTime        @updatedAt

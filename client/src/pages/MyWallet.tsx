@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getDonor } from '../api/donor';
+import { getDonor, requestToken } from '../api/donor';
+import { getOAuthProviders } from '../api/auth';
 import { extractToken, setDonorToken, clearDonorToken } from '../utils/authToken';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
@@ -20,6 +21,18 @@ function WalletLogin({
 }) {
   const [input, setInput] = useState('');
   const [formError, setFormError] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [emailStatus, setEmailStatus] = useState<null | { kind: 'ok' | 'error'; text: string }>(
+    null,
+  );
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [providers, setProviders] = useState<string[]>([]);
+
+  useEffect(() => {
+    getOAuthProviders()
+      .then((p) => setProviders(p.providers))
+      .catch(() => setProviders([]));
+  }, []);
 
   const submit = () => {
     const token = extractToken(input);
@@ -29,6 +42,27 @@ function WalletLogin({
     }
     setFormError('');
     onLogin(token);
+  };
+
+  const submitEmail = async () => {
+    const email = emailInput.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailStatus({ kind: 'error', text: 'Enter a valid email address.' });
+      return;
+    }
+    setEmailBusy(true);
+    setEmailStatus(null);
+    try {
+      await requestToken(email);
+      setEmailStatus({
+        kind: 'ok',
+        text: 'If that email has donated, a fresh link is on its way. Check your inbox.',
+      });
+    } catch {
+      setEmailStatus({ kind: 'error', text: 'Something went wrong. Please try again shortly.' });
+    } finally {
+      setEmailBusy(false);
+    }
   };
 
   return (
@@ -70,6 +104,61 @@ function WalletLogin({
         <button onClick={submit} className="btrl-button">
           open wallet
         </button>
+
+        <div
+          className="mt-6 pt-5 flex items-center gap-3 font-data text-xs text-off-white/45"
+          style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
+        >
+          <span className="flex-1 h-px" style={{ background: 'rgba(239,238,236,.08)' }} />
+          <span>lost your link?</span>
+          <span className="flex-1 h-px" style={{ background: 'rgba(239,238,236,.08)' }} />
+        </div>
+
+        <label className="block font-data font-bold text-sm mb-1 mt-5 text-off-white">
+          email a new link
+        </label>
+        <input
+          className="w-full px-3 py-2 text-sm mb-2"
+          placeholder="you@example.com"
+          value={emailInput}
+          onChange={(e) => setEmailInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submitEmail()}
+        />
+        {emailStatus && (
+          <p
+            className="text-sm mb-3"
+            style={{ color: emailStatus.kind === 'ok' ? 'var(--green)' : 'var(--red)' }}
+          >
+            {emailStatus.text}
+          </p>
+        )}
+        <button onClick={submitEmail} disabled={emailBusy} className="btrl-button">
+          {emailBusy ? 'sending…' : 'send me a new link'}
+        </button>
+
+        {providers.length > 0 && (
+          <>
+            <div
+              className="mt-6 pt-5 flex items-center gap-3 font-data text-xs text-off-white/45"
+              style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
+            >
+              <span className="flex-1 h-px" style={{ background: 'rgba(239,238,236,.08)' }} />
+              <span>or sign in with</span>
+              <span className="flex-1 h-px" style={{ background: 'rgba(239,238,236,.08)' }} />
+            </div>
+            <div className="grid gap-2 mt-5">
+              {providers.map((p) => (
+                <a
+                  key={p}
+                  href={`/api/auth/${p}`}
+                  className="btrl-button block text-center no-underline"
+                >
+                  sign in with {p}
+                </a>
+              ))}
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
@@ -109,6 +198,13 @@ export default function MyWallet() {
   useEffect(() => {
     const token = searchParams.get('token');
     if (token) setDonorToken(token);
+    const urlError = searchParams.get('error');
+    if (urlError && !token) {
+      setDonor(null);
+      setError(urlError);
+      setLoading(false);
+      return;
+    }
     loadDonor();
   }, []);
 

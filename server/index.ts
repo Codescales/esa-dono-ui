@@ -11,6 +11,7 @@ import pollsRouter from './routes/polls.js';
 import goalsRouter from './routes/goals.js';
 import eventsRouter from './routes/events.js';
 import pledgeRouter from './routes/pledge.js';
+import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import moderatorRouter from './routes/moderator.js';
 import prisma from './lib/prisma.js';
@@ -51,6 +52,7 @@ app.use('/api/polls', pollsRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/pledge', pledgeRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/moderator', moderatorRouter);
 
