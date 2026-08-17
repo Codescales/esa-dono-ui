@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getDonor, requestToken } from '../api/donor';
 import { getOAuthProviders } from '../api/auth';
 import { extractToken, setDonorToken, clearDonorToken } from '../utils/authToken';
@@ -166,6 +166,7 @@ function WalletLogin({
 
 export default function MyWallet() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -216,7 +217,7 @@ export default function MyWallet() {
   const handleLogout = () => {
     clearDonorToken();
     setDonor(null);
-    setError('You have logged out. Paste your magic link to access your wallet again.');
+    navigate('/');
   };
 
   if (loading) return <LoadingSpinner />;

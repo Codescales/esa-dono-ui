@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getDonor } from '../api/donor';
 import { clearDonorToken } from '../utils/authToken';
 import { useCart } from '../context/CartContext';
@@ -13,6 +13,7 @@ function fmt(cents: number) {
 export default function Navbar() {
   const [donor, setDonor] = useState<DonorWallet | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { cart, totalCents, toggleDrawer } = useCart();
 
   // Brief "juice" pop on the cart badge whenever the cart total actually
@@ -53,6 +54,7 @@ export default function Navbar() {
   const logout = () => {
     clearDonorToken();
     setDonor(null);
+    navigate('/');
   };
 
   return (
@@ -77,6 +79,14 @@ export default function Navbar() {
         }
       >
         home
+      </NavLink>
+      <NavLink
+        to="/help"
+        className={({ isActive }) =>
+          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+        }
+      >
+        help
       </NavLink>
       <NavLink
         to="/donate"

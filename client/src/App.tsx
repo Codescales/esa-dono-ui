@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import DonateFlow from './pages/DonateFlow';
 import PledgeReturn from './pages/PledgeReturn';
 import MyWallet from './pages/MyWallet';
+import Help from './pages/Help';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminEvents from './pages/admin/AdminEvents';
@@ -63,6 +64,7 @@ export default function App() {
                   <Route path="/donate" element={<DonateFlow />} />
                   <Route path="/pledge/:token" element={<PledgeReturn />} />
                   <Route path="/wallet" element={<MyWallet />} />
+                  <Route path="/help" element={<Help />} />
                   <Route path="/rewards" element={<DonateFlow />} />
                   <Route path="/polls" element={<DonateFlow />} />
                   <Route path="/goals" element={<DonateFlow />} />
