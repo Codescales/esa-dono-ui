@@ -3,7 +3,7 @@ info:
   title: ESA Dono API
   description: |
     Donation platform with Stripe checkout, wallet balance, pledge (smart cart)
-    auto-fulfillment, rewards, polls, fund goals, and moderator/admin tooling.
+    auto-fulfillment, rewards, polls, fund goals, events, and moderator/admin tooling.
 
     ## Authentication
 
@@ -19,6 +19,17 @@ info:
 
     Spend endpoints (`claim`, `vote`, `custom-entry`, `contribute`) are rate-limited:
     20 requests per minute, keyed by `?token=` or IP. Configurable via `RATE_LIMIT_SPEND`.
+
+    ## Events
+
+    Every donation routes to exactly one event (`GET /api/events` lists the active
+    ones). Rewards, polls, and fund goals may be tied to a specific event
+    (`event_id` set) or shared across all events (`event_id` null). `POST
+    /api/pledge` requires `event_id` and rejects any cart item whose incentive
+    belongs to a different event — incentives cannot be mixed across events in
+    a single donation. Events are managed via `/api/admin/events` and
+    `/api/moderator/events`; per-event raised totals are admin-only
+    (`GET /api/admin/stats`).
 
     ## Wallet Discount
 
@@ -545,7 +556,7 @@ paths:
       security: [{ AdminKey: [] }]
       responses:
         '200':
-          description: Donations with donor email, ordered by created_at descending
+          description: Donations with donor email and event (id, name), ordered by created_at descending
 
   /admin/claims:
     get:
@@ -673,6 +684,10 @@ paths:
                 amount_cents: { type: integer, minimum: 100 }
                 comment: { type: string }
                 pledge_token: { type: string }
+                event_id:
+                  type: string
+                  nullable: true
+                  description: Optional event to attribute this simulated donation to (bypasses the pledge flow's required-event check).
       responses:
         '200':
           description: Donation simulated
@@ -1579,7 +1594,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Donations with donor name (no donor email) and moderation status
+          description: Donations with donor name (no donor email), event (id, name), and moderation status
 
   /moderator/donations/{id}:
     patch:
