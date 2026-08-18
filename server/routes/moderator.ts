@@ -170,6 +170,18 @@ router.post('/polls/:id/options', async (req, res) => {
   res.json(option);
 });
 
+router.patch('/polls/options/:id', async (req, res) => {
+  const { label } = req.body;
+  if (!label || !String(label).trim()) {
+    return res.status(400).json({ error: 'label is required' });
+  }
+  const option = await prisma.pollOption.update({
+    where: { id: req.params.id },
+    data: { label: String(label).trim() },
+  });
+  res.json(option);
+});
+
 router.delete('/polls/options/:id', async (req, res) => {
   await prisma.pollOption.delete({ where: { id: req.params.id } });
   res.json({ success: true });

@@ -42,6 +42,8 @@ export default function ModeratorPolls() {
   const [modal, setModal] = useState<PollModal>(null);
   const [form, setForm] = useState<PollForm>(EMPTY);
   const [newOption, setNewOption] = useState('');
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
+  const [optionDraft, setOptionDraft] = useState('');
   const [error, setError] = useState('');
   const [entriesPanel, setEntriesPanel] = useState<string | null>(null);
   const [entries, setEntries] = useState<CustomEntry[]>([]);
@@ -108,6 +110,18 @@ export default function ModeratorPolls() {
 
   const deleteOption = async (id: string) => {
     await moderatorClient.delete(`/polls/options/${id}`);
+    await reload();
+  };
+
+  const startEditOption = (opt: { id: string; label: string }) => {
+    setEditingOptionId(opt.id);
+    setOptionDraft(opt.label);
+  };
+
+  const saveOption = async (id: string) => {
+    if (!optionDraft.trim()) return;
+    await moderatorClient.patch(`/polls/options/${id}`, { label: optionDraft.trim() });
+    setEditingOptionId(null);
     await reload();
   };
 
@@ -185,16 +199,55 @@ export default function ModeratorPolls() {
                   className="flex justify-between items-center text-sm px-2 py-1 rounded-sm"
                   style={{ background: 'rgba(239,238,236,.03)' }}
                 >
-                  <span className="font-data text-off-white">
-                    {opt.label} ({fmt(opt.votes_cents)}){opt.custom_entry_id ? ' · custom' : ''}
-                  </span>
-                  <button
-                    onClick={() => deleteOption(opt.id)}
-                    className="font-mono text-[10px] hover:underline"
-                    style={{ color: 'var(--red)' }}
-                  >
-                    remove
-                  </button>
+                  {editingOptionId === opt.id ? (
+                    <>
+                      <input
+                        autoFocus
+                        className="flex-1 px-2 py-1 text-sm"
+                        value={optionDraft}
+                        onChange={(e) => setOptionDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveOption(opt.id);
+                          if (e.key === 'Escape') setEditingOptionId(null);
+                        }}
+                      />
+                      <button
+                        onClick={() => saveOption(opt.id)}
+                        className="ml-2 font-mono text-[10px] hover:underline"
+                        style={{ color: 'var(--green)' }}
+                      >
+                        save
+                      </button>
+                      <button
+                        onClick={() => setEditingOptionId(null)}
+                        className="ml-2 font-mono text-[10px] hover:underline text-off-white/55"
+                      >
+                        cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-data text-off-white">
+                        {opt.label} ({fmt(opt.votes_cents)}){opt.custom_entry_id ? ' · custom' : ''}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => startEditOption(opt)}
+                          className="font-mono text-[10px] hover:underline"
+                          style={{ color: 'var(--d-yellow)' }}
+                        >
+                          edit
+                        </button>
+                        <button
+                          onClick={() => deleteOption(opt.id)}
+                          className="font-mono text-[10px] hover:underline"
+                          style={{ color: 'var(--red)' }}
+                        >
+                          remove
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               <div className="flex gap-2 mt-2">
@@ -302,6 +355,11 @@ export default function ModeratorPolls() {
 
       {modal && (
         <Modal title={modal === 'create' ? 'new poll' : 'edit poll'} onClose={() => setModal(null)}>
+          {modal === 'create' && (
+            <p className="mb-3 text-sm" style={{ color: 'var(--d-yellow)' }}>
+              Poll options are added on the main polls page after the poll is created.
+            </p>
+          )}
           {(
             [
               { key: 'title', label: 'Title' },

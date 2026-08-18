@@ -1100,6 +1100,29 @@ paths:
           description: Option created
 
   /admin/polls/options/{id}:
+    patch:
+      tags: [Admin]
+      summary: Edit a poll option label
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string }
+      responses:
+        '200':
+          description: Option updated
+        '400':
+          description: label is required
     delete:
       tags: [Admin]
       summary: Refund and remove a poll option
@@ -1493,6 +1516,32 @@ paths:
           description: Option created
 
   /moderator/polls/options/{id}:
+    patch:
+      tags: [Moderator]
+      summary: Edit a poll option label
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string }
+      responses:
+        '200':
+          description: Option updated
+        '400':
+          description: label is required
     delete:
       tags: [Moderator]
       summary: Delete a poll option

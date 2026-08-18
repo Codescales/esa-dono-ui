@@ -42,6 +42,8 @@ export default function AdminPolls() {
   const [modal, setModal] = useState<PollModal>(null);
   const [form, setForm] = useState<PollForm>(EMPTY);
   const [newOption, setNewOption] = useState('');
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
+  const [optionDraft, setOptionDraft] = useState('');
   const [error, setError] = useState('');
 
   const reload = () => adminClient.get('/polls').then((r) => setPolls(r.data));
@@ -125,6 +127,18 @@ export default function AdminPolls() {
     }
   };
 
+  const startEditOption = (opt: { id: string; label: string }) => {
+    setEditingOptionId(opt.id);
+    setOptionDraft(opt.label);
+  };
+
+  const saveOption = async (id: string) => {
+    if (!optionDraft.trim()) return;
+    await adminClient.patch(`/polls/options/${id}`, { label: optionDraft.trim() });
+    setEditingOptionId(null);
+    await reload();
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -178,25 +192,62 @@ export default function AdminPolls() {
                   className="flex justify-between items-center text-sm px-2 py-1 rounded-sm"
                   style={{ background: 'rgba(239,238,236,.03)' }}
                 >
-                  <span className="font-data text-off-white">
-                    {opt.label} ({fmt(opt.votes_cents)})
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleRefundOption(opt.id, opt.label)}
-                      className="font-mono text-[10px] hover:underline"
-                      style={{ color: 'var(--d-yellow)' }}
-                    >
-                      refund votes
-                    </button>
-                    <button
-                      onClick={() => deleteOption(opt.id, opt.label, opt.votes_cents)}
-                      className="font-mono text-[10px] hover:underline"
-                      style={{ color: 'var(--red)' }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {editingOptionId === opt.id ? (
+                    <>
+                      <input
+                        autoFocus
+                        className="flex-1 px-2 py-1 text-sm"
+                        value={optionDraft}
+                        onChange={(e) => setOptionDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveOption(opt.id);
+                          if (e.key === 'Escape') setEditingOptionId(null);
+                        }}
+                      />
+                      <button
+                        onClick={() => saveOption(opt.id)}
+                        className="ml-2 font-mono text-[10px] hover:underline"
+                        style={{ color: 'var(--green)' }}
+                      >
+                        save
+                      </button>
+                      <button
+                        onClick={() => setEditingOptionId(null)}
+                        className="ml-2 font-mono text-[10px] hover:underline text-off-white/55"
+                      >
+                        cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-data text-off-white">
+                        {opt.label} ({fmt(opt.votes_cents)})
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => startEditOption(opt)}
+                          className="font-mono text-[10px] hover:underline"
+                          style={{ color: 'var(--d-yellow)' }}
+                        >
+                          edit
+                        </button>
+                        <button
+                          onClick={() => handleRefundOption(opt.id, opt.label)}
+                          className="font-mono text-[10px] hover:underline"
+                          style={{ color: 'var(--d-yellow)' }}
+                        >
+                          refund votes
+                        </button>
+                        <button
+                          onClick={() => deleteOption(opt.id, opt.label, opt.votes_cents)}
+                          className="font-mono text-[10px] hover:underline"
+                          style={{ color: 'var(--red)' }}
+                        >
+                          remove
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               <div className="flex gap-2 mt-2">
@@ -221,6 +272,11 @@ export default function AdminPolls() {
 
       {modal && (
         <Modal title={modal === 'create' ? 'new poll' : 'edit poll'} onClose={() => setModal(null)}>
+          {modal === 'create' && (
+            <p className="mb-3 text-sm" style={{ color: 'var(--d-yellow)' }}>
+              Poll options are added on the main polls page after the poll is created.
+            </p>
+          )}
           {(
             [
               { key: 'title', label: 'Title' },
