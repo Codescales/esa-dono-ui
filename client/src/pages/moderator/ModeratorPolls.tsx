@@ -3,6 +3,7 @@ import moderatorClient from '../../api/moderator';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Poll, type CustomEntry, type Event } from '../../types';
 
 function fmt(cents: number) {
@@ -156,6 +157,9 @@ export default function ModeratorPolls() {
                 <p className="font-data text-xs text-off-white/40">
                   event: {eventName(poll.event_id)}
                 </p>
+                <div className="mt-2">
+                  <StatusBadge active={poll.is_active} />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button

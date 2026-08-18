@@ -4,6 +4,7 @@ import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import ProgressBar from '../../components/ProgressBar';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Goal, type Event } from '../../types';
 
 function fmt(cents: number) {
@@ -125,16 +126,19 @@ export default function AdminGoals() {
                 <p className="font-data text-xs text-off-white/40">
                   event: {eventName(g.event_id)}
                 </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <StatusBadge active={g.is_active} />
+                  {g.is_complete && (
+                    <span
+                      className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
+                      style={{ background: 'rgba(92,189,125,.16)', color: 'var(--green)' }}
+                    >
+                      complete
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                {g.is_complete && (
-                  <span
-                    className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
-                    style={{ background: 'rgba(92,189,125,.16)', color: 'var(--green)' }}
-                  >
-                    complete
-                  </span>
-                )}
                 <button
                   onClick={() => openEdit(g)}
                   className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"

@@ -3,6 +3,7 @@ import moderatorClient from '../../api/moderator';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Reward, type Event } from '../../types';
 
 function fmt(cents: number) {
@@ -87,8 +88,12 @@ export default function ModeratorRewards() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete reward?')) return;
-    await moderatorClient.delete(`/rewards/${id}`);
-    await reload();
+    try {
+      await moderatorClient.delete(`/rewards/${id}`);
+      await reload();
+    } catch (e) {
+      alert(apiErrorMessage(e, 'Delete failed'));
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -119,6 +124,9 @@ export default function ModeratorRewards() {
                 <p className="font-data text-xs text-off-white/40">
                   event: {eventName(r.event_id)}
                 </p>
+                <div className="mt-2">
+                  <StatusBadge active={r.is_active} />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button

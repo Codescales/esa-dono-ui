@@ -354,3 +354,52 @@ describe('Moderator donations', () => {
     await prisma.donor.delete({ where: { id: donor.id } });
   });
 });
+
+describe('Moderator reward deletion', () => {
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  async function makeReward() {
+    return prisma.reward.create({
+      data: {
+        title: `Reward ${Date.now()}-${Math.random()}`,
+        type: 'DIGITAL',
+        cost_cents: 500,
+      },
+    });
+  }
+
+  it('DELETE /rewards/:id returns 409 when the reward has claims', async () => {
+    const { token: modToken } = await makeModerator();
+    const donor = await makeDonorWithBalance(1000);
+    const reward = await makeReward();
+    const claim = await prisma.rewardClaim.create({
+      data: { reward_id: reward.id, donor_id: donor.id },
+    });
+
+    const res = await request(createApp())
+      .delete(`/api/moderator/rewards/${reward.id}`)
+      .query({ token: modToken });
+
+    expect(res.status).toBe(409);
+    expect(await prisma.reward.findUnique({ where: { id: reward.id } })).toBeTruthy();
+
+    await prisma.rewardClaim.delete({ where: { id: claim.id } });
+    await prisma.reward.delete({ where: { id: reward.id } });
+    await prisma.donor.delete({ where: { id: donor.id } });
+  });
+
+  it('DELETE /rewards/:id deletes an unclaimed reward', async () => {
+    const { token: modToken } = await makeModerator();
+    const reward = await makeReward();
+
+    const res = await request(createApp())
+      .delete(`/api/moderator/rewards/${reward.id}`)
+      .query({ token: modToken });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(await prisma.reward.findUnique({ where: { id: reward.id } })).toBeNull();
+  });
+});

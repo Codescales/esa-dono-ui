@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import adminClient from '../../api/admin';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Reward, type Event } from '../../types';
 
 function fmt(cents: number) {
@@ -89,8 +90,12 @@ export default function AdminRewards() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this reward?')) return;
-    await adminClient.delete(`/rewards/${id}`);
-    await reload();
+    try {
+      await adminClient.delete(`/rewards/${id}`);
+      await reload();
+    } catch (e) {
+      alert(apiErrorMessage(e, 'Delete failed'));
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -135,7 +140,9 @@ export default function AdminRewards() {
                   {r.quantity_total ?? '∞'} ({r.quantity_claimed} claimed)
                 </td>
                 <td className="px-4 py-2 font-data text-off-white/55">{eventName(r.event_id)}</td>
-                <td className="px-4 py-2 font-data text-off-white/55">{r.is_active ? '✓' : '✗'}</td>
+                <td className="px-4 py-2">
+                  <StatusBadge active={r.is_active} />
+                </td>
                 <td className="px-4 py-2 flex gap-2">
                   <button
                     onClick={() => openEdit(r)}

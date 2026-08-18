@@ -12,9 +12,11 @@ vi.mock('../../lib/prisma.js', () => ({
     },
     rewardClaim: {
       findUnique: vi.fn(),
+      count: vi.fn(),
     },
     reward: {
       findUnique: vi.fn(),
+      delete: vi.fn(),
     },
     pollVote: {
       findUnique: vi.fn(),
@@ -320,6 +322,26 @@ describe('Admin donor management', () => {
       data: { is_active: false },
     });
     expect(prisma.balanceAdjustment.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('DELETE /rewards/:id deletes an unclaimed reward', async () => {
+    px.rewardClaim.count.mockResolvedValue(0);
+    px.reward.delete.mockResolvedValue({ id: 'r1' });
+
+    const res = await request(createApp()).delete('/api/admin/rewards/r1').set(auth);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(prisma.reward.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+  });
+
+  it('DELETE /rewards/:id returns 409 when the reward has claims', async () => {
+    px.rewardClaim.count.mockResolvedValue(2);
+
+    const res = await request(createApp()).delete('/api/admin/rewards/r1').set(auth);
+
+    expect(res.status).toBe(409);
+    expect(prisma.reward.delete).not.toHaveBeenCalled();
   });
 
   it('PUT /goals/:id disabling a goal does not refund contributions', async () => {

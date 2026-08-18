@@ -4,6 +4,7 @@ import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ProgressBar from '../../components/ProgressBar';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Goal, type Event } from '../../types';
 
 function fmt(cents: number) {
@@ -105,6 +106,9 @@ export default function ModeratorGoals() {
                 <p className="font-data text-xs text-off-white/40">
                   event: {eventName(g.event_id)}
                 </p>
+                <div className="mt-2">
+                  <StatusBadge active={g.is_active} />
+                </div>
                 <ProgressBar value={g.current_cents} max={g.target_cents} />
               </div>
               <div className="flex gap-2 ml-4">

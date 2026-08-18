@@ -3,6 +3,7 @@ import adminClient from '../../api/admin';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import StatusBadge from '../../components/StatusBadge';
 import { apiErrorMessage, type Event } from '../../types';
 
 interface EventForm {
@@ -80,9 +81,9 @@ export default function AdminEvents() {
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="font-data font-bold text-lg text-off-white">{s.name}</h2>
-                <p className="font-data text-xs text-off-white/55">
-                  {s.is_active ? 'active' : 'inactive'}
-                </p>
+                <div className="mt-2">
+                  <StatusBadge active={s.is_active} />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button

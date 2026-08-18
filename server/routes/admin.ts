@@ -202,8 +202,25 @@ router.put('/rewards/:id', async (req, res) => {
 });
 
 router.delete('/rewards/:id', async (req, res) => {
-  await prisma.reward.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
+  try {
+    const claims = await prisma.rewardClaim.count({ where: { reward_id: req.params.id } });
+    if (claims > 0) {
+      return res.status(409).json({
+        error: 'Cannot delete a reward with existing claims; deactivate it instead',
+      });
+    }
+    await prisma.reward.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === 'P2025') return res.status(404).json({ error: 'Reward not found' });
+    if (code === 'P2003') {
+      return res.status(409).json({
+        error: 'Cannot delete a reward with existing claims; deactivate it instead',
+      });
+    }
+    throw err;
+  }
 });
 
 // Simulate donation
