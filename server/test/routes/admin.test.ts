@@ -9,6 +9,7 @@ vi.mock('../../lib/prisma.js', () => ({
       findUnique: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
+      create: vi.fn(),
     },
     rewardClaim: {
       findUnique: vi.fn(),
@@ -72,7 +73,7 @@ describe('Admin donor management', () => {
     process.env.ADMIN_API_KEY = 'test-key';
   });
 
-  const auth = { 'x-admin-key': 'test-key' };
+  const auth = { Authorization: 'Bearer key_admin_test-key' };
 
   it('GET /donors lists donors', async () => {
     px.donor.findMany.mockResolvedValue([
@@ -86,6 +87,67 @@ describe('Admin donor management', () => {
     expect(res.body.donors).toHaveLength(1);
     expect(res.body.donors[0].email).toBe('a@b.com');
     expect(res.body.total).toBe(1);
+  });
+
+  it('POST /donors creates a donor without a prior donation', async () => {
+    px.donor.create.mockResolvedValue({
+      id: 'd2',
+      email: 'mod@b.com',
+      role: 'MODERATOR',
+    });
+
+    const res = await request(createApp())
+      .post('/api/admin/donors')
+      .send({ email: 'mod@b.com', role: 'MODERATOR' })
+      .set(auth);
+
+    expect(res.status).toBe(200);
+    expect(prisma.donor.create).toHaveBeenCalledWith({
+      data: { email: 'mod@b.com', role: 'MODERATOR' },
+    });
+    expect(res.body.email).toBe('mod@b.com');
+    expect(res.body.role).toBe('MODERATOR');
+  });
+
+  it('POST /donors defaults role to USER', async () => {
+    px.donor.create.mockResolvedValue({ id: 'd3', email: 'x@b.com', role: 'USER' });
+
+    const res = await request(createApp())
+      .post('/api/admin/donors')
+      .send({ email: 'x@b.com' })
+      .set(auth);
+
+    expect(res.status).toBe(200);
+    expect(prisma.donor.create).toHaveBeenCalledWith({
+      data: { email: 'x@b.com', role: 'USER' },
+    });
+  });
+
+  it('POST /donors rejects an invalid role', async () => {
+    const res = await request(createApp())
+      .post('/api/admin/donors')
+      .send({ email: 'x@b.com', role: 'SUPERUSER' })
+      .set(auth);
+
+    expect(res.status).toBe(400);
+    expect(px.donor.create).not.toHaveBeenCalled();
+  });
+
+  it('POST /donors requires an email', async () => {
+    const res = await request(createApp()).post('/api/admin/donors').send({}).set(auth);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /donors returns 409 on duplicate email', async () => {
+    px.donor.create.mockRejectedValue({ code: 'P2002' });
+
+    const res = await request(createApp())
+      .post('/api/admin/donors')
+      .send({ email: 'dup@b.com' })
+      .set(auth);
+
+    expect(res.status).toBe(409);
   });
 
   it('GET /donors/:id returns wallet', async () => {

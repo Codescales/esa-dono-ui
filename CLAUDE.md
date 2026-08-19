@@ -103,10 +103,13 @@ npm workspaces monorepo: `server/` (Express + Prisma + SQLite), `client/` (React
 - `server/services/spend.ts` — Reusable `tx`-aware spend helpers (`claimRewardTx`, `votePollTx`, `contributeGoalTx`) shared between HTTP routes and pledge fulfillment.
 - `server/services/pledge.ts` — Pledge lifecycle: `createPledge()` (validates items + optional comment ≤500 chars via `checkBlockedWords`, requires a valid active `event_id` and rejects items whose incentive belongs to a different event, persists `PendingPledge`), `resolvePledge()` (by token or email fallback), `fulfillPledge()` (executes items inside a donation transaction), `createCheckoutForPledge()` (creates a Stripe Checkout Session for deterministic linkage).
 - `server/services/email.ts` — Nodemailer magic link sender; called fire-and-forget from the webhook handler.
-- `server/middleware/adminAuth.ts` — Checks `X-Admin-Key` header against `ADMIN_API_KEY` env var.
-- `server/middleware/donorAuth.ts` — Resolves `?token=` query param to a `Donor` record; sets `req.donor`.
+- `server/middleware/adminAuth.ts` — Checks the `Authorization: Bearer key_admin_<key>` credential against `ADMIN_API_KEY` env var (ADR 0004).
+- `server/middleware/donorAuth.ts` — Resolves the donor magic token from the `dono_session` httpOnly cookie (browser) or `Authorization: Bearer <token>` (API) to a `Donor` record; sets `req.donor`. The legacy `?token=` query param was removed.
+- `server/lib/session.ts` — httpOnly `dono_session` cookie helpers (set/clear/read); the cookie value is the donor magic token, so revocation is unchanged.
+- `server/lib/authHeader.ts` — Parses `Authorization: Bearer` into a typed credential (`donor_` / `key_admin_` / `key_mod_` prefixes; bare = donor token).
+- `server/middleware/moderatorAuth.ts` — Grants moderator access via a `Bearer key_admin_`/`key_mod_` key match, or a donor (via `donorAuth`) whose effective `role` is `MODERATOR`/`ADMIN`.
 - `server/lib/roles.ts` — Role constants (`USER`/`MODERATOR`/`ADMIN`), `hasModeratorAccess()`/`hasAdminAccess()`, and `resolveEffectiveRole()` which re-checks the `ADMIN_EMAILS`/`MODERATOR_EMAILS` allowlists on every authenticated request (never downgrading below the donor's persisted `role`).
-- `server/middleware/moderatorAuth.ts` — Grants moderator access via an `X-Admin-Key`/`X-Moderator-Key` header match, or a donor (via `donorAuth`) whose effective `role` is `MODERATOR`/`ADMIN`.
+- `server/middleware/moderatorAuth.ts` — Grants moderator access via a `Bearer key_admin_`/`key_mod_` key match, or a donor (via `donorAuth`) whose effective `role` is `MODERATOR`/`ADMIN`.
 - `server/routes/moderator.ts` — Moderator CRUD for polls, rewards, goals, claims, events, and custom entry approval. Also exposes read access to **all donations** plus `PATCH /donations/:id` to toggle a `moderated` flag (`moderated_at`/`moderated_by`), so downstream tools (exports, leaderboards, future Discord role sync) can rely on which donations a human has reviewed. **Never selects/includes `donor.email`** in any handler — see the invariant comment at the top of the file and `test/routes/moderator-donor-email.test.ts`, which statically scans the whole file so a reintroduced leak fails CI regardless of which endpoint it's added to (this has regressed twice: fixed for claims/custom-entries, then again for donations, because the first fix wasn't swept file-wide and had no regression test). Only `server/routes/admin.ts` (gated by `X-Admin-Key`) may expose donor email.
 - `server/routes/events.ts` — `GET /api/events`, public list of active events (used by the `/donate` event picker). Event CRUD itself lives in `admin.ts`/`moderator.ts` (see Events below).
 
@@ -115,9 +118,9 @@ npm workspaces monorepo: `server/` (Express + Prisma + SQLite), `client/` (React
 Donors have a `role` field (`USER` | `MODERATOR` | `ADMIN`, `ADMIN` implies moderator access). Roles are **never** granted as a side effect of donating — that would let anyone "buy" access with a self-supplied, unverified checkout email. Instead:
 
 - Set `ADMIN_EMAILS`/`MODERATOR_EMAILS` env vars (comma-separated) to allowlist emails. `resolveEffectiveRole()` re-checks these allowlists on every authenticated request (in `donorAuth`), granting the role without ever persisting it as a result of a donation. Allowlist resolution is **gated on `Donor.email_verified`** — the email must have been verified via an OAuth login (Google/Discord) before it earns an allowlist role, so a self-supplied Stripe checkout email can never buy moderator/admin access. Donors not on an allowlist keep their persisted `role` (default `USER`), which an `ADMIN_API_KEY` holder can change explicitly via `PATCH /api/admin/donors/:id/role`.
-- `MODERATOR_API_KEY`/`ADMIN_API_KEY` also grant moderator access directly via `X-Moderator-Key`/`X-Admin-Key` headers — an operational fallback independent of the donor/role system, useful for bootstrapping or scripting.
-- Moderators/admins access their dashboard at `/moderate` via their magic link (Navbar shows a "Moderate" link when `hasModeratorAccess(donor.role)`), or by entering a moderator key directly in the `/moderate` login gate. They can CRUD polls/rewards/goals, view/fulfill claims, and approve custom poll entries. They cannot access `/api/admin/*` routes (require `X-Admin-Key`).
-- **SSO / verified identity**: `server/services/oauth.ts` + `server/routes/auth.ts` implement OAuth login for Google, Discord, and Twitch. `GET /api/auth/:provider` starts the flow (CSRF `state` in an HttpOnly cookie); the callback exchanges the code, upserts the donor by verified email (creating an empty donor on first sign-in), and redirects to `/wallet?token=…`. Google/Discord assert the email is verified (setting `Donor.email_verified = true`); Twitch has no verification flag, so its email stays unverified. A donor can also request a fresh magic link by email via `POST /api/auth/request-token` (rotates the token, uniform response to avoid enumeration).
+- `MODERATOR_API_KEY`/`ADMIN_API_KEY` also grant moderator access directly via `Authorization: Bearer key_mod_<key>`/`Bearer key_admin_<key>` — an operational fallback independent of the donor/role system, useful for bootstrapping or scripting.
+- Moderators/admins access their dashboard at `/moderate` via their magic link (Navbar shows a "Moderate" link when `hasModeratorAccess(donor.role)`), or by entering a moderator key directly in the `/moderate` login gate. They can CRUD polls/rewards/goals, view/fulfill claims, and approve custom poll entries. They cannot access `/api/admin/*` routes (require the admin key).
+- **SSO / verified identity**: `server/services/oauth.ts` + `server/routes/auth.ts` implement OAuth login for Google, Discord, and Twitch. `GET /api/auth/:provider` starts the flow (CSRF `state` in an HttpOnly cookie); the callback exchanges the code, upserts the donor by verified email (creating an empty donor on first sign-in), sets the `dono_session` httpOnly cookie, and redirects to `/wallet` (the token never appears in the URL). Google/Discord assert the email is verified (setting `Donor.email_verified = true`); Twitch has no verification flag, so its email stays unverified. A donor can also request a fresh magic link by email via `POST /api/auth/request-token` (rotates the token, uniform response to avoid enumeration).
 
 ### Webhook flow (`server/routes/webhook.ts`)
 
@@ -154,10 +157,10 @@ A `Event` model (`id`, `name`, `is_active`) lets one deployment run multiple con
 
 ### Client
 
-- `client/src/api/client.ts` — axios instance that auto-attaches `?token=` from `localStorage.donor_token` to every request.
-- `client/src/api/admin.ts` — separate axios instance that auto-attaches `X-Admin-Key` from `localStorage.admin_key`.
-- `client/src/api/moderator.ts` — axios instance that auto-attaches `?token=` from `localStorage.donor_token` for moderator routes.
-- `client/src/pages/MyWallet.tsx` — reads `?token=` from the URL on mount and persists it to localStorage.
+- `client/src/api/client.ts` — axios instance with `withCredentials: true`; donor auth rides the httpOnly `dono_session` cookie (no token attached in JS).
+- `client/src/api/admin.ts` — separate axios instance that auto-attaches `Authorization: Bearer key_admin_<key>` from `localStorage.admin_key`.
+- `client/src/api/moderator.ts` — axios instance (`withCredentials`) that sends the operational moderator key as `Authorization: Bearer key_mod_<key>` only when no donor session is active; otherwise relies on the session cookie.
+- `client/src/pages/MyWallet.tsx` — determines login via `GET /api/donor` (cookie); a pasted `?token=` is exchanged for the session cookie via `POST /api/auth/session` and stripped from the URL.
 - `client/src/pages/admin/AdminLayout.tsx` — renders a key-entry gate if `localStorage.admin_key` is absent; logout clears the key.
 
 ### Database
@@ -174,8 +177,8 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 | `STRIPE_SHIPPING_RATE_ID`                     | Stripe ShippingRate id charged on Checkout when a pledge contains a PHYSICAL reward; unset means an address is still collected but no shipping is charged. Must be added to `docker-compose.yml`'s `environment:` passthrough too, not just `.env` — compose does not forward arbitrary host env vars into the container. |
 | `STRIPE_SHIPPING_ALLOWED_COUNTRIES`           | Comma-separated country codes for shipping address collection, default `US`                                                                                                                                                                                                                                               |
 | `CAMPAIGN_GOAL_CENTS`                         | Campaign goal in integer cents for home-page totals                                                                                                                                                                                                                                                                       |
-| `ADMIN_API_KEY`                               | Sent as `X-Admin-Key` from admin UI; also a moderator-route fallback                                                                                                                                                                                                                                                      |
-| `MODERATOR_API_KEY`                           | Sent as `X-Moderator-Key`; operational fallback for moderator routes                                                                                                                                                                                                                                                      |
+| `ADMIN_API_KEY`                               | Sent as `Authorization: Bearer key_admin_<key>` from admin UI; also a moderator-route fallback                                                                                                                                                                                                                            |
+| `MODERATOR_API_KEY`                           | Sent as `Authorization: Bearer key_mod_<key>`; operational fallback for moderator routes                                                                                                                                                                                                                                  |
 | `ADMIN_EMAILS`                                | Comma-separated emails granted ADMIN role at request time (not on donation)                                                                                                                                                                                                                                               |
 | `MODERATOR_EMAILS`                            | Comma-separated emails granted MODERATOR role at request time (not on donation)                                                                                                                                                                                                                                           |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`   | Google OAuth sign-in credentials; unset to disable Google SSO                                                                                                                                                                                                                                                             |
@@ -208,13 +211,13 @@ curl -X POST http://localhost:3001/api/webhooks/stripe \
   -d '{"type":"checkout.session.completed","data":{"object":{"id":"cs_test_123","amount_total":1000,"customer_details":{"email":"test@example.com","name":"Test"}}}}'
 ```
 
-**Option C — Admin API:** `POST /api/admin/simulate-donation` with `X-Admin-Key` header:
+**Option C — Admin API:** `POST /api/admin/simulate-donation` with the admin Bearer key:
 
 ```bash
 curl -X POST http://localhost:3001/api/admin/simulate-donation \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Key: change-me" \
+  -H "Authorization: Bearer key_admin_change-me" \
   -d '{"email":"test@example.com","amount_cents":1000}'
 ```
 
-Returns `{ success: true, token, donor }`. Use the token to build a magic link: `http://localhost:5173/wallet?token=<token>`.
+Returns `{ success: true, token, donor }`. Use the token to build a magic link: `http://localhost:5173/api/auth/magic?token=<token>` (sets the session cookie and redirects to the wallet).

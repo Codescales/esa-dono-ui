@@ -7,18 +7,32 @@ info:
 
     ## Authentication
 
-    | Method | Mechanism | Used By |
+    Donor auth is held in an **httpOnly `dono_session` cookie** (ADR 0004) so the
+    credential is never readable by JS. The browser sends it automatically.
+    Non-browser/API clients may instead present the donor magic token as
+    `Authorization: Bearer <magic_token>`. Operational keys (admin/moderator) are
+    operator secrets carried as prefixed Bearer credentials. The legacy `?token=`
+    query param and `X-Admin-Key`/`X-Moderator-Key` headers have been removed.
+
+    | Method | Transport | Used By |
     |--------|-----------|---------|
-    | Donor token | `?token=<magic_token>` query param on every request | Donor wallet, spend endpoints, moderator |
-    | Admin key | `X-Admin-Key: <ADMIN_API_KEY>` header | Admin routes; also a fallback for moderator routes |
-    | Moderator key | `X-Moderator-Key: <MODERATOR_API_KEY>` header | Fallback access to moderator routes, independent of donor roles |
-    | Moderator/Admin role | Donor token + `role: MODERATOR` or `role: ADMIN` on donor record | Moderator routes (ADMIN implies MODERATOR access) |
+    | Donor session (browser) | `dono_session` httpOnly cookie (SameSite=Lax) | Donor wallet, spend endpoints, moderator |
+    | Donor token (API) | `Authorization: Bearer <magic_token>` (or `Bearer donor_<magic_token>`) | Scripts / non-browser donor auth |
+    | Admin key | `Authorization: Bearer key_admin_<ADMIN_API_KEY>` | Admin routes; also a fallback for moderator routes |
+    | Moderator key | `Authorization: Bearer key_mod_<MODERATOR_API_KEY>` | Fallback access to moderator routes, independent of donor roles |
+    | Moderator/Admin role | Donor session/token + `role: MODERATOR`/`ADMIN` on donor record | Moderator routes (ADMIN implies MODERATOR access) |
     | Stripe webhook | HMAC signature via `stripe-signature` header | Stripe webhook (skipped when `STRIPE_WEBHOOK_SECRET` unset) |
+
+    A donor logs in by opening a magic link (`GET /api/auth/magic?token=…`, which
+    sets the cookie and redirects) or via OAuth; the token never appears in the
+    SPA URL. `POST /api/auth/session` exchanges a pasted token for the cookie and
+    `POST /api/auth/session/logout` clears it.
 
     ## Rate Limiting
 
     Spend endpoints (`claim`, `vote`, `custom-entry`, `contribute`) are rate-limited:
-    20 requests per minute, keyed by `?token=` or IP. Configurable via `RATE_LIMIT_SPEND`.
+    20 requests per minute, keyed by the donor token (session cookie or
+    `Authorization: Bearer`) or IP. Configurable via `RATE_LIMIT_SPEND`.
 
     ## Events
 
@@ -164,6 +178,72 @@ paths:
           description: Invalid email address
         '429':
           description: Rate limit exceeded
+
+  /auth/session:
+    post:
+      tags: [Auth]
+      summary: Exchange a magic token for an httpOnly session cookie
+      description: |
+        Validates a donor magic token (from a pasted magic link) and sets the
+        `dono_session` httpOnly cookie, so the token never lives in JS-readable
+        storage. Used by the manual "paste your link" login path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Session cookie set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+                  email: { type: string, format: email }
+        '400':
+          description: Missing token
+        '401':
+          description: Invalid, expired, or frozen
+
+  /auth/session/logout:
+    post:
+      tags: [Auth]
+      summary: Clear the session cookie (logout)
+      description: |
+        Clears the `dono_session` cookie. The magic token itself is not rotated
+        (the same link can sign back in); use request-token to rotate it.
+      responses:
+        '200':
+          description: Session cookie cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { const: true }
+
+  /auth/magic:
+    get:
+      tags: [Auth]
+      summary: Magic-link landing (sets session cookie, redirects to wallet)
+      description: |
+        Magic-link target. Validates the token server-side, sets the
+        `dono_session` httpOnly cookie, and 302s to the wallet — so the token
+        never reaches the SPA or the browser URL/history.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect to the wallet (with error query param on failure)
 
   /auth/providers:
     get:
@@ -824,6 +904,33 @@ paths:
       responses:
         '200':
           description: Paginated donor list (capped at 50)
+
+    post:
+      tags: [Admin]
+      summary: Create a donor account without a prior donation
+      description: >-
+        Lets an admin provision a donor record ahead of time (e.g. to grant
+        MODERATOR/ADMIN role before the person has donated). The donor can
+        later log in via a regenerated magic-link token or via SSO with a
+        matching email.
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string }
+                role: { type: string, enum: [USER, MODERATOR, ADMIN] }
+      responses:
+        '200':
+          description: Donor created
+        '400':
+          description: Missing email or invalid role
+        '409':
+          description: Donor with this email already exists
 
   /admin/donors/{id}:
     get:

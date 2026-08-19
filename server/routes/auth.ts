@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import { authLimit } from '../middleware/rateLimit.js';
 import prisma from '../lib/prisma.js';
 import { requestTokenByEmail, generateToken, tokenExpiryDate } from '../services/auth.js';
+import { setSessionCookie, clearSessionCookie } from '../lib/session.js';
 import {
   isOAuthProvider,
   enabledProviders,
@@ -35,6 +36,22 @@ function redirectToWallet(res: Response, error?: string): void {
 }
 
 /**
+ * Validate a donor magic token for login. Returns the donor when the token is
+ * valid, unexpired, and the account is not frozen; otherwise a reason string.
+ */
+async function resolveLoginToken(
+  token: string,
+): Promise<{ ok: true; email: string } | { ok: false; reason: string }> {
+  const donor = await prisma.donor.findUnique({ where: { magic_token: token } });
+  if (!donor) return { ok: false, reason: 'Invalid or expired link.' };
+  if (donor.token_expires_at && new Date() > donor.token_expires_at) {
+    return { ok: false, reason: 'This link has expired. Request a fresh one.' };
+  }
+  if (donor.is_frozen) return { ok: false, reason: 'This account is frozen.' };
+  return { ok: true, email: donor.email };
+}
+
+/**
  * POST /api/auth/request-token
  * Body: { email }
  *
@@ -56,6 +73,52 @@ router.post('/request-token', authLimit, async (req: Request, res: Response) => 
   }
 
   res.json({ success: true });
+});
+
+/**
+ * POST /api/auth/session
+ * Body: { token }
+ *
+ * Exchanges a donor magic token (from a pasted magic link) for an httpOnly
+ * session cookie, so the token never lives in JS-readable storage. Used by the
+ * manual "paste your link" login path.
+ */
+router.post('/session', async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+  if (!token) return res.status(400).json({ error: 'A token is required' });
+
+  const result = await resolveLoginToken(token);
+  if (!result.ok) return res.status(401).json({ error: result.reason });
+
+  setSessionCookie(res, token);
+  res.json({ success: true, email: result.email });
+});
+
+/**
+ * POST /api/auth/session/logout
+ * Clears the session cookie. The magic token itself is not rotated (the same
+ * link can be used to sign back in); use request-token to rotate it.
+ */
+router.post('/session/logout', (_req: Request, res: Response) => {
+  clearSessionCookie(res);
+  res.json({ success: true });
+});
+
+/**
+ * GET /api/auth/magic?token=...
+ * Magic-link landing target. Validates the token server-side, sets the session
+ * cookie, and 302s to the wallet — so the token never reaches the SPA or the
+ * browser URL/history.
+ */
+router.get('/magic', async (req: Request, res: Response) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) return redirectToWallet(res, 'Missing sign-in link.');
+
+  const result = await resolveLoginToken(token);
+  if (!result.ok) return redirectToWallet(res, result.reason);
+
+  setSessionCookie(res, token);
+  redirectToWallet(res);
 });
 
 /**
@@ -156,7 +219,10 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
       return redirectToWallet(res, 'This account is frozen.');
     }
 
-    res.redirect(`${appBaseUrl()}/wallet?token=${token}`);
+    // Set the session cookie server-side and redirect without the token in the
+    // URL — it never reaches the SPA or browser history (ADR 0004).
+    setSessionCookie(res, token);
+    redirectToWallet(res);
   } catch (err) {
     console.error('OAuth callback error:', err);
     redirectToWallet(res, 'Sign-in failed. Please try again.');

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCart, type CartIssue } from '../context/CartContext';
 import { getDonor } from '../api/donor';
+import { isSessionActive } from '../utils/authToken';
 import { sanitizeMoneyInput } from '../utils/money';
 import InfoTip from './InfoTip';
 import type { DonorWallet } from '../types';
@@ -75,8 +76,7 @@ export default function CartDrawer() {
 
   useEffect(() => {
     const refresh = () => {
-      const token = localStorage.getItem('donor_token');
-      if (!token) {
+      if (!isSessionActive()) {
         setDonor(null);
         return;
       }

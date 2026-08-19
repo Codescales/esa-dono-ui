@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getDonor, requestToken } from '../api/donor';
 import { getOAuthProviders } from '../api/auth';
-import { extractToken, setDonorToken, clearDonorToken } from '../utils/authToken';
+import {
+  extractToken,
+  startSession,
+  endSession,
+  noteSessionEstablished,
+  clearSessionMarker,
+} from '../utils/authToken';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
 import type { DonorWallet } from '../types';
@@ -172,24 +178,18 @@ export default function MyWallet() {
   const [loading, setLoading] = useState(true);
 
   const loadDonor = async () => {
-    const stored = localStorage.getItem('donor_token');
-    if (!stored) {
-      setDonor(null);
-      setError('No wallet token found. Check your donation email for your magic link.');
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
     try {
       const data = await getDonor();
       setDonor(data);
       setError(null);
+      noteSessionEstablished();
     } catch {
       setDonor(null);
+      clearSessionMarker();
       setError(
-        'Invalid or expired wallet token. Paste the newest magic link from your donation email.',
+        'No active wallet session. Open the newest magic link from your donation email, or sign in below.',
       );
     } finally {
       setLoading(false);
@@ -198,24 +198,46 @@ export default function MyWallet() {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) setDonorToken(token);
     const urlError = searchParams.get('error');
-    if (urlError && !token) {
+
+    if (token) {
+      // Fallback path (e.g. a pasted ?token= link): exchange it for the
+      // httpOnly session cookie, then strip it from the URL.
+      startSession(token)
+        .catch(() => undefined)
+        .finally(() => {
+          window.history.replaceState(null, '', window.location.pathname);
+          loadDonor();
+        });
+      return;
+    }
+
+    if (urlError) {
       setDonor(null);
       setError(urlError);
+      setLoading(false);
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
+    loadDonor();
+  }, []);
+
+  const handleLogin = async (token: string) => {
+    setLoading(true);
+    try {
+      await startSession(token);
+    } catch {
+      setDonor(null);
+      setError('Invalid or expired link. Paste the newest magic link from your donation email.');
       setLoading(false);
       return;
     }
     loadDonor();
-  }, []);
-
-  const handleLogin = (token: string) => {
-    setDonorToken(token);
-    loadDonor();
   };
 
-  const handleLogout = () => {
-    clearDonorToken();
+  const handleLogout = async () => {
+    await endSession();
     setDonor(null);
     navigate('/');
   };

@@ -14,8 +14,8 @@ describe('adminAuth middleware', () => {
     process.env.ADMIN_API_KEY = 'test-admin-key';
   });
 
-  it('calls next() when key matches', () => {
-    const req = { headers: { 'x-admin-key': 'test-admin-key' } };
+  it('calls next() when a matching Bearer key_admin_ credential is provided', () => {
+    const req = { headers: { authorization: 'Bearer key_admin_test-admin-key' } };
     const res = createRes();
     const next = vi.fn();
 
@@ -23,6 +23,28 @@ describe('adminAuth middleware', () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('calls next() for a matching Authorization Bearer key_admin_ credential', () => {
+    const req = { headers: { authorization: 'Bearer key_admin_test-admin-key' } };
+    const res = createRes();
+    const next = vi.fn();
+
+    adminAuth(req as any, res as any, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for a Bearer key_admin_ credential that does not match', () => {
+    const req = { headers: { authorization: 'Bearer key_admin_wrong' } };
+    const res = createRes();
+    const next = vi.fn();
+
+    adminAuth(req as any, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it('returns 401 when header is missing', () => {

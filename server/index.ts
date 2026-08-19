@@ -19,6 +19,10 @@ import prisma from './lib/prisma.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind the nginx frontend proxy in production: trust the first hop so
+// req.ip (rate limiting) and secure-cookie detection reflect the real client.
+app.set('trust proxy', 1);
+
 app.use(cors());
 
 // MUST mount webhook BEFORE express.json()

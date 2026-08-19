@@ -60,7 +60,7 @@ describe('Navbar', () => {
   });
 
   it('combines wallet/logout into a user dropdown for a plain USER donor, hiding moderate/admin', async () => {
-    localStorage.setItem('donor_token', 'test-token');
+    localStorage.setItem('donor_session_active', '1');
     vi.mocked(getDonor).mockResolvedValue(donor({ role: 'USER' }));
 
     renderNavbar();
@@ -78,7 +78,7 @@ describe('Navbar', () => {
   });
 
   it('shows moderate but not admin for a MODERATOR donor', async () => {
-    localStorage.setItem('donor_token', 'test-token');
+    localStorage.setItem('donor_session_active', '1');
     vi.mocked(getDonor).mockResolvedValue(donor({ role: 'MODERATOR' }));
 
     renderNavbar();
@@ -91,7 +91,7 @@ describe('Navbar', () => {
   });
 
   it('shows both moderate and admin for an ADMIN donor', async () => {
-    localStorage.setItem('donor_token', 'test-token');
+    localStorage.setItem('donor_session_active', '1');
     vi.mocked(getDonor).mockResolvedValue(donor({ role: 'ADMIN' }));
 
     renderNavbar();

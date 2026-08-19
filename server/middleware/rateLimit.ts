@@ -1,9 +1,9 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import type { Request } from 'express';
+import { resolveDonorToken } from './donorAuth.js';
 
 const keyGenerator = (req: Request): string =>
-  (typeof req.query.token === 'string' ? req.query.token : undefined) ??
-  ipKeyGenerator(req.ip ?? '');
+  resolveDonorToken(req) ?? ipKeyGenerator(req.ip ?? '');
 
 const spendLimit = rateLimit({
   windowMs: 60_000,

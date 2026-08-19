@@ -66,7 +66,7 @@ describe('Events', () => {
   });
 
   describe('Admin events CRUD', () => {
-    const auth = { 'x-admin-key': 'test-admin-key' };
+    const auth = { Authorization: 'Bearer key_admin_test-admin-key' };
 
     it('rejects non-admin requests', async () => {
       const res = await request(createApp()).get('/api/admin/events');
@@ -153,14 +153,14 @@ describe('Events', () => {
 
       const createRes = await request(createApp())
         .post('/api/moderator/events')
-        .query({ token })
+        .set('Authorization', `Bearer ${token}`)
         .send({ name: `Moderator Event ${crypto.randomUUID()}` });
       expect(createRes.status).toBe(200);
       createdEventIds.push(createRes.body.id);
 
       const updateRes = await request(createApp())
         .put(`/api/moderator/events/${createRes.body.id}`)
-        .query({ token })
+        .set('Authorization', `Bearer ${token}`)
         .send({ is_active: false });
       expect(updateRes.status).toBe(200);
       expect(updateRes.body.is_active).toBe(false);

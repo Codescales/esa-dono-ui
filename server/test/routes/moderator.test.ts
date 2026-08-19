@@ -66,7 +66,7 @@ describe('Moderator custom-entry approve/reject money movement', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/polls/custom-entries/${entry.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ status: 'APPROVED' });
 
     expect(res.status).toBe(200);
@@ -112,7 +112,7 @@ describe('Moderator custom-entry approve/reject money movement', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/polls/custom-entries/${entry.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ status: 'REJECTED' });
 
     expect(res.status).toBe(200);
@@ -161,7 +161,7 @@ describe('Moderator custom-entry approve/reject money movement', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/polls/custom-entries/${entry.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ status: 'REJECTED' });
 
     expect(res.status).toBe(400);
@@ -189,7 +189,9 @@ describe('Moderator access control', () => {
       },
     });
 
-    const res = await request(createApp()).get('/api/moderator/stats').query({ token });
+    const res = await request(createApp())
+      .get('/api/moderator/stats')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(403);
 
     await prisma.donor.delete({ where: { id: donor.id } });
@@ -206,7 +208,9 @@ describe('Moderator access control', () => {
       },
     });
 
-    const res = await request(createApp()).get('/api/moderator/stats').query({ token });
+    const res = await request(createApp())
+      .get('/api/moderator/stats')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
 
     await prisma.donor.delete({ where: { id: donor.id } });
@@ -216,7 +220,7 @@ describe('Moderator access control', () => {
     process.env.MODERATOR_API_KEY = 'test-moderator-key';
     const res = await request(createApp())
       .get('/api/moderator/stats')
-      .set('X-Moderator-Key', 'test-moderator-key');
+      .set('Authorization', 'Bearer key_mod_test-moderator-key');
     expect(res.status).toBe(200);
     delete process.env.MODERATOR_API_KEY;
   });
@@ -226,7 +230,7 @@ describe('Moderator access control', () => {
     process.env.ADMIN_API_KEY = 'test-admin-key-2';
     const res = await request(createApp())
       .get('/api/moderator/stats')
-      .set('X-Admin-Key', 'test-admin-key-2');
+      .set('Authorization', 'Bearer key_admin_test-admin-key-2');
     expect(res.status).toBe(200);
     process.env.ADMIN_API_KEY = original;
   });
@@ -235,7 +239,7 @@ describe('Moderator access control', () => {
     process.env.MODERATOR_API_KEY = 'test-moderator-key';
     const res = await request(createApp())
       .get('/api/moderator/stats')
-      .set('X-Moderator-Key', 'wrong-key');
+      .set('Authorization', 'Bearer key_mod_wrong-key');
     expect(res.status).toBe(401);
     delete process.env.MODERATOR_API_KEY;
   });
@@ -264,7 +268,7 @@ describe('Moderator donations', () => {
 
     const res = await request(createApp())
       .get('/api/moderator/donations')
-      .query({ token: modToken });
+      .set('Authorization', `Bearer ${modToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.some((d: { id: string }) => d.id === donation.id)).toBe(true);
@@ -283,7 +287,7 @@ describe('Moderator donations', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/donations/${donation.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ moderated: true });
 
     expect(res.status).toBe(200);
@@ -303,12 +307,12 @@ describe('Moderator donations', () => {
 
     await request(createApp())
       .patch(`/api/moderator/donations/${donation.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ moderated: true });
 
     const res = await request(createApp())
       .patch(`/api/moderator/donations/${donation.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ moderated: false });
 
     expect(res.status).toBe(200);
@@ -327,7 +331,7 @@ describe('Moderator donations', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/donations/${donation.id}`)
-      .query({ token: modToken })
+      .set('Authorization', `Bearer ${modToken}`)
       .send({ moderated: 'yes' });
 
     expect(res.status).toBe(400);
@@ -343,7 +347,7 @@ describe('Moderator donations', () => {
 
     const res = await request(createApp())
       .patch(`/api/moderator/donations/${donation.id}`)
-      .set('X-Moderator-Key', 'test-moderator-key-donations')
+      .set('Authorization', 'Bearer key_mod_test-moderator-key-donations')
       .send({ moderated: true });
 
     expect(res.status).toBe(200);
@@ -380,7 +384,7 @@ describe('Moderator reward deletion', () => {
 
     const res = await request(createApp())
       .delete(`/api/moderator/rewards/${reward.id}`)
-      .query({ token: modToken });
+      .set('Authorization', `Bearer ${modToken}`);
 
     expect(res.status).toBe(409);
     expect(await prisma.reward.findUnique({ where: { id: reward.id } })).toBeTruthy();
@@ -396,7 +400,7 @@ describe('Moderator reward deletion', () => {
 
     const res = await request(createApp())
       .delete(`/api/moderator/rewards/${reward.id}`)
-      .query({ token: modToken });
+      .set('Authorization', `Bearer ${modToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true });

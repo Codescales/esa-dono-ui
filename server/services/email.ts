@@ -16,7 +16,9 @@ const transporter = process.env.SMTP_HOST
 
 export async function sendMagicLink(email: string, token: string): Promise<void> {
   const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
-  const url = `${baseUrl}/wallet?token=${token}`;
+  // Magic links land on the server, which sets an httpOnly session cookie and
+  // redirects to the wallet — the token never reaches the SPA URL (ADR 0004).
+  const url = `${baseUrl}/api/auth/magic?token=${token}`;
 
   if (!transporter) {
     console.log(`Magic link for ${email}: ${url}`);

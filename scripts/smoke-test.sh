@@ -69,12 +69,12 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/admin/stats")"
 [ "$code" = "401" ] || fail "expected 401 without admin key, got $code"
 
 echo "==> 5. Admin auth succeeds with key (200)"
-code="$(curl -s -o /dev/null -w '%{http_code}' -H "X-Admin-Key: ${ADMIN_API_KEY}" "${BASE}/api/admin/stats")"
+code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer key_admin_${ADMIN_API_KEY}" "${BASE}/api/admin/stats")"
 [ "$code" = "200" ] || fail "expected 200 with admin key, got $code"
 
 echo "==> 6. End-to-end write path: simulate a donation (proves migrations + DB writes)"
 resp="$(curl -s -X POST "${BASE}/api/admin/simulate-donation" \
-  -H "X-Admin-Key: ${ADMIN_API_KEY}" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer key_admin_${ADMIN_API_KEY}" -H 'Content-Type: application/json' \
   -d '{"email":"smoke@test.com","amount_cents":2500}')"
 echo "    $resp"
 echo "$resp" | grep -q '"success":true' || fail "simulate-donation did not succeed: $resp"
@@ -82,7 +82,7 @@ echo "$resp" | grep -q '"success":true' || fail "simulate-donation did not succe
 echo "==> 7. Volume persistence across backend restart"
 $COMPOSE restart dono-backend >/dev/null 2>&1
 wait_for "${BASE}/api/health" 200 30 || fail "backend did not recover after restart"
-stats="$(curl -s -H "X-Admin-Key: ${ADMIN_API_KEY}" "${BASE}/api/admin/stats")"
+stats="$(curl -s -H "Authorization: Bearer key_admin_${ADMIN_API_KEY}" "${BASE}/api/admin/stats")"
 echo "    $stats"
 echo "$stats" | grep -q '"donors":1' || fail "donor did not persist across restart: $stats"
 

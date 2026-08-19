@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getDonor } from '../api/donor';
-import { clearDonorToken } from '../utils/authToken';
+import { isSessionActive, endSession } from '../utils/authToken';
 import { useCart } from '../context/CartContext';
 import UserMenu from './UserMenu';
 import type { DonorWallet } from '../types';
@@ -37,8 +37,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const refresh = () => {
-      const token = localStorage.getItem('donor_token');
-      if (!token) {
+      if (!isSessionActive()) {
         setDonor(null);
         return;
       }
@@ -51,8 +50,8 @@ export default function Navbar() {
     return () => window.removeEventListener('donor-token-changed', refresh);
   }, [location.pathname, location.search]);
 
-  const logout = () => {
-    clearDonorToken();
+  const logout = async () => {
+    await endSession();
     setDonor(null);
     navigate('/');
   };

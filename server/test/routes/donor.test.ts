@@ -41,7 +41,9 @@ describe('GET /api/donor', () => {
     const email = `user-${Date.now()}-${Math.random()}@example.com`;
     const { token, donor } = await makeDonor(email);
 
-    const res = await request(createApp()).get('/api/donor').query({ token });
+    const res = await request(createApp())
+      .get('/api/donor')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.role).toBe('USER');
 
@@ -53,7 +55,9 @@ describe('GET /api/donor', () => {
     const { token, donor } = await makeDonor(email, true);
     process.env.ADMIN_EMAILS = email;
 
-    const res = await request(createApp()).get('/api/donor').query({ token });
+    const res = await request(createApp())
+      .get('/api/donor')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     // Persisted role in the DB is still USER — this is the regression this
     // guards: the route must not silently overwrite req.donor's resolved
@@ -70,7 +74,9 @@ describe('GET /api/donor', () => {
     const { token, donor } = await makeDonor(email, true);
     process.env.MODERATOR_EMAILS = email;
 
-    const res = await request(createApp()).get('/api/donor').query({ token });
+    const res = await request(createApp())
+      .get('/api/donor')
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.role).toBe('MODERATOR');
 

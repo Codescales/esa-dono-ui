@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getPledge } from '../api/pledge';
-import { setDonorToken } from '../utils/authToken';
+import { startSession } from '../utils/authToken';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Card from '../components/Card';
 import type { Pledge } from '../types';
@@ -40,7 +40,9 @@ export default function PledgeReturn() {
 
         if (data.status === 'FULFILLED') {
           if (data.magic_token) {
-            setDonorToken(data.magic_token);
+            // Exchange the returned magic token for an httpOnly session cookie,
+            // then land on the wallet (token never persists in JS).
+            await startSession(data.magic_token).catch(() => undefined);
             navigate('/wallet');
           }
           return;

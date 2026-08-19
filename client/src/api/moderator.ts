@@ -1,17 +1,19 @@
 import axios, { type AxiosInstance } from 'axios';
 
-const moderatorClient: AxiosInstance = axios.create({ baseURL: '/api/moderator' });
+// withCredentials sends the httpOnly donor session cookie (a MODERATOR/ADMIN
+// donor authenticates that way). The operational moderator key is a separate
+// operator secret sent as an Authorization Bearer credential (ADR 0004).
+const moderatorClient: AxiosInstance = axios.create({
+  baseURL: '/api/moderator',
+  withCredentials: true,
+});
 
 moderatorClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('donor_token');
-  if (token) {
-    config.params = { ...config.params, token };
-  }
-  // Operational fallback: grants moderator access independent of the
-  // donor magic-link/role system (see server/middleware/moderatorAuth.ts).
   const moderatorKey = localStorage.getItem('moderator_key');
-  if (moderatorKey) {
-    config.headers['X-Moderator-Key'] = moderatorKey;
+  // Only send the operational key when there's no active donor session; the
+  // donor session (httpOnly cookie) is the primary path.
+  if (moderatorKey && !localStorage.getItem('donor_session_active')) {
+    config.headers.Authorization = `Bearer key_mod_${moderatorKey}`;
   }
   return config;
 });

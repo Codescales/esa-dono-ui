@@ -58,7 +58,7 @@ describe('DonateFlow (tabbed browse page)', () => {
   });
 
   it('renders the rewards tab when visiting /rewards', async () => {
-    localStorage.setItem('donor_token', 'test-token');
+    localStorage.setItem('donor_session_active', '1');
     vi.mocked(getRewards).mockResolvedValue([
       {
         id: '1',

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDonor } from '../../api/donor';
+import { isSessionActive } from '../../utils/authToken';
 import { hasModeratorAccess } from '../../types';
 import SidebarLayout, { type SidebarNavItem } from '../../components/SidebarLayout';
 import {
@@ -40,8 +41,8 @@ export default function ModeratorLayout() {
       setAccess('granted');
       return;
     }
-    const donorToken = localStorage.getItem('donor_token');
-    if (!donorToken) {
+    const donorSession = isSessionActive();
+    if (!donorSession) {
       setAccess('denied');
       return;
     }

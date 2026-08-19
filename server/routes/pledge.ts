@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { createPledge, createCheckoutForPledge, type WalletDonor } from '../services/pledge.js';
+import { resolveDonorToken } from '../middleware/donorAuth.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Must be a valid, non-expired, non-frozen token. Wallet discount is only
     // applied for authenticated donors, never by email alone.
     let walletDonor: WalletDonor | null = null;
-    const token = req.query.token;
+    const token = resolveDonorToken(req);
     if (token && typeof token === 'string') {
       const { default: prisma } = await import('../lib/prisma.js');
       const donor = await prisma.donor.findUnique({

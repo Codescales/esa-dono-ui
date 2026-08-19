@@ -88,7 +88,7 @@ describe('OAuth auth routes', () => {
   });
 
   describe('GET /api/auth/:provider/callback', () => {
-    it('upserts a verified donor and redirects to the wallet with a token', async () => {
+    it('upserts a verified donor and sets a session cookie, redirecting to the wallet', async () => {
       setGoogleEnv();
       const email = `sso-${Date.now()}-${Math.random()}@example.com`;
       vi.mocked(exchangeCodeForUser).mockResolvedValue({ email, emailVerified: true });
@@ -99,13 +99,18 @@ describe('OAuth auth routes', () => {
         .set('Cookie', 'oauth_state=st-1');
 
       expect(res.status).toBe(302);
-      const token = new URL(res.headers.location!).searchParams.get('token');
-      expect(token).toBeTruthy();
+      // Token is set as an httpOnly session cookie, not exposed in the URL.
+      expect(new URL(res.headers.location!, 'http://x').searchParams.get('token')).toBeNull();
+      const setCookie = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+      const sessionCookie = setCookie.find((c) => c.startsWith('dono_session='));
+      expect(sessionCookie).toBeTruthy();
+      expect(sessionCookie).toContain('HttpOnly');
+      const token = /dono_session=([^;]+)/.exec(sessionCookie!)?.[1] ?? '';
 
       const donor = await prisma.donor.findUnique({ where: { email } });
       expect(donor).toBeTruthy();
       expect(donor!.email_verified).toBe(true);
-      expect(donor!.magic_token).toBe(token);
+      expect(donor!.magic_token).toBe(decodeURIComponent(token));
 
       await prisma.donor.delete({ where: { id: donor!.id } });
     });

@@ -1,10 +1,21 @@
 import type { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma.js';
 import { resolveEffectiveRole } from '../lib/roles.js';
+import { bearerDonorToken } from '../lib/authHeader.js';
+import { readSessionCookie } from '../lib/session.js';
+
+/**
+ * Resolve the donor magic token from the browser session cookie (primary) or,
+ * for non-browser/API clients, an `Authorization: Bearer <token>` header.
+ * The legacy `?token=` query param is no longer accepted (ADR 0004).
+ */
+export function resolveDonorToken(req: Request): string | undefined {
+  return readSessionCookie(req) ?? bearerDonorToken(req);
+}
 
 export async function donorAuth(req: Request, res: Response, next: NextFunction) {
-  const token = req.query.token;
-  if (!token || typeof token !== 'string') return res.status(401).json({ error: 'Token required' });
+  const token = resolveDonorToken(req);
+  if (!token) return res.status(401).json({ error: 'Token required' });
   const donor = await prisma.donor.findUnique({
     where: { magic_token: token },
   });
