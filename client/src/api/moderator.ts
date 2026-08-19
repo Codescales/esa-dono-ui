@@ -10,9 +10,10 @@ const moderatorClient: AxiosInstance = axios.create({
 
 moderatorClient.interceptors.request.use((config) => {
   const moderatorKey = localStorage.getItem('moderator_key');
-  // Only send the operational key when there's no active donor session; the
-  // donor session (httpOnly cookie) is the primary path.
-  if (moderatorKey && !localStorage.getItem('donor_session_active')) {
+  // When an operational moderator key is stored it is always sent as a Bearer
+  // credential — the server checks the key before the donor path, so this never
+  // conflicts with a donor session cookie (which rides along via withCredentials).
+  if (moderatorKey) {
     config.headers.Authorization = `Bearer key_mod_${moderatorKey}`;
   }
   return config;

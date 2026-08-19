@@ -38,7 +38,7 @@ describe('Moderator API client', () => {
     });
   });
 
-  it('attaches the moderator key as a prefixed Bearer header when no donor session is active', async () => {
+  it('attaches the moderator key as a prefixed Bearer header when set', async () => {
     localStorage.setItem('moderator_key', 'mod-key-abc');
     await import('../../src/api/moderator');
     const axios = (await import('axios')).default;
@@ -48,7 +48,7 @@ describe('Moderator API client', () => {
     expect(config.headers.Authorization).toBe('Bearer key_mod_mod-key-abc');
   });
 
-  it('omits the moderator key when a donor session is active (cookie takes precedence)', async () => {
+  it('still sends the moderator key even when a donor session is active (server checks the key first)', async () => {
     localStorage.setItem('moderator_key', 'mod-key-abc');
     localStorage.setItem('donor_session_active', '1');
     await import('../../src/api/moderator');
@@ -56,7 +56,7 @@ describe('Moderator API client', () => {
     const instance = axios.create();
     const interceptor = getInterceptor(instance);
     const config = interceptor({ params: {}, headers: {} });
-    expect(config.headers.Authorization).toBeUndefined();
+    expect(config.headers.Authorization).toBe('Bearer key_mod_mod-key-abc');
   });
 
   it('omits the Authorization header when nothing is set', async () => {
