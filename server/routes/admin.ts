@@ -280,6 +280,27 @@ router.get('/donors', async (req, res) => {
   res.json({ donors, total });
 });
 
+router.post('/donors', async (req, res) => {
+  const { email, role } = req.body;
+  if (!email || !String(email).trim()) {
+    return res.status(400).json({ error: 'email is required' });
+  }
+  if (role && !['USER', 'MODERATOR', 'ADMIN'].includes(role)) {
+    return res.status(400).json({ error: 'role must be USER, MODERATOR, or ADMIN' });
+  }
+  try {
+    const donor = await prisma.donor.create({
+      data: { email: String(email).trim().toLowerCase(), role: role || 'USER' },
+    });
+    res.json(donor);
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') {
+      return res.status(409).json({ error: 'Donor with this email already exists' });
+    }
+    throw e;
+  }
+});
+
 router.get('/donors/:id', async (req, res) => {
   const donor = await prisma.donor.findUnique({
     where: { id: req.params.id },

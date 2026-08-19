@@ -13,6 +13,11 @@ export async function getDonors(q = '', offset = 0) {
   return data;
 }
 
+export async function createDonor(email: string, role?: 'USER' | 'MODERATOR' | 'ADMIN') {
+  const { data } = await adminClient.post('/donors', { email, role });
+  return data;
+}
+
 export async function getDonorWallet(id: string) {
   const { data } = await adminClient.get(`/donors/${id}`);
   return data;

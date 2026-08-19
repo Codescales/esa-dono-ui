@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   getDonors,
   getDonorWallet,
+  createDonor,
   revokeDonorToken,
   regenerateDonorToken,
   toggleDonorFreeze,
@@ -27,7 +28,7 @@ export default function AdminDonors() {
   const [selected, setSelected] = useState<{ id: string } | null>(null);
   const [wallet, setWallet] = useState<AdminDonorWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
-  const [modal, setModal] = useState<{ type: string } | null>(null);
+  const [modal, setModal] = useState<{ type: string; token?: string; email?: string } | null>(null);
   const [error, setError] = useState('');
 
   const loadDonors = async (q = '') => {
@@ -83,8 +84,16 @@ export default function AdminDonors() {
   };
 
   const handleRegen = async () => {
-    await regenerateDonorToken(selected!.id);
+    const result = await regenerateDonorToken(selected!.id);
+    setModal({ type: 'token', token: result.magic_token, email: result.email });
     openWallet({ id: selected!.id });
+  };
+
+  const handleCreateDonor = async (email: string, role: 'USER' | 'MODERATOR' | 'ADMIN') => {
+    const donor = await createDonor(email, role);
+    setModal(null);
+    await loadDonors(search);
+    openWallet({ id: donor.id });
   };
 
   const handleAdjust = async (amount_cents: number, reason: string | null, type: string) => {
@@ -136,6 +145,9 @@ export default function AdminDonors() {
         <span className="font-data text-sm text-off-white/55 self-center">
           {total} donor{total !== 1 ? 's' : ''}
         </span>
+        <button onClick={() => setModal({ type: 'create' })} className="btrl-button">
+          add donor
+        </button>
       </div>
 
       {loading ? (
@@ -424,6 +436,109 @@ export default function AdminDonors() {
           <AdjustBalanceForm onSubmit={handleAdjust} onCancel={() => setModal(null)} />
         </Modal>
       )}
+
+      {modal?.type === 'create' && (
+        <Modal title="add donor" onClose={() => setModal(null)}>
+          <CreateDonorForm onSubmit={handleCreateDonor} onCancel={() => setModal(null)} />
+        </Modal>
+      )}
+
+      {modal?.type === 'token' && (
+        <Modal title="new token generated" onClose={() => setModal(null)}>
+          <div className="space-y-3 text-sm">
+            <p className="font-body text-off-white/70">
+              New magic token for <span className="text-off-white font-bold">{modal.email}</span>.
+              This is shown only once — copy it now.
+            </p>
+            <input
+              readOnly
+              className="px-3 py-2 w-full font-mono text-xs"
+              value={modal.token}
+              onFocus={(e) => e.target.select()}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => navigator.clipboard?.writeText(modal.token || '')}
+                className="btrl-button btrl-button-outline"
+              >
+                copy
+              </button>
+              <button onClick={() => setModal(null)} className="btrl-button">
+                done
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function CreateDonorForm({
+  onSubmit,
+  onCancel,
+}: {
+  onSubmit: (email: string, role: 'USER' | 'MODERATOR' | 'ADMIN') => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'USER' | 'MODERATOR' | 'ADMIN'>('USER');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async () => {
+    if (!email.trim()) {
+      setErr('Enter an email');
+      return;
+    }
+    setSubmitting(true);
+    setErr('');
+    try {
+      await onSubmit(email.trim(), role);
+    } catch (e) {
+      setErr(apiErrorMessage(e, 'Failed to create donor'));
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 text-sm">
+      <p className="font-body text-off-white/70">
+        Creates a donor account without requiring a prior donation — useful for setting up
+        moderators or admins ahead of time. They can log in via a magic link (regenerate a token
+        below) or via SSO with a matching allowlisted email.
+      </p>
+      <div>
+        <label className="block font-data font-bold mb-1 text-off-white">email</label>
+        <input
+          className="px-3 py-2 w-full"
+          type="email"
+          placeholder="name@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block font-data font-bold mb-1 text-off-white">role</label>
+        <select
+          className="px-3 py-2 w-full"
+          value={role}
+          onChange={(e) => setRole(e.target.value as 'USER' | 'MODERATOR' | 'ADMIN')}
+        >
+          <option value="USER">user</option>
+          <option value="MODERATOR">moderator</option>
+          <option value="ADMIN">admin</option>
+        </select>
+      </div>
+      {err && <p style={{ color: 'var(--red)' }}>{err}</p>}
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="btrl-button btrl-button-outline">
+          cancel
+        </button>
+        <button onClick={submit} disabled={submitting} className="btrl-button">
+          {submitting ? 'creating...' : 'create'}
+        </button>
+      </div>
     </div>
   );
 }
