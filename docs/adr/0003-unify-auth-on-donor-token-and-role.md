@@ -1,6 +1,6 @@
 # 3. Unify Authorization on the Donor Token + Role
 
-- Status: Proposed
+- Status: Accepted (implemented 2026-08-19)
 - Date: 2026-08-17
 - Author: TBD
 - Deciders: TBD

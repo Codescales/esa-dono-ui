@@ -16,10 +16,10 @@ describe('Admin API client', () => {
     vi.resetModules();
   });
 
-  it('creates an axios instance with /api/admin base URL', async () => {
+  it('creates an axios instance with /api/admin base URL and withCredentials', async () => {
     await import('../../src/api/admin');
     const axios = (await import('axios')).default;
-    expect(axios.create).toHaveBeenCalledWith({ baseURL: '/api/admin' });
+    expect(axios.create).toHaveBeenCalledWith({ baseURL: '/api/admin', withCredentials: true });
   });
 
   it('registers a request interceptor', async () => {

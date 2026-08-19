@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getDonor } from '../../api/donor';
+import { isSessionActive } from '../../utils/authToken';
+import { hasAdminAccess } from '../../types';
 import SidebarLayout, { type SidebarNavItem } from '../../components/SidebarLayout';
 import {
   DashboardIcon,
@@ -28,12 +31,30 @@ const NAV: SidebarNavItem[] = [
   { to: '/admin/simulate', label: 'simulate', icon: PlayIcon },
 ];
 
+type AccessState = 'checking' | 'granted' | 'denied';
+
 export default function AdminLayout() {
+  const [access, setAccess] = useState<AccessState>('checking');
   const [key, setKey] = useState(localStorage.getItem('admin_key') ?? '');
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
 
-  const isLoggedIn = !!key;
+  useEffect(() => {
+    // A stored admin key is treated as a valid path (actual API calls will
+    // 401/403 if it's wrong). Otherwise, an ADMIN-role donor session grants
+    // access (ADR 0003).
+    if (key) {
+      setAccess('granted');
+      return;
+    }
+    if (!isSessionActive()) {
+      setAccess('denied');
+      return;
+    }
+    getDonor()
+      .then((donor) => setAccess(hasAdminAccess(donor.role) ? 'granted' : 'denied'))
+      .catch(() => setAccess('denied'));
+  }, [key]);
 
   const login = () => {
     if (!input.trim()) {
@@ -48,13 +69,23 @@ export default function AdminLayout() {
   const logout = () => {
     localStorage.removeItem('admin_key');
     setKey('');
+    setAccess('checking');
   };
 
-  if (!isLoggedIn) {
+  if (access === 'checking') return null;
+
+  if (access === 'denied') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="btrl-panel p-8 w-full max-w-sm">
           <h1 className="font-display text-3xl uppercase mb-4">admin login</h1>
+          <p className="font-body text-sm text-off-white/55 mb-4">
+            Sign in with an admin account from{' '}
+            <Link to="/wallet" className="text-d-yellow hover:underline">
+              your wallet
+            </Link>
+            , or enter the admin API key.
+          </p>
           <input
             type="password"
             placeholder="Enter admin API key"

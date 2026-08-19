@@ -1,18 +1,29 @@
 import type { Request, Response, NextFunction } from 'express';
+import { donorAuth } from './donorAuth.js';
+import { hasAdminAccess } from '../lib/roles.js';
 import { parseCredential } from '../lib/authHeader.js';
 
 /**
- * Gates `/api/admin/*` on the operational admin key, carried as
- * `Authorization: Bearer key_admin_<key>` (ADR 0004). This is an operator
- * secret for scripting/bootstrapping, not a browser credential.
+ * Gates `/api/admin/*` on either:
+ *  - the operational admin key, carried as `Authorization: Bearer key_admin_<key>`
+ *    (an operator secret for scripting/bootstrapping), or
+ *  - an authenticated donor (session cookie or Bearer donor token) whose
+ *    effective role is ADMIN (ADR 0003).
  */
-export function adminAuth(req: Request, res: Response, next: NextFunction) {
-  const expected = process.env.ADMIN_API_KEY;
+export async function adminAuth(req: Request, res: Response, next: NextFunction) {
   const cred = parseCredential(req);
-  const provided = cred?.kind === 'admin-key' ? cred.key : undefined;
-
-  if (!expected || !provided || provided !== expected) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (
+    cred?.kind === 'admin-key' &&
+    process.env.ADMIN_API_KEY &&
+    cred.key === process.env.ADMIN_API_KEY
+  ) {
+    return next();
   }
-  next();
+
+  await donorAuth(req, res, () => {
+    if (!hasAdminAccess(req.donor?.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  });
 }

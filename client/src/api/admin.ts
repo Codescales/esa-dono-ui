@@ -1,10 +1,16 @@
 import axios, { type AxiosInstance } from 'axios';
 
-const adminClient: AxiosInstance = axios.create({ baseURL: '/api/admin' });
+// withCredentials sends the httpOnly donor session cookie (an ADMIN-role donor
+// authenticates that way, ADR 0003). The operational admin key is an operator
+// secret sent as an Authorization Bearer credential only when no donor session
+// is active; the session cookie is the primary path.
+const adminClient: AxiosInstance = axios.create({ baseURL: '/api/admin', withCredentials: true });
 
 adminClient.interceptors.request.use((config) => {
   const key = localStorage.getItem('admin_key');
-  if (key) config.headers.Authorization = `Bearer key_admin_${key}`;
+  if (key && !localStorage.getItem('donor_session_active')) {
+    config.headers.Authorization = `Bearer key_admin_${key}`;
+  }
   return config;
 });
 
