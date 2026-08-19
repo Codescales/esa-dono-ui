@@ -73,7 +73,7 @@ export default function ModeratorLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="btrl-panel p-8 w-full max-w-sm">
-          <h1 className="font-display text-3xl lowercase mb-2">moderator login</h1>
+          <h1 className="font-display text-3xl uppercase mb-2">moderator login</h1>
           <p className="font-data text-sm text-off-white/55 mb-4">
             Log in with your donor magic link for moderator/admin access, or enter a moderator key
             below.

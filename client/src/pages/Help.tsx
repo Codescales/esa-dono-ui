@@ -3,7 +3,7 @@ import Card from '../components/Card';
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card className="mb-6">
-      <h2 className="font-display text-3xl lowercase text-off-white mb-3">{title}</h2>
+      <h2 className="font-display text-3xl uppercase text-off-white mb-3">{title}</h2>
       <div className="space-y-3 font-body text-sm text-off-white/55">{children}</div>
     </Card>
   );
@@ -16,7 +16,7 @@ function Term({ children }: { children: React.ReactNode }) {
 export default function Help() {
   return (
     <div className="max-w-2xl mx-auto p-8">
-      <h1 className="font-display text-4xl lowercase mb-6">help</h1>
+      <h1 className="font-display text-4xl uppercase mb-6">help</h1>
 
       <Section title="incentive types & categories">
         <p>

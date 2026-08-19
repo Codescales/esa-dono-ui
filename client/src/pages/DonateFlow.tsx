@@ -119,7 +119,7 @@ export default function DonateFlow() {
               <button
                 key={s.id}
                 onClick={() => selectEvent(s.id)}
-                className={`font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
+                className={`font-data font-bold text-sm tracking-wider uppercase px-4 py-2 rounded-sm transition-colors ${
                   selectedEventId === s.id ? 'text-black' : 'text-off-white/55 hover:text-off-white'
                 }`}
                 style={{
@@ -165,7 +165,7 @@ export default function DonateFlow() {
               <button
                 key={t}
                 onClick={() => selectTab(t)}
-                className={`flex items-center gap-1.5 font-data font-bold text-sm tracking-wider lowercase px-4 py-2 rounded-sm transition-colors ${
+                className={`flex items-center gap-1.5 font-data font-bold text-sm tracking-wider uppercase px-4 py-2 rounded-sm transition-colors ${
                   tab === t ? 'text-black' : 'text-off-white/55 hover:text-off-white'
                 }`}
                 style={{ background: tab === t ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)' }}

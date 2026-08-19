@@ -29,7 +29,7 @@ export default function ModeratorClaims() {
 
   return (
     <div>
-      <h1 className="font-display text-4xl lowercase mb-6">claims</h1>
+      <h1 className="font-display text-4xl uppercase mb-6">claims</h1>
 
       <div className="space-y-4">
         {claims.map((c) => {

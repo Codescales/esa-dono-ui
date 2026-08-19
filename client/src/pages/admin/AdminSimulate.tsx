@@ -44,7 +44,7 @@ export default function AdminSimulate() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="font-display text-4xl lowercase mb-6">simulate donation</h1>
+      <h1 className="font-display text-4xl uppercase mb-6">simulate donation</h1>
       <Card className="mb-4">
         <p className="font-body text-sm text-off-white/55 mb-4">
           Creates a simulated donation without processing real money through Tiltify. The donor

@@ -115,7 +115,7 @@ export default function AdminDonors() {
 
   return (
     <div>
-      <h1 className="font-display text-4xl lowercase mb-6">donors</h1>
+      <h1 className="font-display text-4xl uppercase mb-6">donors</h1>
 
       {error && (
         <p className="mb-4" style={{ color: 'var(--red)' }}>
@@ -187,7 +187,7 @@ export default function AdminDonors() {
           {selected && (
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-3xl lowercase">{wallet?.email || 'Loading...'}</h2>
+                <h2 className="font-display text-3xl uppercase">{wallet?.email || 'Loading...'}</h2>
                 <button
                   onClick={closeWallet}
                   className="font-data text-sm text-off-white/55 hover:text-off-white lg:hidden"
@@ -252,7 +252,7 @@ export default function AdminDonors() {
                   </div>
 
                   <div>
-                    <h3 className="font-display text-2xl lowercase mt-6 mb-3">spend history</h3>
+                    <h3 className="font-display text-2xl uppercase mt-6 mb-3">spend history</h3>
 
                     {(wallet.reward_claims?.length ?? 0) > 0 && (
                       <div className="mb-4">
@@ -390,7 +390,7 @@ export default function AdminDonors() {
 
                   {(wallet.balance_adjustments?.length ?? 0) > 0 && (
                     <div>
-                      <h3 className="font-display text-2xl lowercase mt-6 mb-3">
+                      <h3 className="font-display text-2xl uppercase mt-6 mb-3">
                         balance adjustments
                       </h3>
                       <div className="space-y-2">

@@ -30,7 +30,7 @@ export default function AdminDonations() {
 
   return (
     <div>
-      <h1 className="font-display text-4xl lowercase mb-4">donations & claims</h1>
+      <h1 className="font-display text-4xl uppercase mb-4">donations & claims</h1>
       <div className="flex gap-2 mb-4">
         {['donations', 'claims'].map((t) => (
           <button

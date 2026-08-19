@@ -34,7 +34,7 @@ export default function SidebarLayout({ title, nav, storageKey, footer }: Sideba
         style={{ background: 'var(--dark-gray)', borderRight: '1px solid rgba(239,238,236,.08)' }}
       >
         <div
-          className={`font-display text-2xl mb-6 lowercase text-d-yellow ${collapsed ? 'text-center text-base' : ''}`}
+          className={`font-display text-2xl mb-6 uppercase text-d-yellow ${collapsed ? 'text-center text-base' : ''}`}
         >
           {collapsed ? title.slice(0, 1) : title}
         </div>
@@ -46,7 +46,7 @@ export default function SidebarLayout({ title, nav, storageKey, footer }: Sideba
               end={n.end}
               title={collapsed ? n.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-sm font-data font-bold text-sm tracking-wider lowercase ${collapsed ? 'justify-center' : ''} ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+                `flex items-center gap-2 px-3 py-2 rounded-sm font-data font-bold text-sm tracking-wider uppercase ${collapsed ? 'justify-center' : ''} ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
               }
               style={({ isActive }) => (isActive ? { background: 'var(--grad)' } : {})}
             >

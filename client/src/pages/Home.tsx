@@ -44,7 +44,7 @@ export default function Home() {
         <p className="font-mono text-[10px] font-bold tracking-[0.35em] uppercase text-d-yellow mb-2">
           European Speedrunner Assembly
         </p>
-        <h1 className="font-display text-5xl lowercase text-off-white mb-2">
+        <h1 className="font-display text-5xl uppercase text-off-white mb-2">
           {campaign.name ?? campaign.title ?? 'Campaign'}
         </h1>
       </div>
@@ -71,7 +71,7 @@ export default function Home() {
         {/* Primary CTA — incentive cart wizard */}
         <Link
           to="/donate"
-          className="inline-block mt-6 w-full text-center font-display text-2xl tracking-wide lowercase text-black no-underline py-4 px-6 rounded-sm transition-opacity hover:opacity-90"
+          className="inline-block mt-6 w-full text-center font-display text-2xl tracking-wide uppercase text-black no-underline py-4 px-6 rounded-sm transition-opacity hover:opacity-90"
           style={{ background: 'var(--d-yellow)' }}
         >
           contribute now

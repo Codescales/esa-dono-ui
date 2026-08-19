@@ -63,7 +63,7 @@ export default function ModeratorEvents() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-display text-4xl lowercase">events</h1>
+        <h1 className="font-display text-4xl uppercase">events</h1>
         <button onClick={openCreate} className="btrl-button">
           + new event
         </button>

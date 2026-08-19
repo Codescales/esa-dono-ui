@@ -75,7 +75,7 @@ export default function PledgeReturn() {
     return (
       <div className="max-w-xl mx-auto p-8">
         <Card>
-          <h2 className="font-display text-3xl lowercase text-off-white mb-4">pledge status</h2>
+          <h2 className="font-display text-3xl uppercase text-off-white mb-4">pledge status</h2>
           <p className="font-body text-sm" style={{ color: 'var(--red)' }}>
             {error}
           </p>
@@ -95,7 +95,7 @@ export default function PledgeReturn() {
   return (
     <div className="max-w-xl mx-auto p-8">
       <Card>
-        <h2 className="font-display text-3xl lowercase text-off-white mb-4">pledge status</h2>
+        <h2 className="font-display text-3xl uppercase text-off-white mb-4">pledge status</h2>
 
         {isFulfilled ? (
           <div className="mb-4 p-3 rounded-sm" style={{ background: 'rgba(92,189,125,.16)' }}>

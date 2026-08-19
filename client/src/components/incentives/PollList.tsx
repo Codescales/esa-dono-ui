@@ -147,7 +147,7 @@ export default function PollList() {
 
   return (
     <div>
-      <h2 className="font-display text-3xl lowercase text-off-white mb-2">vote in polls</h2>
+      <h2 className="font-display text-3xl uppercase text-off-white mb-2">vote in polls</h2>
       <p className="font-body text-sm text-off-white/55 mb-6">
         Add votes to your cart. $1 = 1 vote. Votes are cast when you check out.
       </p>

@@ -73,7 +73,7 @@ function WalletLogin({
 
   return (
     <div className="max-w-xl mx-auto p-8">
-      <h1 className="font-display text-4xl lowercase mb-4">access your wallet</h1>
+      <h1 className="font-display text-4xl uppercase mb-4">access your wallet</h1>
       <Card>
         {message && (
           <p className="text-sm mb-4" style={{ color: 'var(--red)' }}>
@@ -248,10 +248,10 @@ export default function MyWallet() {
   return (
     <div className="max-w-2xl mx-auto p-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="font-display text-4xl lowercase">my wallet</h1>
+        <h1 className="font-display text-4xl uppercase">my wallet</h1>
         <button
           onClick={handleLogout}
-          className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+          className="font-data font-bold text-sm tracking-wider uppercase text-d-yellow hover:text-off-white"
         >
           logout
         </button>
@@ -280,7 +280,7 @@ export default function MyWallet() {
         </div>
       </Card>
 
-      <h2 className="font-display text-3xl lowercase mb-3">donation history</h2>
+      <h2 className="font-display text-3xl uppercase mb-3">donation history</h2>
       {donor.donations.length === 0 ? (
         <p className="font-body text-sm text-off-white/55">No donations yet.</p>
       ) : (
@@ -299,7 +299,7 @@ export default function MyWallet() {
         </div>
       )}
 
-      <h2 className="font-display text-3xl lowercase mb-3">my claims</h2>
+      <h2 className="font-display text-3xl uppercase mb-3">my claims</h2>
       {donor.reward_claims.length === 0 ? (
         <p className="font-body text-sm text-off-white/55">No reward claims yet.</p>
       ) : (
@@ -324,7 +324,7 @@ export default function MyWallet() {
         </div>
       )}
 
-      <h2 className="font-display text-3xl lowercase mb-3">my write-ins</h2>
+      <h2 className="font-display text-3xl uppercase mb-3">my write-ins</h2>
       {donor.custom_entries.length === 0 ? (
         <p className="font-body text-sm text-off-white/55">No write-in options submitted yet.</p>
       ) : (
@@ -341,7 +341,7 @@ export default function MyWallet() {
         </div>
       )}
 
-      <h2 className="font-display text-3xl lowercase mb-3">my poll votes</h2>
+      <h2 className="font-display text-3xl uppercase mb-3">my poll votes</h2>
       {donor.poll_votes.length === 0 ? (
         <p className="font-body text-sm text-off-white/55">No poll votes yet.</p>
       ) : (
@@ -360,7 +360,7 @@ export default function MyWallet() {
         </div>
       )}
 
-      <h2 className="font-display text-3xl lowercase mb-3">my goal contributions</h2>
+      <h2 className="font-display text-3xl uppercase mb-3">my goal contributions</h2>
       {donor.fund_contributions.length === 0 ? (
         <p className="font-body text-sm text-off-white/55">No goal contributions yet.</p>
       ) : (

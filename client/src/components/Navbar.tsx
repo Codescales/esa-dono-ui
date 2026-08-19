@@ -66,7 +66,7 @@ export default function Navbar() {
     >
       <Link
         to="/"
-        className="font-display text-2xl tracking-wide text-off-white no-underline lowercase"
+        className="font-display text-2xl tracking-wide text-off-white no-underline uppercase"
       >
         esa dono
       </Link>
@@ -74,7 +74,7 @@ export default function Navbar() {
         to="/"
         end
         className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+          `font-data font-bold text-sm tracking-wider uppercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
         }
       >
         home
@@ -82,7 +82,7 @@ export default function Navbar() {
       <NavLink
         to="/help"
         className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+          `font-data font-bold text-sm tracking-wider uppercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
         }
       >
         help
@@ -90,7 +90,7 @@ export default function Navbar() {
       <NavLink
         to="/donate"
         className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider lowercase text-black no-underline px-3 py-1 rounded-sm hover:opacity-90 ${isActive ? 'opacity-80' : ''}`
+          `font-data font-bold text-sm tracking-wider uppercase text-black no-underline px-3 py-1 rounded-sm hover:opacity-90 ${isActive ? 'opacity-80' : ''}`
         }
         style={{ background: 'var(--d-yellow)' }}
       >
@@ -99,7 +99,7 @@ export default function Navbar() {
       <div className="ml-auto flex items-center gap-4">
         <button
           onClick={toggleDrawer}
-          className="relative font-data font-bold text-sm tracking-wider lowercase text-off-white/80 hover:text-off-white flex items-center gap-2"
+          className="relative font-data font-bold text-sm tracking-wider uppercase text-off-white/80 hover:text-off-white flex items-center gap-2"
         >
           <span>cart</span>
           {cart.length > 0 && (
@@ -116,7 +116,7 @@ export default function Navbar() {
         ) : (
           <NavLink
             to="/wallet"
-            className="font-data font-bold text-sm tracking-wider lowercase text-d-yellow hover:text-off-white"
+            className="font-data font-bold text-sm tracking-wider uppercase text-d-yellow hover:text-off-white"
           >
             login
           </NavLink>

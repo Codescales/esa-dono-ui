@@ -88,7 +88,7 @@ export default function ModeratorGoals() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-display text-4xl lowercase">fund goals</h1>
+        <h1 className="font-display text-4xl uppercase">fund goals</h1>
         <button onClick={openCreate} className="btrl-button">
           + new goal
         </button>

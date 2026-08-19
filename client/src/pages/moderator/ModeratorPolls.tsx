@@ -148,7 +148,7 @@ export default function ModeratorPolls() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-display text-4xl lowercase">polls</h1>
+        <h1 className="font-display text-4xl uppercase">polls</h1>
         <button onClick={openCreate} className="btrl-button">
           + new poll
         </button>

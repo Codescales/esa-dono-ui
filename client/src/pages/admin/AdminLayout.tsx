@@ -54,7 +54,7 @@ export default function AdminLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="btrl-panel p-8 w-full max-w-sm">
-          <h1 className="font-display text-3xl lowercase mb-4">admin login</h1>
+          <h1 className="font-display text-3xl uppercase mb-4">admin login</h1>
           <input
             type="password"
             placeholder="Enter admin API key"

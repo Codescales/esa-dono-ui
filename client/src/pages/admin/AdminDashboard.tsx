@@ -32,7 +32,7 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="font-display text-4xl lowercase mb-6">dashboard</h1>
+      <h1 className="font-display text-4xl uppercase mb-6">dashboard</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {cards.map((c) => (
           <Card key={c.label} className="text-center">
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
 
       {stats.events && stats.events.length > 0 && (
         <div className="mt-8">
-          <h2 className="font-display text-2xl lowercase mb-4">per-event totals</h2>
+          <h2 className="font-display text-2xl uppercase mb-4">per-event totals</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

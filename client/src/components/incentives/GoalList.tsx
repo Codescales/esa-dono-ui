@@ -98,7 +98,7 @@ export default function GoalList() {
 
   return (
     <div>
-      <h2 className="font-display text-3xl lowercase text-off-white mb-2">support fund goals</h2>
+      <h2 className="font-display text-3xl uppercase text-off-white mb-2">support fund goals</h2>
       <p className="font-body text-sm text-off-white/55 mb-6">
         Add contributions to your cart. They're applied to fund goals when you check out.
       </p>
