@@ -95,9 +95,9 @@ flowchart LR
     User[Donor / Browser] --> RP[Reverse Proxy]
     Tiltify[Tiltify Webhook] --> RP
 
-    subgraph Containers["Container Stack"]
-        RP -- "static /" --> Frontend[Frontend Container<br/>nginx :8080<br/>Vite SPA]
-        RP -- "/api/*" --> Backend[Backend Container<br/>Express API :3001]
+    subgraph Container Stack
+        RP -->|static| Frontend[Frontend Container<br/>nginx :8080<br/>Vite SPA]
+        RP -->|api| Backend[Backend Container<br/>Express API :3001]
     end
 
     Backend --> SQLite[(SQLite<br/>/data/dono.db)]
@@ -226,23 +226,25 @@ flowchart LR
     User[Donor / Browser] --> LB[Reverse Proxy<br/>+ Load Balancer]
     Tiltify[Tiltify Webhook] --> Webhook[Webhook Sender Container]
 
-    subgraph FrontendTier["Frontend Tier"]
-        LB -- "static /" --> FE1[Frontend #1]
-        LB -- "static /" --> FE2[Frontend #2]
-        LB -- "static /" --> FEn[Frontend #N]
+    subgraph Frontend Tier
+        LB -->|static| FE1[Frontend 1]
+        LB -->|static| FE2[Frontend 2]
+        LB -->|static| FE3[Frontend N]
     end
 
-    subgraph BackendTier["Backend Tier"]
-        FE1 & FE2 & FEn -- "/api/*" --> BE1[Backend #1]
-        FE1 & FE2 & FEn -- "/api/*" --> BE2[Backend #2]
+    subgraph Backend Tier
+        FE1 -->|api| BE1[Backend 1]
+        FE2 -->|api| BE1
+        FE3 -->|api| BE2[Backend 2]
         Webhook --> BE1
         Webhook --> BE2
     end
 
-    BE1 & BE2 --> PG[(PostgreSQL Primary)]
-    PG -- "streaming replication" --> RO[(Read Replica)]
-    BE1 -. "reads" .-> RO
-    BE2 -. "reads" .-> RO
+    BE1 --> PG[(PostgreSQL Primary)]
+    BE2 --> PG
+    PG -->|replication| RO[(Read Replica)]
+    BE1 -.->|reads| RO
+    BE2 -.->|reads| RO
 ```
 
 ## Database Management
