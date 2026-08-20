@@ -90,6 +90,19 @@ During local development you can leave `TILTIFY_WEBHOOK_SECRET` unset to skip HM
 
 The project uses a **two-container** architecture: a Node.js Express API (`Dockerfile.backend`) and an nginx SPA server (`Dockerfile.frontend`).
 
+```mermaid
+flowchart LR
+    User[Donor / Browser] --> RP[Reverse Proxy]
+    Tiltify[Tiltify Webhook] --> RP
+
+    subgraph Containers["Container Stack"]
+        RP -- "static /" --> Frontend[Frontend Container<br/>nginx :8080<br/>Vite SPA]
+        RP -- "/api/*" --> Backend[Backend Container<br/>Express API :3001]
+    end
+
+    Backend --> SQLite[(SQLite<br/>/data/dono.db)]
+```
+
 ### Container Architecture
 
 - **Backend** (`Dockerfile.backend`): Multi-stage build (`base` → `deps` → `runtime`). Runs as non-root user `dono` (UID 1001). Applies Prisma migrations on startup via `docker-entrypoint.backend.sh`. Exposes port 3001. SQLite database lives on volume mount `/data`.
@@ -203,6 +216,34 @@ donations.example.com {
 - **No secrets baked in**: Config is injected via environment variables at runtime. No defaults for secrets exist in the images.
 - **Non-root**: Both containers run as non-root users.
 - **Migrations**: The backend entrypoint runs `prisma migrate deploy` on every startup, making it safe to update images without manual DB intervention.
+
+### Future / Production at Scale
+
+For high-traffic campaigns the stack scales horizontally: multiple load-balanced frontend containers, a horizontally scalable backend tier, PostgreSQL (replacing the single-file SQLite) with a read replica, and a dedicated webhook sender container that decouples webhook ingestion from API serving so Tiltify events survive backend restarts/rollouts.
+
+```mermaid
+flowchart LR
+    User[Donor / Browser] --> LB[Reverse Proxy<br/>+ Load Balancer]
+    Tiltify[Tiltify Webhook] --> Webhook[Webhook Sender Container]
+
+    subgraph FrontendTier["Frontend Tier"]
+        LB -- "static /" --> FE1[Frontend #1]
+        LB -- "static /" --> FE2[Frontend #2]
+        LB -- "static /" --> FEn[Frontend #N]
+    end
+
+    subgraph BackendTier["Backend Tier"]
+        FE1 & FE2 & FEn -- "/api/*" --> BE1[Backend #1]
+        FE1 & FE2 & FEn -- "/api/*" --> BE2[Backend #2]
+        Webhook --> BE1
+        Webhook --> BE2
+    end
+
+    BE1 & BE2 --> PG[(PostgreSQL Primary)]
+    PG -- "streaming replication" --> RO[(Read Replica)]
+    BE1 -. "reads" .-> RO
+    BE2 -. "reads" .-> RO
+```
 
 ## Database Management
 
