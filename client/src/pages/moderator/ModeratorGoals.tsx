@@ -17,7 +17,7 @@ interface GoalForm {
   id?: string;
   title: string;
   description: string;
-  target_cents: number | string;
+  target_dollars: number | string;
   is_active: boolean;
   is_complete?: boolean;
   channel_id: string | null;
@@ -26,7 +26,7 @@ interface GoalForm {
 const EMPTY: GoalForm = {
   title: '',
   description: '',
-  target_cents: '',
+  target_dollars: '',
   is_active: true,
   channel_id: null,
 };
@@ -61,7 +61,7 @@ export default function ModeratorGoals() {
   const openEdit = (g: Goal) => {
     setForm({
       ...g,
-      target_cents: String(g.target_cents),
+      target_dollars: (g.target_cents / 100).toFixed(2),
       channel_id: g.channel_id ?? null,
     } as GoalForm);
     setModal(g);
@@ -70,7 +70,10 @@ export default function ModeratorGoals() {
 
   const handleSave = async () => {
     setError('');
-    const data = { ...form, target_cents: parseInt(String(form.target_cents)) };
+    const data = {
+      ...form,
+      target_cents: Math.round(parseFloat(String(form.target_dollars)) * 100),
+    };
     try {
       if (modal === 'create') await moderatorClient.post('/goals', data);
       else if (modal) await moderatorClient.put(`/goals/${modal.id}`, data);
@@ -118,13 +121,13 @@ export default function ModeratorGoals() {
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => openEdit(g)}
-                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
                   edit
                 </button>
                 <button
                   onClick={() => handleDelete(g.id)}
-                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase hover:text-off-white"
                   style={{ color: 'var(--red)' }}
                 >
                   delete
@@ -156,13 +159,15 @@ export default function ModeratorGoals() {
           ))}
           <div className="mb-3">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              target (cents)
+              target (dollars)
             </label>
             <input
               type="number"
+              step="0.01"
+              min="0"
               className="w-full px-3 py-2 text-sm"
-              value={form.target_cents}
-              onChange={(e) => setForm((d) => ({ ...d, target_cents: e.target.value }))}
+              value={form.target_dollars}
+              onChange={(e) => setForm((d) => ({ ...d, target_dollars: e.target.value }))}
             />
           </div>
           {modal !== 'create' && (

@@ -15,7 +15,7 @@ interface GoalForm {
   id?: string;
   title: string;
   description: string;
-  target_cents: number | string;
+  target_dollars: number | string;
   is_active: boolean;
   is_complete?: boolean;
   current_cents?: number;
@@ -25,7 +25,7 @@ interface GoalForm {
 const EMPTY: GoalForm = {
   title: '',
   description: '',
-  target_cents: 1000,
+  target_dollars: '10.00',
   is_active: true,
   channel_id: null,
 };
@@ -56,7 +56,11 @@ export default function AdminGoals() {
     setError('');
   };
   const openEdit = (g: Goal) => {
-    setForm({ ...g, channel_id: g.channel_id ?? null } as GoalForm);
+    setForm({
+      ...g,
+      target_dollars: (g.target_cents / 100).toFixed(2),
+      channel_id: g.channel_id ?? null,
+    } as GoalForm);
     setModal(g);
     setError('');
   };
@@ -64,7 +68,10 @@ export default function AdminGoals() {
   const handleSave = async () => {
     setError('');
     try {
-      const data = { ...form, target_cents: parseInt(String(form.target_cents)) };
+      const data = {
+        ...form,
+        target_cents: Math.round(parseFloat(String(form.target_dollars)) * 100),
+      };
       if (modal === 'create') {
         await adminClient.post('/goals', data);
       } else if (modal) {
@@ -141,20 +148,20 @@ export default function AdminGoals() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => openEdit(g)}
-                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
                   edit
                 </button>
                 <button
                   onClick={() => handleRefund(g.id, g.title)}
-                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase hover:text-off-white"
                   style={{ color: 'var(--d-yellow)' }}
                 >
                   refund contributions
                 </button>
                 <button
                   onClick={() => handleDelete(g.id)}
-                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase hover:text-off-white"
                   style={{ color: 'var(--red)' }}
                 >
                   delete
@@ -176,8 +183,8 @@ export default function AdminGoals() {
             [
               { key: 'title', label: 'Title' },
               { key: 'description', label: 'Description' },
-              { key: 'target_cents', label: 'Target (cents)', type: 'number' },
-            ] as { key: keyof GoalForm; label: string; type?: string }[]
+              { key: 'target_dollars', label: 'Target (dollars)', type: 'number', step: '0.01' },
+            ] as { key: keyof GoalForm; label: string; type?: string; step?: string }[]
           ).map((f) => (
             <div key={f.key} className="mb-3">
               <label className="block font-data font-bold text-sm mb-1 text-off-white">
@@ -185,6 +192,7 @@ export default function AdminGoals() {
               </label>
               <input
                 type={f.type ?? 'text'}
+                step={f.step}
                 className="w-full px-3 py-2 text-sm"
                 value={(form[f.key] as string | number | undefined) ?? ''}
                 onChange={(e) => setForm((d) => ({ ...d, [f.key]: e.target.value }))}

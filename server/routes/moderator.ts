@@ -1,6 +1,8 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
 import prisma from '../lib/prisma.js';
 import { moderatorAuth } from '../middleware/moderatorAuth.js';
+import { upload, processAndStore, publicUrlFor, deleteUploadByUrl } from '../lib/uploads.js';
 
 // INVARIANT: no handler in this file may select/include `donor.email` (or
 // return it via any other path) in a JSON response. Moderators can see
@@ -279,6 +281,28 @@ router.patch('/polls/custom-entries/:id', async (req, res) => {
 });
 
 // Rewards CRUD
+
+// Image upload — returns { url } for storing in reward.image_url.
+// Accepts jpeg/png/webp/gif up to 8 MB; resizes to ≤800 px wide and
+// re-encodes to webp (~80 quality) before writing to disk.
+router.post('/uploads', upload.single('file'), async (req: Request, res: Response) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+  try {
+    const filename = await processAndStore(req.file.buffer);
+    res.json({ url: publicUrlFor(filename) });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Multer error handler (file-type rejection, size exceeded, etc.)
+router.use('/uploads', (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof multer.MulterError || err instanceof Error) {
+    return res.status(400).json({ error: err.message });
+  }
+  _next(err);
+});
+
 router.get('/rewards', async (req, res) => {
   res.json(await prisma.reward.findMany({ orderBy: { created_at: 'desc' } }));
 });
@@ -292,6 +316,7 @@ router.post('/rewards', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
+    image_url,
     channel_id,
   } = req.body;
   const reward = await prisma.reward.create({
@@ -303,6 +328,7 @@ router.post('/rewards', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active: is_active ?? true,
       custom_type_label,
+      image_url: image_url || null,
       channel_id: channel_id || null,
     },
   });
@@ -318,8 +344,17 @@ router.put('/rewards/:id', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
+    image_url,
     channel_id,
   } = req.body;
+  // Best-effort cleanup of old upload if the image is being replaced/removed
+  const existing = await prisma.reward.findUnique({
+    where: { id: req.params.id },
+    select: { image_url: true },
+  });
+  if (existing && existing.image_url !== (image_url || null)) {
+    await deleteUploadByUrl(existing.image_url);
+  }
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
     data: {
@@ -330,6 +365,7 @@ router.put('/rewards/:id', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active,
       custom_type_label,
+      image_url: image_url || null,
       channel_id: channel_id || null,
     },
   });
@@ -344,7 +380,12 @@ router.delete('/rewards/:id', async (req, res) => {
         error: 'Cannot delete a reward with existing claims; deactivate it instead',
       });
     }
+    const existing = await prisma.reward.findUnique({
+      where: { id: req.params.id },
+      select: { image_url: true },
+    });
     await prisma.reward.delete({ where: { id: req.params.id } });
+    await deleteUploadByUrl(existing?.image_url);
     res.json({ success: true });
   } catch (err) {
     const code = (err as { code?: string }).code;

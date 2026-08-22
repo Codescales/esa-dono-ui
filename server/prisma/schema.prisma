@@ -70,6 +70,7 @@ model Reward {
   quantity_claimed Int           @default(0)
   is_active        Boolean       @default(true)
   custom_type_label String?
+  image_url        String?       // served at /api/uploads/<uuid>.webp
   channel_id        String?       // null = shared across all channels
   created_at       DateTime      @default(now())
   updated_at       DateTime      @updatedAt

@@ -20,6 +20,7 @@ import { metricsAuth } from './middleware/metricsAuth.js';
 import { metricsLimit } from './middleware/rateLimit.js';
 import { register } from './lib/metrics.js';
 import { startMetricsRefresh } from './services/metrics.js';
+import { UPLOADS_DIR, ensureUploadsDir } from './lib/uploads.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +36,19 @@ app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webho
 
 app.use(express.json());
 app.use(httpMetrics);
+
+// Serve uploaded reward images — immutable cache headers (random uuid filenames
+// make long-caching safe).  Mounted before API routes so a CDN can later front
+// /api/uploads/ without any code change.
+await ensureUploadsDir();
+app.use(
+  '/api/uploads',
+  express.static(UPLOADS_DIR, {
+    immutable: true,
+    maxAge: '1y',
+    index: false,
+  }),
+);
 
 app.get('/api/health', async (_req: Request, res: Response) => {
   try {

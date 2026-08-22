@@ -101,6 +101,7 @@ export interface Reward {
   quantity_claimed: number;
   is_active?: boolean;
   custom_type_label?: string | null;
+  image_url?: string | null;
   channel_id?: string | null;
 }
 

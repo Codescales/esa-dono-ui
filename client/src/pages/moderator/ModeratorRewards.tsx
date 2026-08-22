@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import moderatorClient from '../../api/moderator';
 import Card from '../../components/Card';
 import Modal from '../../components/Modal';
@@ -17,10 +17,11 @@ interface RewardForm {
   title: string;
   description: string;
   type: string;
-  cost_cents: number | string;
+  cost_dollars: number | string;
   quantity_total: number | string | null;
   is_active: boolean;
   custom_type_label: string;
+  image_url: string | null;
   channel_id: string | null;
 }
 
@@ -28,10 +29,11 @@ const EMPTY: RewardForm = {
   title: '',
   description: '',
   type: 'DIGITAL',
-  cost_cents: '',
+  cost_dollars: '',
   quantity_total: '',
   is_active: true,
   custom_type_label: '',
+  image_url: null,
   channel_id: null,
 };
 
@@ -43,6 +45,9 @@ export default function ModeratorRewards() {
   const [modal, setModal] = useState<RewardModal>(null);
   const [form, setForm] = useState<RewardForm>(EMPTY);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
   const { channels, selectedChannelId } = useModeratorChannelFilter();
 
   const reload = () => moderatorClient.get('/rewards').then((r) => setRewards(r.data));
@@ -61,23 +66,46 @@ export default function ModeratorRewards() {
     setForm(EMPTY);
     setModal('create');
     setError('');
+    setUploadError('');
   };
   const openEdit = (r: Reward) => {
     setForm({
       ...r,
-      cost_cents: String(r.cost_cents),
+      cost_dollars: (r.cost_cents / 100).toFixed(2),
       quantity_total: r.quantity_total ?? '',
+      image_url: r.image_url ?? null,
       channel_id: r.channel_id ?? null,
     } as RewardForm);
     setModal(r);
     setError('');
+    setUploadError('');
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await moderatorClient.post('/uploads', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm((d) => ({ ...d, image_url: data.url as string }));
+    } catch (e) {
+      setUploadError(apiErrorMessage(e, 'Upload failed'));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const handleSave = async () => {
     setError('');
     const data = {
       ...form,
-      cost_cents: parseInt(String(form.cost_cents)),
+      cost_cents: Math.round(parseFloat(String(form.cost_dollars)) * 100),
       quantity_total: form.quantity_total ? parseInt(String(form.quantity_total)) : null,
     };
     try {
@@ -115,33 +143,42 @@ export default function ModeratorRewards() {
         {filteredRewards.map((r) => (
           <Card key={r.id}>
             <div className="flex justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-data font-bold text-lg text-off-white">{r.title}</h2>
-                  <ChannelPill label={channelName(r.channel_id)} />
-                </div>
-                <p className="font-data text-sm text-off-white/55">
-                  {r.type} &middot; {fmt(r.cost_cents)}
-                </p>
-                {r.quantity_total && (
-                  <p className="font-data text-xs text-off-white/55">
-                    {r.quantity_claimed}/{r.quantity_total} claimed
-                  </p>
+              <div className="flex gap-3">
+                {r.image_url && (
+                  <img
+                    src={r.image_url}
+                    alt={r.title}
+                    className="w-16 h-16 object-cover rounded-sm shrink-0"
+                  />
                 )}
-                <div className="mt-2">
-                  <StatusBadge active={r.is_active} />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-data font-bold text-lg text-off-white">{r.title}</h2>
+                    <ChannelPill label={channelName(r.channel_id)} />
+                  </div>
+                  <p className="font-data text-sm text-off-white/55">
+                    {r.type} &middot; {fmt(r.cost_cents)}
+                  </p>
+                  {r.quantity_total && (
+                    <p className="font-data text-sm text-off-white/55">
+                      {r.quantity_claimed}/{r.quantity_total} claimed
+                    </p>
+                  )}
+                  <div className="mt-2">
+                    <StatusBadge active={r.is_active} />
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => openEdit(r)}
-                  className="font-mono text-[10px] tracking-wider uppercase text-d-yellow hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase text-d-yellow hover:text-off-white"
                 >
                   edit
                 </button>
                 <button
                   onClick={() => handleDelete(r.id)}
-                  className="font-mono text-[10px] tracking-wider uppercase hover:text-off-white"
+                  className="font-mono text-sm tracking-wider uppercase hover:text-off-white"
                   style={{ color: 'var(--red)' }}
                 >
                   delete
@@ -202,13 +239,15 @@ export default function ModeratorRewards() {
           )}
           <div className="mb-3">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">
-              cost (cents)
+              cost (dollars)
             </label>
             <input
               type="number"
+              step="0.01"
+              min="0"
               className="w-full px-3 py-2 text-sm"
-              value={form.cost_cents}
-              onChange={(e) => setForm((d) => ({ ...d, cost_cents: e.target.value }))}
+              value={form.cost_dollars}
+              onChange={(e) => setForm((d) => ({ ...d, cost_dollars: e.target.value }))}
             />
           </div>
           <div className="mb-3">
@@ -221,6 +260,46 @@ export default function ModeratorRewards() {
               value={form.quantity_total ?? ''}
               onChange={(e) => setForm((d) => ({ ...d, quantity_total: e.target.value }))}
             />
+          </div>
+          {/* Image upload */}
+          <div className="mb-3">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              image{' '}
+              <span className="text-off-white/40 font-normal">
+                (optional · jpeg/png/webp/gif, max 8 MB)
+              </span>
+            </label>
+            {form.image_url && (
+              <div className="flex items-center gap-3 mb-2">
+                <img
+                  src={form.image_url}
+                  alt="preview"
+                  className="w-20 h-20 object-cover rounded-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm((d) => ({ ...d, image_url: null }))}
+                  className="font-mono text-xs hover:underline"
+                  style={{ color: 'var(--red)' }}
+                >
+                  remove
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="w-full text-sm text-off-white/70"
+              disabled={uploading}
+              onChange={handleImageChange}
+            />
+            {uploading && <p className="font-data text-xs text-off-white/55 mt-1">Uploading…</p>}
+            {uploadError && (
+              <p className="font-data text-xs mt-1" style={{ color: 'var(--red)' }}>
+                {uploadError}
+              </p>
+            )}
           </div>
           <div className="mb-3">
             <label className="block font-data font-bold text-sm mb-1 text-off-white">event</label>
@@ -257,7 +336,7 @@ export default function ModeratorRewards() {
             <button onClick={() => setModal(null)} className="btrl-button btrl-button-outline">
               cancel
             </button>
-            <button onClick={handleSave} className="btrl-button">
+            <button onClick={handleSave} disabled={uploading} className="btrl-button">
               save
             </button>
           </div>

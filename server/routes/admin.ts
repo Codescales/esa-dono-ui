@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { MIN_SPEND_CENTS } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { adminAuth } from '../middleware/adminAuth.js';
+import { deleteUploadByUrl } from '../lib/uploads.js';
 import { processDonation } from '../services/donation.js';
 import { refundGoalContributions, refundPollOptionVotes } from '../services/refund.js';
 import { TOKEN_TTL_MS } from '../config.js';
@@ -157,6 +158,7 @@ router.post('/rewards', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
+    image_url,
     channel_id,
   } = req.body;
   const reward = await prisma.reward.create({
@@ -168,6 +170,7 @@ router.post('/rewards', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active: is_active ?? true,
       custom_type_label,
+      image_url: image_url || null,
       channel_id: channel_id || null,
     },
   });
@@ -183,8 +186,16 @@ router.put('/rewards/:id', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
+    image_url,
     channel_id,
   } = req.body;
+  const existing = await prisma.reward.findUnique({
+    where: { id: req.params.id },
+    select: { image_url: true },
+  });
+  if (existing && existing.image_url !== (image_url || null)) {
+    await deleteUploadByUrl(existing.image_url);
+  }
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
     data: {
@@ -195,6 +206,7 @@ router.put('/rewards/:id', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active,
       custom_type_label,
+      image_url: image_url || null,
       channel_id: channel_id || null,
     },
   });
@@ -209,7 +221,12 @@ router.delete('/rewards/:id', async (req, res) => {
         error: 'Cannot delete a reward with existing claims; deactivate it instead',
       });
     }
+    const existing = await prisma.reward.findUnique({
+      where: { id: req.params.id },
+      select: { image_url: true },
+    });
     await prisma.reward.delete({ where: { id: req.params.id } });
+    await deleteUploadByUrl(existing?.image_url);
     res.json({ success: true });
   } catch (err) {
     const code = (err as { code?: string }).code;

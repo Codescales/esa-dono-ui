@@ -1713,6 +1713,37 @@ paths:
         '200':
           description: Entry updated
 
+  /moderator/uploads:
+    post:
+      tags: [Moderator]
+      summary: Upload a reward image
+      description: >
+        Accepts jpeg/png/webp/gif up to 8 MB. Resizes to ≤800 px wide and
+        re-encodes to webp (~quality 80) before storing. Returns the URL to
+        store in reward.image_url.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, example: /api/uploads/uuid.webp }
+        '400':
+          description: Invalid file type or size exceeded
+
   /moderator/rewards:
     get:
       tags: [Moderator]
@@ -1748,6 +1779,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean, default: true }
                 custom_type_label: { type: string }
+                image_url: { type: string, nullable: true }
                 channel_id: { type: string, nullable: true }
       responses:
         '200':
@@ -1779,6 +1811,7 @@ paths:
                 quantity_total: { type: integer, nullable: true }
                 is_active: { type: boolean }
                 custom_type_label: { type: string }
+                image_url: { type: string, nullable: true }
                 channel_id: { type: string, nullable: true }
       responses:
         '200':
