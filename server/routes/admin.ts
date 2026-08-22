@@ -12,28 +12,28 @@ router.use(adminAuth);
 
 // Stats
 router.get('/stats', async (req, res) => {
-  const [donorCount, donationCount, claimCount, totalRaised, pledgeCount, events] =
+  const [donorCount, donationCount, claimCount, totalRaised, pledgeCount, channels] =
     await Promise.all([
       prisma.donor.count(),
       prisma.donation.count(),
       prisma.rewardClaim.count(),
       prisma.donation.aggregate({ _sum: { amount_cents: true } }),
       prisma.pendingPledge.count(),
-      prisma.event.findMany({ orderBy: { created_at: 'asc' } }),
+      prisma.channel.findMany({ orderBy: { created_at: 'asc' } }),
     ]);
 
-  const perEvent = await Promise.all(
-    events.map(async (event) => {
+  const perChannel = await Promise.all(
+    channels.map(async (channel) => {
       const [sum, count] = await Promise.all([
         prisma.donation.aggregate({
-          where: { event_id: event.id },
+          where: { channel_id: channel.id },
           _sum: { amount_cents: true },
         }),
-        prisma.donation.count({ where: { event_id: event.id } }),
+        prisma.donation.count({ where: { channel_id: channel.id } }),
       ]);
       return {
-        id: event.id,
-        name: event.name,
+        id: channel.id,
+        name: channel.name,
         raised_cents: sum._sum.amount_cents ?? 0,
         donations: count,
       };
@@ -46,66 +46,66 @@ router.get('/stats', async (req, res) => {
     claims: claimCount,
     pledges: pledgeCount,
     total_raised_cents: totalRaised._sum.amount_cents ?? 0,
-    events: perEvent,
+    channels: perChannel,
   });
 });
 
-// Events CRUD
-router.get('/events', async (req, res) => {
-  res.json(await prisma.event.findMany({ orderBy: { created_at: 'asc' } }));
+// Channels CRUD
+router.get('/channels', async (req, res) => {
+  res.json(await prisma.channel.findMany({ orderBy: { created_at: 'asc' } }));
 });
 
-router.post('/events', async (req, res) => {
+router.post('/channels', async (req, res) => {
   const { name, is_active } = req.body;
   if (!name || !String(name).trim()) {
     return res.status(400).json({ error: 'name is required' });
   }
   try {
-    const event = await prisma.event.create({
+    const channel = await prisma.channel.create({
       data: { name: String(name).trim(), is_active: is_active ?? true },
     });
-    res.json(event);
+    res.json(channel);
   } catch (e) {
     if ((e as { code?: string }).code === 'P2002') {
-      return res.status(409).json({ error: 'Event name already exists' });
+      return res.status(409).json({ error: 'Channel name already exists' });
     }
     throw e;
   }
 });
 
-router.put('/events/:id', async (req, res) => {
+router.put('/channels/:id', async (req, res) => {
   const { name, is_active } = req.body;
   try {
-    const event = await prisma.event.update({
+    const channel = await prisma.channel.update({
       where: { id: req.params.id },
       data: {
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(is_active !== undefined ? { is_active } : {}),
       },
     });
-    res.json(event);
+    res.json(channel);
   } catch (e) {
     if ((e as { code?: string }).code === 'P2002') {
-      return res.status(409).json({ error: 'Event name already exists' });
+      return res.status(409).json({ error: 'Channel name already exists' });
     }
     throw e;
   }
 });
 
-// Soft-delete: events may be referenced by incentives/donations/pledges, so
+// Soft-delete: channels may be referenced by incentives/donations/pledges, so
 // deactivate instead of hard-deleting to preserve those references.
-router.delete('/events/:id', async (req, res) => {
-  const event = await prisma.event.update({
+router.delete('/channels/:id', async (req, res) => {
+  const channel = await prisma.channel.update({
     where: { id: req.params.id },
     data: { is_active: false },
   });
-  res.json({ success: true, event });
+  res.json({ success: true, channel });
 });
 
 // Donations
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
-    include: { donor: { select: { email: true } }, event: { select: { id: true, name: true } } },
+    include: { donor: { select: { email: true } }, channel: { select: { id: true, name: true } } },
     orderBy: { created_at: 'desc' },
   });
   res.json(donations);
@@ -157,7 +157,7 @@ router.post('/rewards', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
-    event_id,
+    channel_id,
   } = req.body;
   const reward = await prisma.reward.create({
     data: {
@@ -168,7 +168,7 @@ router.post('/rewards', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active: is_active ?? true,
       custom_type_label,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
     },
   });
   res.json(reward);
@@ -183,7 +183,7 @@ router.put('/rewards/:id', async (req, res) => {
     quantity_total,
     is_active,
     custom_type_label,
-    event_id,
+    channel_id,
   } = req.body;
   const reward = await prisma.reward.update({
     where: { id: req.params.id },
@@ -195,7 +195,7 @@ router.put('/rewards/:id', async (req, res) => {
       quantity_total: quantity_total ?? null,
       is_active,
       custom_type_label,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
     },
   });
   res.json(reward);
@@ -226,7 +226,7 @@ router.delete('/rewards/:id', async (req, res) => {
 // Simulate donation
 router.post('/simulate-donation', async (req, res) => {
   try {
-    const { email, donor_name, amount_cents, comment, pledge_token, event_id } = req.body;
+    const { email, donor_name, amount_cents, comment, pledge_token, channel_id } = req.body;
     const cents = Number(amount_cents);
     if (!email || !Number.isInteger(cents) || cents < MIN_SPEND_CENTS) {
       return res
@@ -241,7 +241,7 @@ router.post('/simulate-donation', async (req, res) => {
       amountCents: cents,
       comment: comment || null,
       pledgeToken: pledge_token || null,
-      eventId: event_id || null,
+      channelId: channel_id || null,
     });
     if ('duplicate' in result) {
       // sim always uses a fresh externalId, so this branch is unreachable;
@@ -583,7 +583,7 @@ router.post('/polls', async (req, res) => {
     allow_custom_entries,
     max_entry_chars,
     auto_approve,
-    event_id,
+    channel_id,
   } = req.body;
   const poll = await prisma.poll.create({
     data: {
@@ -594,7 +594,7 @@ router.post('/polls', async (req, res) => {
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
       auto_approve: auto_approve ?? true,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
       options: options?.length
         ? { create: options.map((o: { label: string }) => ({ label: o.label })) }
         : undefined,
@@ -613,7 +613,7 @@ router.put('/polls/:id', async (req, res) => {
     allow_custom_entries,
     max_entry_chars,
     auto_approve,
-    event_id,
+    channel_id,
   } = req.body;
   const poll = await prisma.poll.update({
     where: { id: req.params.id },
@@ -625,7 +625,7 @@ router.put('/polls/:id', async (req, res) => {
       allow_custom_entries: allow_custom_entries ?? false,
       max_entry_chars: max_entry_chars ?? null,
       auto_approve: auto_approve ?? true,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
     },
     include: { options: true },
   });
@@ -726,21 +726,21 @@ router.get('/goals', async (req, res) => {
 });
 
 router.post('/goals', async (req, res) => {
-  const { title, description, target_cents, is_active, event_id } = req.body;
+  const { title, description, target_cents, is_active, channel_id } = req.body;
   const goal = await prisma.fundGoal.create({
     data: {
       title,
       description,
       target_cents,
       is_active: is_active ?? true,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
     },
   });
   res.json(goal);
 });
 
 router.put('/goals/:id', async (req, res) => {
-  const { title, description, target_cents, is_active, is_complete, event_id } = req.body;
+  const { title, description, target_cents, is_active, is_complete, channel_id } = req.body;
   const goal = await prisma.fundGoal.update({
     where: { id: req.params.id },
     data: {
@@ -749,7 +749,7 @@ router.put('/goals/:id', async (req, res) => {
       target_cents,
       is_active,
       is_complete,
-      event_id: event_id || null,
+      channel_id: channel_id || null,
     },
   });
   res.json(goal);

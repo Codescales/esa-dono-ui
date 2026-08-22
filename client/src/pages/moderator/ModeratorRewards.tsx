@@ -4,8 +4,8 @@ import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import StatusBadge from '../../components/StatusBadge';
-import EventPill from '../../components/EventPill';
-import { useModeratorEventFilter } from '../../context/ModeratorEventFilterContext';
+import ChannelPill from '../../components/ChannelPill';
+import { useModeratorChannelFilter } from '../../context/ModeratorChannelFilterContext';
 import { apiErrorMessage, type Reward } from '../../types';
 
 function fmt(cents: number) {
@@ -21,7 +21,7 @@ interface RewardForm {
   quantity_total: number | string | null;
   is_active: boolean;
   custom_type_label: string;
-  event_id: string | null;
+  channel_id: string | null;
 }
 
 const EMPTY: RewardForm = {
@@ -32,7 +32,7 @@ const EMPTY: RewardForm = {
   quantity_total: '',
   is_active: true,
   custom_type_label: '',
-  event_id: null,
+  channel_id: null,
 };
 
 type RewardModal = 'create' | Reward | null;
@@ -43,18 +43,18 @@ export default function ModeratorRewards() {
   const [modal, setModal] = useState<RewardModal>(null);
   const [form, setForm] = useState<RewardForm>(EMPTY);
   const [error, setError] = useState('');
-  const { events, selectedEventId } = useModeratorEventFilter();
+  const { channels, selectedChannelId } = useModeratorChannelFilter();
 
   const reload = () => moderatorClient.get('/rewards').then((r) => setRewards(r.data));
   useEffect(() => {
     reload().finally(() => setLoading(false));
   }, []);
 
-  const eventName = (id: string | null | undefined) =>
-    id ? (events.find((s) => s.id === id)?.name ?? 'unknown event') : 'shared';
+  const channelName = (id: string | null | undefined) =>
+    id ? (channels.find((s) => s.id === id)?.name ?? 'unknown channel') : 'shared';
 
   const filteredRewards = rewards.filter(
-    (r) => !selectedEventId || r.event_id === selectedEventId || r.event_id == null,
+    (r) => !selectedChannelId || r.channel_id === selectedChannelId || r.channel_id == null,
   );
 
   const openCreate = () => {
@@ -67,7 +67,7 @@ export default function ModeratorRewards() {
       ...r,
       cost_cents: String(r.cost_cents),
       quantity_total: r.quantity_total ?? '',
-      event_id: r.event_id ?? null,
+      channel_id: r.channel_id ?? null,
     } as RewardForm);
     setModal(r);
     setError('');
@@ -118,7 +118,7 @@ export default function ModeratorRewards() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-data font-bold text-lg text-off-white">{r.title}</h2>
-                  <EventPill label={eventName(r.event_id)} />
+                  <ChannelPill label={channelName(r.channel_id)} />
                 </div>
                 <p className="font-data text-sm text-off-white/55">
                   {r.type} &middot; {fmt(r.cost_cents)}
@@ -226,11 +226,11 @@ export default function ModeratorRewards() {
             <label className="block font-data font-bold text-sm mb-1 text-off-white">event</label>
             <select
               className="w-full px-3 py-2 text-sm"
-              value={form.event_id ?? ''}
-              onChange={(e) => setForm((d) => ({ ...d, event_id: e.target.value || null }))}
+              value={form.channel_id ?? ''}
+              onChange={(e) => setForm((d) => ({ ...d, channel_id: e.target.value || null }))}
             >
               <option value="">shared (any event)</option>
-              {events.map((s) => (
+              {channels.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>

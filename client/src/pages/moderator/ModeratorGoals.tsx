@@ -5,8 +5,8 @@ import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ProgressBar from '../../components/ProgressBar';
 import StatusBadge from '../../components/StatusBadge';
-import EventPill from '../../components/EventPill';
-import { useModeratorEventFilter } from '../../context/ModeratorEventFilterContext';
+import ChannelPill from '../../components/ChannelPill';
+import { useModeratorChannelFilter } from '../../context/ModeratorChannelFilterContext';
 import { apiErrorMessage, type Goal } from '../../types';
 
 function fmt(cents: number) {
@@ -20,7 +20,7 @@ interface GoalForm {
   target_cents: number | string;
   is_active: boolean;
   is_complete?: boolean;
-  event_id: string | null;
+  channel_id: string | null;
 }
 
 const EMPTY: GoalForm = {
@@ -28,7 +28,7 @@ const EMPTY: GoalForm = {
   description: '',
   target_cents: '',
   is_active: true,
-  event_id: null,
+  channel_id: null,
 };
 
 type GoalModal = 'create' | Goal | null;
@@ -39,18 +39,18 @@ export default function ModeratorGoals() {
   const [modal, setModal] = useState<GoalModal>(null);
   const [form, setForm] = useState<GoalForm>(EMPTY);
   const [error, setError] = useState('');
-  const { events, selectedEventId } = useModeratorEventFilter();
+  const { channels, selectedChannelId } = useModeratorChannelFilter();
 
   const reload = () => moderatorClient.get('/goals').then((r) => setGoals(r.data));
   useEffect(() => {
     reload().finally(() => setLoading(false));
   }, []);
 
-  const eventName = (id: string | null | undefined) =>
-    id ? (events.find((s) => s.id === id)?.name ?? 'unknown event') : 'shared';
+  const channelName = (id: string | null | undefined) =>
+    id ? (channels.find((s) => s.id === id)?.name ?? 'unknown channel') : 'shared';
 
   const filteredGoals = goals.filter(
-    (g) => !selectedEventId || g.event_id === selectedEventId || g.event_id == null,
+    (g) => !selectedChannelId || g.channel_id === selectedChannelId || g.channel_id == null,
   );
 
   const openCreate = () => {
@@ -62,7 +62,7 @@ export default function ModeratorGoals() {
     setForm({
       ...g,
       target_cents: String(g.target_cents),
-      event_id: g.event_id ?? null,
+      channel_id: g.channel_id ?? null,
     } as GoalForm);
     setModal(g);
     setError('');
@@ -105,7 +105,7 @@ export default function ModeratorGoals() {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="font-data font-bold text-lg text-off-white">{g.title}</h2>
-                  <EventPill label={eventName(g.event_id)} />
+                  <ChannelPill label={channelName(g.channel_id)} />
                 </div>
                 <p className="font-data text-sm text-off-white/55">
                   {fmt(g.current_cents)} / {fmt(g.target_cents)} {g.is_complete && '· complete'}
@@ -182,11 +182,11 @@ export default function ModeratorGoals() {
             <label className="block font-data font-bold text-sm mb-1 text-off-white">event</label>
             <select
               className="w-full px-3 py-2 text-sm"
-              value={form.event_id ?? ''}
-              onChange={(e) => setForm((d) => ({ ...d, event_id: e.target.value || null }))}
+              value={form.channel_id ?? ''}
+              onChange={(e) => setForm((d) => ({ ...d, channel_id: e.target.value || null }))}
             >
               <option value="">shared (any event)</option>
-              {events.map((s) => (
+              {channels.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>

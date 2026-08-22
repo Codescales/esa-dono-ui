@@ -9,7 +9,7 @@ import MyWallet from './pages/MyWallet';
 import Help from './pages/Help';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminEvents from './pages/admin/AdminEvents';
+import AdminChannels from './pages/admin/AdminChannels';
 import AdminRewards from './pages/admin/AdminRewards';
 import AdminPolls from './pages/admin/AdminPolls';
 import AdminGoals from './pages/admin/AdminGoals';
@@ -20,7 +20,7 @@ import AdminBlockedWords from './pages/admin/AdminBlockedWords';
 import AdminPledges from './pages/admin/AdminPledges';
 import ModeratorLayout from './pages/moderator/ModeratorLayout';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard';
-import ModeratorEvents from './pages/moderator/ModeratorEvents';
+import ModeratorChannels from './pages/moderator/ModeratorChannels';
 import ModeratorPolls from './pages/moderator/ModeratorPolls';
 import ModeratorRewards from './pages/moderator/ModeratorRewards';
 import ModeratorGoals from './pages/moderator/ModeratorGoals';
@@ -34,7 +34,7 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="donors" element={<AdminDonors />} />
-          <Route path="events" element={<AdminEvents />} />
+          <Route path="channels" element={<AdminChannels />} />
           <Route path="rewards" element={<AdminRewards />} />
           <Route path="polls" element={<AdminPolls />} />
           <Route path="goals" element={<AdminGoals />} />
@@ -45,7 +45,7 @@ export default function App() {
         </Route>
         <Route path="/moderate" element={<ModeratorLayout />}>
           <Route index element={<ModeratorDashboard />} />
-          <Route path="events" element={<ModeratorEvents />} />
+          <Route path="channels" element={<ModeratorChannels />} />
           <Route path="polls" element={<ModeratorPolls />} />
           <Route path="rewards" element={<ModeratorRewards />} />
           <Route path="goals" element={<ModeratorGoals />} />
