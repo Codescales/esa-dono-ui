@@ -10,7 +10,7 @@ npm install
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your Tiltify credentials and other values
+# Edit .env with your Stripe credentials and other values
 
 # Initialize the database
 cd server && npx prisma migrate dev --name init && npx prisma generate && cd ..

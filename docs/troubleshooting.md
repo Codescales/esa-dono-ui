@@ -10,8 +10,8 @@
 
 ## HMAC signature verification failure (HTTP 401 on webhook)
 
-- If the signature doesn't match, the webhook returns 401. Check that `TILTIFY_WEBHOOK_SECRET` matches the secret in the Tiltify Developer Dashboard.
-- During local development, you can leave `TILTIFY_WEBHOOK_SECRET` unset to skip verification.
+- If the signature doesn't match, the webhook returns 401. Check that `STRIPE_WEBHOOK_SECRET` matches the signing secret in the Stripe Dashboard.
+- During local development, you can leave `STRIPE_WEBHOOK_SECRET` unset to skip verification.
 - The webhook route must be mounted **before** `express.json()` — this is handled correctly in `server/index.ts` but note it if modifying middleware order.
 
 ## Magic link token expired / login fails

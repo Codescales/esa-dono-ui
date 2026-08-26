@@ -1,4 +1,4 @@
-# Tiltify Webhook Registration
+# Stripe Webhook Registration
 
 1. **Expose your server**: Use a reverse proxy or tunnel tool like [ngrok](https://ngrok.com):
 
@@ -6,20 +6,20 @@
    ngrok http 3001
    ```
 
-2. **Register in Tiltify**: In the Tiltify Developer Dashboard, register a webhook endpoint:
+2. **Register in Stripe**: In the Stripe Dashboard, add a webhook endpoint:
 
-   - **URL**: `https://<your-ngrok-url>/api/webhooks/tiltify`
-   - **Events**: Select `donation.completed`
+   - **URL**: `https://<your-ngrok-url>/api/webhooks/stripe`
+   - **Events**: Select `checkout.session.completed`
 
-3. **Set the secret**: Copy the generated webhook secret and set it in `.env`:
+3. **Set the secret**: Copy the signing secret (`whsec_…`) and set it in `.env`:
 
    ```
-   TILTIFY_WEBHOOK_SECRET=<your-generated-secret>
+   STRIPE_WEBHOOK_SECRET=whsec_<your-signing-secret>
    ```
 
-4. **Optional — Webhook Relay**: For deterministic donation→pledge linkage, create a Webhook Relay in the Tiltify Developer Dashboard and set `TILTIFY_WEBHOOK_RELAY_ID` to its ID.
+4. **Checkout sessions**: Set `STRIPE_SECRET_KEY` so `POST /api/pledge` can create hosted Checkout sessions for pledges; leave it unset to fall back to a no-hosted-checkout mode (`donate_url: null`).
 
-During local development you can leave `TILTIFY_WEBHOOK_SECRET` unset to skip HMAC signature verification.
+During local development you can leave `STRIPE_WEBHOOK_SECRET` unset to skip HMAC signature verification.
 
 ## Metrics (Prometheus)
 
@@ -29,7 +29,7 @@ The backend exposes `GET /api/metrics` in Prometheus text format. It's reachable
 
 - **Runtime/process metrics** — CPU, memory, event loop lag, GC pauses (via `prom-client`'s default collectors). These are per-instance and reset on restart; that's expected and handled correctly by Prometheus's `rate()`/`increase()`.
 - **HTTP metrics** — `http_requests_total` and `http_request_duration_seconds`, labeled by method/route/status.
-- **Business metrics** (`dono_*`) — donor count, total donated, donation count, open pledges, active events, reward claims, poll votes, balance adjustments by type. Computed from the database on a background interval (`METRICS_REFRESH_MS`, default 45s) and served from a cache, so scraping never triggers extra database queries — the DB is only queried once per interval, regardless of scrape frequency. Because the source of truth is the database rather than process memory, these values are correct across restarts and identical across load-balanced replicas.
+- **Business metrics** (`dono_*`) — donor count, total donated, donation count, open pledges, active channels, reward claims, poll votes, balance adjustments by type. Computed from the database on a background interval (`METRICS_REFRESH_MS`, default 45s) and served from a cache, so scraping never triggers extra database queries — the DB is only queried once per interval, regardless of scrape frequency. Because the source of truth is the database rather than process memory, these values are correct across restarts and identical across load-balanced replicas.
 
 ### Obtaining and configuring the token
 

@@ -8,12 +8,12 @@ Visit `/admin/simulate`, fill in donor email + amount, click "Simulate Donation"
 
 ## Option B — curl (direct webhook POST)
 
-When `TILTIFY_WEBHOOK_SECRET` is unset, HMAC verification is skipped:
+When `STRIPE_WEBHOOK_SECRET` is unset, HMAC verification is skipped:
 
 ```bash
-curl -X POST http://localhost:3001/api/webhooks/tiltify \
+curl -X POST http://localhost:3001/api/webhooks/stripe \
   -H "Content-Type: application/json" \
-  -d '{"meta":{"event_type":"donation.completed"},"data":{"id":"test-123","donor_email":"test@example.com","donor_name":"Test","amount":{"value":"10.00"},"comment":"test"}}'
+  -d '{"type":"checkout.session.completed","data":{"object":{"id":"cs_test_123","amount_total":1000,"customer_details":{"email":"test@example.com","name":"Test"}}}}'
 ```
 
 ## Option C — Admin API
