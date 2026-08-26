@@ -22,6 +22,7 @@ import { metricsLimit } from './middleware/rateLimit.js';
 import { register } from './lib/metrics.js';
 import { startMetricsRefresh } from './services/metrics.js';
 import { UPLOADS_DIR, ensureUploadsDir } from './lib/uploads.js';
+import { tracingMiddleware } from './lib/tracing.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +32,9 @@ const PORT = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 
 app.use(cors());
+// Trace every request (including the raw-body webhook) so donation processing
+// shows up in the same trace. Mounted before express.json()/routes.
+app.use(tracingMiddleware);
 
 // MUST mount webhook BEFORE express.json()
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), webhookRouter);

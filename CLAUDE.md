@@ -192,6 +192,36 @@ SQLite via Prisma. All monetary values are **integer cents**. `RewardClaim.claim
 | `DATABASE_URL`                                | Prisma DB URL, e.g. `file:./dev.db`                                                                                                                                                                                                                                                                                       |
 | `RATE_LIMIT_SPEND`                            | Spend-endpoint rate limit (req/min), default `20`                                                                                                                                                                                                                                                                         |
 | `RATE_LIMIT_AUTH`                             | Auth-endpoint rate limit (req/min), default `5`                                                                                                                                                                                                                                                                           |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`                 | Backend OTLP HTTP endpoint, default `http://otelcol:4318` (the esa-observability gateway). Tracing is **disabled by default** — set `OTEL_SDK_DISABLED=false` to enable.                                                                                                                                                  |
+| `OTEL_SERVICE_NAME`                           | Backend `service.name` resource attribute, default `esa-dono-backend`. Keep it stable — VictoriaTraces stores it as a stream field.                                                                                                                                                                                       |
+| `OTEL_TRACES_SAMPLER_ARG`                     | Trace sampling ratio, default `1.0`. Lower (e.g. `0.1`) if volume explodes.                                                                                                                                                                                                                                               |
+| `VITE_OTEL_ENDPOINT`                          | Browser OTLP endpoint (build-time, inlined by Vite), default `/traces` (proxied by nginx to otelcol). Browser tracing is **disabled by default** — set `VITE_OTEL_DISABLED=false` to enable.                                                                                                                              |
+| `VITE_OTEL_SERVICE_NAME`                      | Frontend `service.name`, default `esa-dono-frontend`.                                                                                                                                                                                                                                                                     |
+| `VITE_OTEL_SAMPLE_RATE`                       | Frontend trace sampling ratio, default `1.0`.                                                                                                                                                                                                                                                                             |
+
+## OpenTelemetry / User Journey Tracing
+
+Distributed tracing (user journey + backend) is wired into the sibling
+[`esa-observability`](https://github.com/Codescales/esa-observability)
+VictoriaMetrics stack via OTLP HTTP:
+
+- **Browser** emits spans to `/traces` (same-origin), which nginx proxies to the
+  `otelcol` gateway at `http://otelcol:4318/v1/traces`.
+- **Backend** (`server/lib/tracing.ts`) emits OTLP HTTP directly to
+  `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- W3C `traceparent` propagation links frontend and backend spans into a single
+  distributed trace. The browser instruments axios/XHR (auto-injects the header),
+  the server middleware (`server/middleware`/`tracingMiddleware`) continues it.
+- `docker-compose.yml` joins the `esa-observability_default` external network so
+  `dono-backend`/`dono-frontend` can reach `otelcol`.
+- Manual spans: `pledge.create`, `donation.process`, `pledge.fulfill` (server);
+  `page_view`, `tab_visit`, `channel_select`, `cart_add`/`cart_remove`,
+  `checkout_start`/`complete`/`error`, `pledge_return`, `wallet_view` (client).
+
+The backend deliberately uses `NodeTracerProvider` + manual middleware rather
+than `@opentelemetry/sdk-node` auto-instrumentations, because this app runs via
+`tsx` and `import-in-the-middle` (used by auto-instrumentations) conflicts with
+`tsx`'s ESM loader.
 
 ## Local Webhook Testing
 

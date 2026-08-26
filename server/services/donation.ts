@@ -5,6 +5,7 @@ import { sendMagicLink } from './email.js';
 import { resolvePledge, fulfillPledge } from './pledge.js';
 import { TOKEN_TTL_MS } from '../config.js';
 import { emitWebhookEvent, buildDonationCreatedPayload } from './eventDelivery.js';
+import { withSpan } from '../lib/tracing.js';
 
 interface ProcessDonationOptions {
   externalId: string;
@@ -42,6 +43,30 @@ interface ProcessDonationOptions {
  * @returns {{ donor, token, pledge? }} | {{ duplicate: true }}
  */
 export async function processDonation({
+  externalId,
+  email,
+  donorName,
+  amountCents,
+  comment,
+  pledgeToken,
+  shippingCents = 0,
+  channelId = null,
+}: ProcessDonationOptions) {
+  return withSpan('donation.process', async () => {
+    return processDonationInner({
+      externalId,
+      email,
+      donorName,
+      amountCents,
+      comment,
+      pledgeToken,
+      shippingCents,
+      channelId,
+    });
+  });
+}
+
+async function processDonationInner({
   externalId,
   email,
   donorName,

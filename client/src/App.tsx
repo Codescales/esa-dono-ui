@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import { CartProvider } from './context/CartContext';
+import { track } from './lib/tracing';
 import Home from './pages/Home';
 import DonateFlow from './pages/DonateFlow';
 import PledgeReturn from './pages/PledgeReturn';
@@ -27,6 +29,15 @@ import ModeratorRewards from './pages/moderator/ModeratorRewards';
 import ModeratorGoals from './pages/moderator/ModeratorGoals';
 import ModeratorClaims from './pages/moderator/ModeratorClaims';
 import ModeratorDonations from './pages/moderator/ModeratorDonations';
+
+/** Fires a `page_view` span on every client-side route change. */
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    track('page_view', { 'page.path': location.pathname, 'page.title': document.title });
+  }, [location.pathname]);
+  return null;
+}
 
 export default function App() {
   return (
@@ -59,6 +70,7 @@ export default function App() {
           element={
             <div className="min-h-screen">
               <CartProvider>
+                <PageViewTracker />
                 <Navbar />
                 <CartDrawer />
                 <Routes>
