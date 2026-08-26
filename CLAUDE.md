@@ -45,7 +45,7 @@ The codebase is **TypeScript (strict)** across both workspaces (see
 - **Client** is compiled by Vite (`react-jsx`, `bundler` resolution) — relative imports are
   **extensionless**. `tsc --noEmit` for typecheck.
 - **`packages/shared`** (`@dono/shared` workspace) holds cross-cutting types consumed by both
-  sides: branded `Cents` money helpers, Tiltify webhook payload types, and `claim_data` helpers.
+  sides: branded `Cents` money helpers, Stripe webhook payload types, and `claim_data` helpers.
   It ships as raw `.ts` (no build) via its `exports`/`main` pointing at source.
 - `tsconfig.base.json` at the root holds the strict baseline; each workspace extends it.
 - Tests are TypeScript (`.test.ts`/`.test.tsx`). Config files are TypeScript too
@@ -55,6 +55,8 @@ The codebase is **TypeScript (strict)** across both workspaces (see
   PostCSS config, so it must stay `.js`. No `.js`/`.jsx` source or test files remain.
 
 ## Docker Deployment
+
+> Full human + agent deployment/run instructions — env reference, ops (backup/restore/rollback), and an "Agent operating guide" of critical invariants — live in **`docs/deployment.md`**. This section covers the container essentials; consult that file for the complete procedure.
 
 Two production images (mirrors the esa-waypoint split backend/frontend pattern):
 
@@ -96,7 +98,7 @@ npm workspaces monorepo: `server/` (Express + Prisma + SQLite), `client/` (React
 
 ### Server
 
-- `server/index.ts` — Express entry point. The Tiltify webhook route **must** be mounted before `express.json()` because it needs the raw body buffer for HMAC verification.
+- `server/index.ts` — Express entry point. The Stripe webhook route **must** be mounted before `express.json()` because it needs the raw body buffer for HMAC verification.
 - `server/lib/prisma.ts` — Prisma singleton using `globalThis` cache to survive hot reloads.
 - `server/services/stripe.ts` — Stripe SDK wrapper: `createCheckoutSession()` (hosted Checkout for a pledge), `verifyWebhook()` (signature verification via `stripe.webhooks.constructEvent`, or JSON parse when no secret), `isStripeConfigured()`. Degrades gracefully when `STRIPE_SECRET_KEY` is unset.
 - `server/services/donation.ts` — Shared `processDonation()` (upserts donor + donation, sends magic link, auto-fulfills pledge) used by both webhook and simulation. Also exports `checkBlockedWords()` for custom poll entry validation.
