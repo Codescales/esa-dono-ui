@@ -50,9 +50,9 @@ const SAMPLER_ARG = parseFloat(process.env.OTEL_TRACES_SAMPLER_ARG || '1.0');
 
 function isEnabled(): boolean {
   // Disabled by default. Tracing only turns on when explicitly enabled
-  // (OTEL_SDK_DISABLED !== 'true') AND an endpoint is configured — otherwise
+  // (OTEL_TRACES_ENABLED === 'true') AND an endpoint is configured — otherwise
   // spans would be emitted to nowhere useful.
-  if (process.env.OTEL_SDK_DISABLED === 'true') return false;
+  if (process.env.OTEL_TRACES_ENABLED !== 'true') return false;
   return Boolean(ENDPOINT);
 }
 

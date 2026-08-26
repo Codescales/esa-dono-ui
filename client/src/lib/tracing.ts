@@ -59,8 +59,8 @@ let sessionSpan: Span | null = null;
 let sessionContext: Context | null = null;
 
 function isEnabled(): boolean {
-  // Respect standard OTEL opt-outs; disable when no endpoint configured.
-  if (import.meta.env.VITE_OTEL_DISABLED === 'true') return false;
+  // Disabled by default; only turns on when explicitly enabled.
+  if (import.meta.env.VITE_OTEL_ENABLED !== 'true') return false;
   return Boolean(ENDPOINT);
 }
 
