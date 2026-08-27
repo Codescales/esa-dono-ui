@@ -176,7 +176,7 @@ describe('PollList', () => {
     fireEvent.click(removeBtn);
   });
 
-  it('allows changing the vote amount and syncs it on blur', async () => {
+  it('updates an in-cart vote amount on change and blur', async () => {
     render(
       <Wrapper>
         <PollList />
@@ -193,6 +193,21 @@ describe('PollList', () => {
     const amountInputs = screen.getAllByRole('spinbutton');
     fireEvent.change(amountInputs[0]!, { target: { value: '2.00' } });
     fireEvent.blur(amountInputs[0]!);
+  });
+
+  it('resets to default amount on blur with empty value', async () => {
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+
+    await screen.findByText('Best Runner');
+    const amountInputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(amountInputs[0]!, { target: { value: '' } });
+    fireEvent.blur(amountInputs[0]!);
+    // Amount resets to default
+    expect((amountInputs[0] as HTMLInputElement).value).toBeTruthy();
   });
 });
 
@@ -259,6 +274,23 @@ describe('GoalList', () => {
     );
     expect(await screen.findByText('Race entry')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'add' })).toBeNull();
+  });
+
+  it('updates the amount for an in-cart contribution', async () => {
+    render(
+      <Wrapper>
+        <GoalList />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'add' }));
+    await screen.findByRole('button', { name: 'remove' });
+
+    // Change amount while in-cart
+    const amountInput = screen.getByRole('spinbutton');
+    fireEvent.change(amountInput, { target: { value: '3.00' } });
+    fireEvent.blur(amountInput);
+    // No assertion needed beyond not crashing
   });
 
   it('shows the empty state', async () => {

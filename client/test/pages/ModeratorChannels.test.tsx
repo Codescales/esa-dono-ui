@@ -66,4 +66,23 @@ describe('ModeratorChannels', () => {
     await waitFor(() => expect(moderatorClient.delete).toHaveBeenCalledWith('/channels/c1'));
     vi.unstubAllGlobals();
   });
+
+  it('edits a channel', async () => {
+    moderatorClient.get.mockResolvedValue({ data: [{ id: 'c1', name: 'Main', is_active: true }] });
+    moderatorClient.put.mockResolvedValue({ data: { id: 'c1', name: 'Renamed', is_active: true } });
+
+    render(<ModeratorChannels />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'edit' }));
+    expect(screen.getByRole('textbox')).toHaveValue('Main');
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(moderatorClient.put).toHaveBeenCalledWith(
+        '/channels/c1',
+        expect.objectContaining({ name: 'Renamed' }),
+      ),
+    );
+  });
 });
