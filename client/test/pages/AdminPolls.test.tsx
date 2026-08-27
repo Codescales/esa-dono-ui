@@ -118,4 +118,14 @@ describe('AdminPolls', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'delete' }));
     await waitFor(() => expect(mocks.adminClient.delete).toHaveBeenCalledWith('/polls/p1'));
   });
+
+  it('shows extra custom-entry fields when allow_custom_entries is toggled on', async () => {
+    mocks.adminClient.get.mockResolvedValue({ data: [] });
+    render(<AdminPolls />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ new poll' }));
+    fireEvent.click(screen.getByLabelText('allow custom entries'));
+    expect(
+      screen.getByLabelText('auto-approve write-ins (off = review before funds count)'),
+    ).toBeInTheDocument();
+  });
 });

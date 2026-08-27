@@ -126,4 +126,32 @@ describe('CartDrawer', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^contribute/i }));
     expect(await screen.findByText(/email/i)).toBeInTheDocument();
   });
+
+  it('shows the nudge panel when unvisited categories exist', async () => {
+    vi.mocked(getPolls).mockResolvedValue([
+      { id: 'p1', title: 'Poll', options: [], total_votes_cents: 0, is_active: true },
+    ]);
+    vi.mocked(getChannels).mockResolvedValue([{ id: 'c1', name: 'Main', is_active: true }]);
+    // Pre-seed a poll vote + channel so the cart is non-empty and checkout is enabled
+    sessionStorage.setItem(
+      'donation_cart_v1',
+      JSON.stringify({
+        cart: [
+          { kind: 'POLL_VOTE', target_id: 'o1', poll_id: 'p1', amount_cents: 100, label: 'A' },
+        ],
+        topUp: '',
+        comment: '',
+        channelId: 'c1',
+      }),
+    );
+
+    renderDrawer([]);
+
+    fireEvent.change(await screen.findByPlaceholderText('you@example.com'), {
+      target: { value: 'a@b.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^contribute/i }));
+
+    expect(await screen.findByRole('button', { name: 'skip anyway' })).toBeInTheDocument();
+  });
 });

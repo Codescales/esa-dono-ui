@@ -84,4 +84,25 @@ describe('ModeratorRewards', () => {
     await waitFor(() => expect(moderatorClient.delete).toHaveBeenCalledWith('/rewards/r1'));
     vi.unstubAllGlobals();
   });
+
+  it('edits a reward', async () => {
+    moderatorClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/rewards' ? [reward] : [] }),
+    );
+    moderatorClient.put.mockResolvedValue({ data: { ...reward, title: 'Updated' } });
+
+    render(
+      <ModeratorChannelFilterProvider>
+        <ModeratorRewards />
+      </ModeratorChannelFilterProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'edit' }));
+    expect(screen.getByText('edit reward')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(moderatorClient.put).toHaveBeenCalledWith('/rewards/r1', expect.any(Object)),
+    );
+  });
 });
