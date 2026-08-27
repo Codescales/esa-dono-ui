@@ -121,4 +121,55 @@ describe('AdminDestinations', () => {
 
     expect(await screen.findByText(/No deliveries yet/)).toBeInTheDocument();
   });
+
+  it('edits an existing destination', async () => {
+    mocks.getDestinations.mockResolvedValue([endpoint]);
+    mocks.updateDestination.mockResolvedValue({ ...endpoint, description: 'Updated' });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'edit' }));
+    expect(screen.getByText('edit webhook endpoint')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(mocks.updateDestination).toHaveBeenCalledWith('ep-1', expect.any(Object)),
+    );
+  });
+
+  it('creates a RabbitMQ destination', async () => {
+    mocks.getDestinations.mockResolvedValue([]);
+    mocks.createDestination.mockResolvedValue({ id: 'ep-3' });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ new endpoint' }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'RABBITMQ' } });
+    expect(
+      screen.getByPlaceholderText('amqps://user:pass@rabbitmq.example.com:5671/vhost'),
+    ).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByPlaceholderText('amqps://user:pass@rabbitmq.example.com:5671/vhost'),
+      { target: { value: 'amqp://localhost' } },
+    );
+    fireEvent.change(screen.getByPlaceholderText('my.queue.name'), {
+      target: { value: 'my.queue' },
+    });
+    fireEvent.click(screen.getByLabelText('donation.created'));
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(mocks.createDestination).toHaveBeenCalledWith(
+        expect.objectContaining({ destination_type: 'RABBITMQ', amqp_url: 'amqp://localhost' }),
+      ),
+    );
+  });
 });

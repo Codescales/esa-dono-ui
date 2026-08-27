@@ -105,4 +105,22 @@ describe('ModeratorRewards', () => {
       expect(moderatorClient.put).toHaveBeenCalledWith('/rewards/r1', expect.any(Object)),
     );
   });
+
+  it('shows the custom type label field when CUSTOM type is selected', async () => {
+    moderatorClient.get.mockResolvedValue({ data: [] });
+    moderatorClient.post.mockResolvedValue({ data: { id: 'r2' } });
+
+    render(
+      <ModeratorChannelFilterProvider>
+        <ModeratorRewards />
+      </ModeratorChannelFilterProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ new reward' }));
+    // change the type select to CUSTOM
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0]!, { target: { value: 'CUSTOM' } });
+
+    expect(screen.getByText('custom type label')).toBeInTheDocument();
+  });
 });

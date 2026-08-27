@@ -101,6 +101,37 @@ describe('PollList', () => {
     expect(await screen.findByText(/No active polls/)).toBeInTheDocument();
   });
 
+  it('shows a validation error for an empty write-in label', async () => {
+    mocks.getPolls.mockResolvedValue([{ ...poll, allow_custom_entries: true }]);
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '+ add your own option' }));
+    // submit without entering a label
+    fireEvent.click(screen.getByRole('button', { name: 'add to cart' }));
+    expect(screen.getByText('Please enter your option')).toBeInTheDocument();
+  });
+
+  it('shows an amount error for a write-in below minimum', async () => {
+    mocks.getPolls.mockResolvedValue([{ ...poll, allow_custom_entries: true }]);
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '+ add your own option' }));
+    fireEvent.change(screen.getByPlaceholderText('Type your option...'), {
+      target: { value: 'My idea' },
+    });
+    // change amount to 0
+    const amountInputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(amountInputs[amountInputs.length - 1]!, { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'add to cart' }));
+    expect(screen.getByText(/Minimum amount/)).toBeInTheDocument();
+  });
+
   it('opens the write-in modal for polls that allow custom entries', async () => {
     mocks.getPolls.mockResolvedValue([{ ...poll, allow_custom_entries: true }]);
     render(
