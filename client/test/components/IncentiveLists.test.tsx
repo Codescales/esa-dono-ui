@@ -304,4 +304,16 @@ describe('RewardList', () => {
     );
     expect(await screen.findByText(/No rewards available/)).toBeInTheDocument();
   });
+
+  it('shows a sold-out button when the reward is fully claimed', async () => {
+    mocks.getRewards.mockResolvedValue([{ ...reward, quantity_total: 5, quantity_claimed: 5 }]);
+    render(
+      <Wrapper>
+        <RewardList />
+      </Wrapper>,
+    );
+    const soldOutBtn = await screen.findByRole('button', { name: 'sold out' });
+    expect(soldOutBtn).toBeInTheDocument();
+    expect(soldOutBtn).toBeDisabled();
+  });
 });

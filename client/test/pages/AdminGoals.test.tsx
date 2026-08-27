@@ -81,4 +81,22 @@ describe('AdminGoals', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'delete' }));
     await waitFor(() => expect(mocks.adminClient.delete).toHaveBeenCalledWith('/goals/g1'));
   });
+
+  it('shows the mark-complete checkbox when editing a goal', async () => {
+    mocks.adminClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/goals' ? [goal] : [] }),
+    );
+    mocks.adminClient.put.mockResolvedValue({ data: goal });
+    render(<AdminGoals />);
+    fireEvent.click(await screen.findByRole('button', { name: 'edit' }));
+    expect(screen.getByLabelText('mark complete')).toBeInTheDocument();
+  });
+
+  it('shows the complete badge for a finished goal', async () => {
+    mocks.adminClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/goals' ? [{ ...goal, is_complete: true }] : [] }),
+    );
+    render(<AdminGoals />);
+    expect(await screen.findByText('complete')).toBeInTheDocument();
+  });
 });

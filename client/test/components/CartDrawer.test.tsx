@@ -154,4 +154,31 @@ describe('CartDrawer', () => {
 
     expect(await screen.findByRole('button', { name: 'skip anyway' })).toBeInTheDocument();
   });
+
+  it('shows the issues panel when cart items are no longer available', async () => {
+    // Pre-seed cart with a REWARD item + channel, but mock getRewards to return empty
+    // so revalidateCart reports the item as unavailable
+    sessionStorage.setItem(
+      'donation_cart_v1',
+      JSON.stringify({
+        cart: [{ kind: 'REWARD', target_id: 'r1', amount_cents: 1000, label: 'T-shirt' }],
+        topUp: '',
+        comment: '',
+        channelId: 'c1',
+      }),
+    );
+    vi.mocked(getChannels).mockResolvedValue([{ id: 'c1', name: 'Main', is_active: true }]);
+    // getRewards returns empty → reward not found → issue
+
+    renderDrawer([]);
+
+    fireEvent.change(await screen.findByPlaceholderText('you@example.com'), {
+      target: { value: 'a@b.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^contribute/i }));
+
+    expect(
+      await screen.findByText('Some items in your cart are no longer available:'),
+    ).toBeInTheDocument();
+  });
 });
