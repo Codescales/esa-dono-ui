@@ -46,6 +46,7 @@
 }
 
 :root {
+  color-scheme: dark;
   --off-white: #efeeec;
   --dark-gray: #191919;
   --green: #5cbd7d;
