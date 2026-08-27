@@ -232,4 +232,24 @@ describe('AdminDonors', () => {
     expect(screen.getByText('MANUAL')).toBeInTheDocument();
     expect(screen.getByText(/test reason/)).toBeInTheDocument();
   });
+
+  it('shows a validation error when adjust-balance amount is zero', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+    fireEvent.click(await screen.findByRole('button', { name: 'adjust balance' }));
+
+    // Submit with amount 0 (the input is pre-filled with empty; just click save directly)
+    fireEvent.click(screen.getAllByRole('button', { name: 'save' })[0]!);
+
+    expect(await screen.findByText('Enter a non-zero amount')).toBeInTheDocument();
+  });
 });

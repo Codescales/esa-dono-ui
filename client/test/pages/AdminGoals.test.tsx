@@ -99,4 +99,21 @@ describe('AdminGoals', () => {
     render(<AdminGoals />);
     expect(await screen.findByText('complete')).toBeInTheDocument();
   });
+
+  it('refunds contributions to a goal', async () => {
+    mocks.adminClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/goals' ? [goal] : [] }),
+    );
+    mocks.refundGoal.mockResolvedValue({
+      success: true,
+      refunded_count: 1,
+      refunded_cents: 750,
+    });
+
+    render(<AdminGoals />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'refund contributions' }));
+
+    await waitFor(() => expect(mocks.refundGoal).toHaveBeenCalledWith('g1'));
+  });
 });

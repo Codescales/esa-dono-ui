@@ -348,4 +348,15 @@ describe('RewardList', () => {
     expect(soldOutBtn).toBeInTheDocument();
     expect(soldOutBtn).toBeDisabled();
   });
+
+  it('opens a claim modal for SHOUTOUT rewards', async () => {
+    mocks.getRewards.mockResolvedValue([{ ...reward, type: 'SHOUTOUT', title: 'Shoutout' }]);
+    render(
+      <Wrapper>
+        <RewardList />
+      </Wrapper>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'add' }));
+    expect(screen.getByText(/add: Shoutout/)).toBeInTheDocument();
+  });
 });
