@@ -124,4 +124,49 @@ describe('ModeratorPolls', () => {
       expect(moderatorClient.post).toHaveBeenCalledWith('/polls', expect.any(Object)),
     );
   });
+
+  it('edits a poll', async () => {
+    moderatorClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/polls' ? [poll] : [] }),
+    );
+    moderatorClient.put.mockResolvedValue({ data: poll });
+
+    render(
+      <ModeratorChannelFilterProvider>
+        <ModeratorPolls />
+      </ModeratorChannelFilterProvider>,
+    );
+
+    const editBtns = await screen.findAllByRole('button', { name: 'edit' });
+    fireEvent.click(editBtns[0]!);
+    expect(screen.getByText('edit poll')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(moderatorClient.put).toHaveBeenCalledWith('/polls/p1', expect.any(Object)),
+    );
+  });
+
+  it('renames a poll option inline', async () => {
+    moderatorClient.get.mockImplementation((path: string) =>
+      Promise.resolve({ data: path === '/polls' ? [poll] : [] }),
+    );
+    moderatorClient.patch.mockResolvedValue({ data: { id: 'o1', label: 'Renamed' } });
+
+    render(
+      <ModeratorChannelFilterProvider>
+        <ModeratorPolls />
+      </ModeratorChannelFilterProvider>,
+    );
+
+    const editBtns = await screen.findAllByRole('button', { name: 'edit' });
+    fireEvent.click(editBtns[1]!);
+    const inlineInputs = screen.getAllByRole('textbox');
+    fireEvent.change(inlineInputs[inlineInputs.length - 1]!, { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(moderatorClient.patch).toHaveBeenCalledWith('/polls/options/o1', expect.any(Object)),
+    );
+  });
 });
