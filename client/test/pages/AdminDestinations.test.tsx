@@ -172,4 +172,44 @@ describe('AdminDestinations', () => {
       ),
     );
   });
+
+  it('rotates the endpoint secret after confirmation', async () => {
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    mocks.getDestinations.mockResolvedValue([endpoint]);
+    mocks.rotateDestinationSecret.mockResolvedValue({ ...endpoint, secret: 'new_secret' });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'rotate' }));
+
+    await waitFor(() => expect(mocks.rotateDestinationSecret).toHaveBeenCalledWith('ep-1'));
+    vi.unstubAllGlobals();
+  });
+
+  it('deletes a destination after confirmation', async () => {
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    mocks.getDestinations.mockResolvedValue([endpoint]);
+    mocks.deleteDestination.mockResolvedValue({ success: true });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'delete' }));
+
+    await waitFor(() => expect(mocks.deleteDestination).toHaveBeenCalledWith('ep-1'));
+    vi.unstubAllGlobals();
+  });
 });

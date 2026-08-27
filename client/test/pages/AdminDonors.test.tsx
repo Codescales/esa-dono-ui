@@ -203,4 +203,33 @@ describe('AdminDonors', () => {
     expect(screen.getByText('fund contributions')).toBeInTheDocument();
     expect(screen.getByText(/Goal A/)).toBeInTheDocument();
   });
+
+  it('shows balance adjustments history', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue({
+      ...wallet,
+      balance_adjustments: [
+        {
+          id: 'a1',
+          amount_cents: 500,
+          type: 'MANUAL',
+          reason: 'test reason',
+          balance_after_cents: 600,
+        },
+      ],
+    });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+
+    expect(await screen.findByText('balance adjustments')).toBeInTheDocument();
+    expect(screen.getByText('MANUAL')).toBeInTheDocument();
+    expect(screen.getByText(/test reason/)).toBeInTheDocument();
+  });
 });
