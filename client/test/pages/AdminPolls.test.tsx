@@ -128,4 +128,29 @@ describe('AdminPolls', () => {
       screen.getByLabelText('auto-approve write-ins (off = review before funds count)'),
     ).toBeInTheDocument();
   });
+
+  it('fills all poll modal fields including custom entry options', async () => {
+    mocks.adminClient.get.mockResolvedValue({ data: [] });
+    mocks.adminClient.post.mockResolvedValue({ data: { id: 'p2' } });
+    render(<AdminPolls />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ new poll' }));
+
+    // Toggle allow_custom_entries ON to show extra fields
+    fireEvent.click(screen.getByLabelText('allow custom entries'));
+    // Toggle auto_approve OFF
+    fireEvent.click(
+      screen.getByLabelText('auto-approve write-ins (off = review before funds count)'),
+    );
+    // Fill max_entry_chars
+    fireEvent.change(screen.getByPlaceholderText('No limit'), { target: { value: '100' } });
+    // Toggle active off then back on
+    fireEvent.click(screen.getByLabelText('active'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(mocks.adminClient.post).toHaveBeenCalledWith('/polls', expect.any(Object)),
+    );
+  });
 });
