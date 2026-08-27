@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import CartDrawer from '../../src/components/CartDrawer';
 import { CartProvider, useCart } from '../../src/context/CartContext';
 import type { CartItem } from '../../src/types';
@@ -9,6 +9,12 @@ vi.mock('../../src/api/polls', () => ({ getPolls: vi.fn() }));
 vi.mock('../../src/api/goals', () => ({ getGoals: vi.fn() }));
 vi.mock('../../src/api/channels', () => ({ getChannels: vi.fn() }));
 vi.mock('../../src/api/donor', () => ({ getDonor: vi.fn() }));
+vi.mock('../../src/api/pledge', () => ({ createPledge: vi.fn(), getPledge: vi.fn() }));
+vi.mock('../../src/lib/tracing', () => ({
+  track: vi.fn(),
+  trackAsync: vi.fn((_n: string, fn: () => unknown) => fn()),
+  identifyDonor: vi.fn(),
+}));
 
 import { getRewards } from '../../src/api/rewards';
 import { getPolls } from '../../src/api/polls';
@@ -92,5 +98,32 @@ describe('CartDrawer', () => {
   it('shows the checkout button even with an empty cart', async () => {
     renderDrawer([]);
     expect(await screen.findByRole('button', { name: /^contribute/i })).toBeDefined();
+  });
+
+  it('shows cart items and allows removing them', async () => {
+    renderDrawer([{ kind: 'REWARD', target_id: 'r1', amount_cents: 1000, label: 'T-shirt' }]);
+
+    expect(await screen.findByText('T-shirt')).toBeInTheDocument();
+    expect(screen.getByText('$10.00')).toBeInTheDocument();
+
+    // The per-item remove button uses &times; (×) not the word "remove"
+    const removeBtns = screen.getAllByRole('button', { name: '×' });
+    fireEvent.click(removeBtns[removeBtns.length - 1]!);
+
+    await waitFor(() => expect(screen.queryByText('T-shirt')).toBeNull());
+  });
+
+  it('allows entering email and comment', async () => {
+    renderDrawer([]);
+
+    const emailInput = await screen.findByPlaceholderText('you@example.com');
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    expect(emailInput).toHaveValue('test@example.com');
+  });
+
+  it('shows a checkout error on missing email', async () => {
+    renderDrawer([{ kind: 'REWARD', target_id: 'r1', amount_cents: 1000 }]);
+    fireEvent.click(await screen.findByRole('button', { name: /^contribute/i }));
+    expect(await screen.findByText(/email/i)).toBeInTheDocument();
   });
 });

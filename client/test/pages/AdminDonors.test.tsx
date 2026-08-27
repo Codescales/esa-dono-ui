@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({
   getDonors: vi.fn(),
@@ -17,9 +17,29 @@ vi.mock('../../src/api/admin', () => mocks);
 
 import AdminDonors from '../../src/pages/admin/AdminDonors';
 
+const wallet = {
+  email: 'alice@example.com',
+  total_donated: 500,
+  balance_remaining: 100,
+  role: 'USER',
+  is_frozen: false,
+  reward_claims: [],
+  poll_votes: [],
+  fund_contributions: [],
+  balance_adjustments: [],
+};
+
 describe('AdminDonors', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('lists donors', async () => {
@@ -41,5 +61,122 @@ describe('AdminDonors', () => {
     render(<AdminDonors />);
 
     expect(await screen.findByText(/No donors found/)).toBeInTheDocument();
+  });
+
+  it('opens a donor wallet on click', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+
+    expect(await screen.findByText('No spend history.')).toBeInTheDocument();
+  });
+
+  it('opens the create-donor modal and creates a donor', async () => {
+    mocks.getDonors.mockResolvedValue({ donors: [], total: 0 });
+    mocks.createDonor.mockResolvedValue({ id: 'd2' });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'add donor' }));
+    expect(screen.getByRole('heading', { name: 'add donor' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
+      target: { value: 'bob@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'create' }));
+
+    await waitFor(() => expect(mocks.createDonor).toHaveBeenCalledWith('bob@example.com', 'USER'));
+  });
+
+  it('freezes a donor', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+    mocks.toggleDonorFreeze.mockResolvedValue({ success: true });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+    fireEvent.click(await screen.findByRole('button', { name: 'freeze' }));
+
+    await waitFor(() => expect(mocks.toggleDonorFreeze).toHaveBeenCalledWith('d1', true));
+  });
+
+  it('revokes a donor token', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+    mocks.revokeDonorToken.mockResolvedValue({ success: true });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+    fireEvent.click(await screen.findByRole('button', { name: 'revoke token' }));
+
+    await waitFor(() => expect(mocks.revokeDonorToken).toHaveBeenCalledWith('d1'));
+  });
+
+  it('regenerates a token and shows the magic link', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+    mocks.regenerateDonorToken.mockResolvedValue({
+      success: true,
+      email: 'alice@example.com',
+      magic_token: 'newtoken123',
+    });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+    fireEvent.click(await screen.findByRole('button', { name: 'regenerate token' }));
+
+    expect(await screen.findByText('new token generated')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('newtoken123')).toBeInTheDocument();
+  });
+
+  it('opens the adjust-balance modal and submits', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+    mocks.adjustDonorBalance.mockResolvedValue({ success: true });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+    fireEvent.click(await screen.findByRole('button', { name: 'adjust balance' }));
+
+    const amountInput = screen.getByPlaceholderText('e.g. 10.00');
+    fireEvent.change(amountInput, { target: { value: '5.00' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'save' })[0]!);
+
+    await waitFor(() =>
+      expect(mocks.adjustDonorBalance).toHaveBeenCalledWith('d1', 500, null, 'MANUAL'),
+    );
   });
 });
