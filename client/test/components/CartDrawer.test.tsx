@@ -181,4 +181,14 @@ describe('CartDrawer', () => {
       await screen.findByText('Some items in your cart are no longer available:'),
     ).toBeInTheDocument();
   });
+
+  it('allows entering a comment', async () => {
+    renderDrawer([]);
+
+    const commentArea = await screen.findByPlaceholderText(
+      'Leave a message with your contribution',
+    );
+    fireEvent.change(commentArea, { target: { value: 'great work!' } });
+    expect(commentArea).toHaveValue('great work!');
+  });
 });
