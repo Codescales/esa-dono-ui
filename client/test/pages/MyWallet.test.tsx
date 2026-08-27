@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
@@ -76,5 +76,72 @@ describe('MyWallet', () => {
     expect(await screen.findByText('my wallet')).toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(screen.getByText('No donations yet.')).toBeInTheDocument();
+  });
+
+  it('submits a token and starts a session', async () => {
+    mocks.getDonor.mockRejectedValue(new Error('no session'));
+    mocks.startSession.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <MyWallet />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByPlaceholderText('https://.../wallet?token=...'), {
+      target: { value: 'tok123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'open wallet' }));
+
+    await waitFor(() => expect(mocks.startSession).toHaveBeenCalledWith('tok123'));
+  });
+
+  it('rejects an empty token', async () => {
+    mocks.getDonor.mockRejectedValue(new Error('no session'));
+
+    render(
+      <MemoryRouter>
+        <MyWallet />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'open wallet' }));
+
+    expect(
+      await screen.findByText(/Paste the full magic link from your email/),
+    ).toBeInTheDocument();
+  });
+
+  it('requests a new magic link by email', async () => {
+    mocks.getDonor.mockRejectedValue(new Error('no session'));
+    mocks.requestToken.mockResolvedValue({ success: true });
+
+    render(
+      <MemoryRouter>
+        <MyWallet />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByPlaceholderText('you@example.com'), {
+      target: { value: 'alice@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send me a new link' }));
+
+    expect(await screen.findByText(/fresh link is on its way/)).toBeInTheDocument();
+  });
+
+  it('logs out and clears the donor', async () => {
+    mocks.getDonor.mockResolvedValue(wallet);
+    mocks.endSession.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <MyWallet />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'logout' }));
+
+    await waitFor(() => expect(mocks.endSession).toHaveBeenCalled());
   });
 });
