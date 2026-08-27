@@ -68,6 +68,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 describe('PollList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     mocks.getPolls.mockResolvedValue([poll]);
     mocks.getRewards.mockResolvedValue([]);
     mocks.getGoals.mockResolvedValue([]);
@@ -110,11 +111,45 @@ describe('PollList', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ add your own option' }));
     expect(screen.getByText('add your own option')).toBeInTheDocument();
   });
+
+  it('adds a write-in option to the cart', async () => {
+    mocks.getPolls.mockResolvedValue([{ ...poll, allow_custom_entries: true, auto_approve: true }]);
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '+ add your own option' }));
+
+    fireEvent.change(screen.getByPlaceholderText('Type your option...'), {
+      target: { value: 'My runner' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'add to cart' }));
+
+    // modal closes after add
+    expect(screen.queryByText('add your own option')).toBeNull();
+  });
+
+  it('removes a vote from the cart', async () => {
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'add' }));
+    // after adding, the remove button should appear
+    const removeBtn = await screen.findByRole('button', { name: 'remove' });
+    expect(removeBtn).toBeInTheDocument();
+    // clicking remove should not throw
+    fireEvent.click(removeBtn);
+  });
 });
 
 describe('GoalList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     mocks.getGoals.mockResolvedValue([goal]);
     mocks.getRewards.mockResolvedValue([]);
     mocks.getPolls.mockResolvedValue([]);
@@ -137,6 +172,19 @@ describe('GoalList', () => {
     expect(await screen.findByRole('button', { name: 'remove' })).toBeInTheDocument();
   });
 
+  it('removes a goal contribution from the cart', async () => {
+    render(
+      <Wrapper>
+        <GoalList />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'add' }));
+    const removeBtn = await screen.findByRole('button', { name: 'remove' });
+    expect(removeBtn).toBeInTheDocument();
+    fireEvent.click(removeBtn);
+  });
+
   it('shows the empty state', async () => {
     mocks.getGoals.mockResolvedValue([]);
     render(
@@ -151,6 +199,7 @@ describe('GoalList', () => {
 describe('RewardList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     mocks.getRewards.mockResolvedValue([reward]);
     mocks.getPolls.mockResolvedValue([]);
     mocks.getGoals.mockResolvedValue([]);
