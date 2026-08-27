@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
@@ -62,5 +62,63 @@ describe('AdminDestinations', () => {
     );
 
     expect(await screen.findByText(/No webhook endpoints configured/)).toBeInTheDocument();
+  });
+
+  it('creates an HTTP destination', async () => {
+    mocks.getDestinations.mockResolvedValue([]);
+    mocks.createDestination.mockResolvedValue({ id: 'ep-2' });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ new endpoint' }));
+    expect(screen.getByText('new webhook endpoint')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/webhook'), {
+      target: { value: 'https://example.com/hook' },
+    });
+    fireEvent.click(screen.getByLabelText('donation.created'));
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(mocks.createDestination).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'https://example.com/hook' }),
+      ),
+    );
+  });
+
+  it('toggles a destination active state', async () => {
+    mocks.getDestinations.mockResolvedValue([endpoint]);
+    mocks.updateDestination.mockResolvedValue({ ...endpoint, is_active: false });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'pause' }));
+
+    await waitFor(() =>
+      expect(mocks.updateDestination).toHaveBeenCalledWith('ep-1', { is_active: false }),
+    );
+  });
+
+  it('expands the delivery log', async () => {
+    mocks.getDestinations.mockResolvedValue([endpoint]);
+    mocks.getDestinationDeliveries.mockResolvedValue({ deliveries: [], total: 0 });
+
+    render(
+      <MemoryRouter>
+        <AdminDestinations />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'log' }));
+
+    expect(await screen.findByText(/No deliveries yet/)).toBeInTheDocument();
   });
 });
