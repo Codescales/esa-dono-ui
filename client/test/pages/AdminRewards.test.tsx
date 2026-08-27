@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({
   adminClient: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
@@ -45,5 +45,36 @@ describe('AdminRewards', () => {
     render(<AdminRewards />);
 
     expect(await screen.findByText('rewards')).toBeInTheDocument();
+  });
+
+  it('creates a reward', async () => {
+    mocks.adminClient.get.mockResolvedValue({ data: [] });
+    mocks.adminClient.post.mockResolvedValue({ data: { id: 'r2' } });
+
+    render(<AdminRewards />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '+ new reward' }));
+    expect(screen.getByText('new reward')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() =>
+      expect(mocks.adminClient.post).toHaveBeenCalledWith('/rewards', expect.any(Object)),
+    );
+  });
+
+  it('deletes a reward after confirmation', async () => {
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    mocks.adminClient.get.mockResolvedValue({ data: [reward] });
+    mocks.adminClient.delete.mockResolvedValue({ data: { success: true } });
+
+    render(<AdminRewards />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'delete' }));
+
+    await waitFor(() => expect(mocks.adminClient.delete).toHaveBeenCalledWith('/rewards/r1'));
+    vi.unstubAllGlobals();
   });
 });
