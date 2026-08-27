@@ -9,6 +9,7 @@ import DonateFlow from './pages/DonateFlow';
 import PledgeReturn from './pages/PledgeReturn';
 import MyWallet from './pages/MyWallet';
 import Help from './pages/Help';
+import Auctions from './pages/Auctions';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminChannels from './pages/admin/AdminChannels';
@@ -20,6 +21,7 @@ import AdminSimulate from './pages/admin/AdminSimulate';
 import AdminDonors from './pages/admin/AdminDonors';
 import AdminBlockedWords from './pages/admin/AdminBlockedWords';
 import AdminPledges from './pages/admin/AdminPledges';
+import AdminAuctions from './pages/admin/AdminAuctions';
 import AdminDestinations from './pages/admin/AdminDestinations';
 import ModeratorLayout from './pages/moderator/ModeratorLayout';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard';
@@ -29,6 +31,7 @@ import ModeratorRewards from './pages/moderator/ModeratorRewards';
 import ModeratorGoals from './pages/moderator/ModeratorGoals';
 import ModeratorClaims from './pages/moderator/ModeratorClaims';
 import ModeratorDonations from './pages/moderator/ModeratorDonations';
+import ModeratorAuctions from './pages/moderator/ModeratorAuctions';
 
 /** Fires a `page_view` span on every client-side route change. */
 function PageViewTracker() {
@@ -54,6 +57,7 @@ export default function App() {
           <Route path="simulate" element={<AdminSimulate />} />
           <Route path="pledges" element={<AdminPledges />} />
           <Route path="blocked-words" element={<AdminBlockedWords />} />
+          <Route path="auctions" element={<AdminAuctions />} />
           <Route path="destinations" element={<AdminDestinations />} />
         </Route>
         <Route path="/moderate" element={<ModeratorLayout />}>
@@ -64,6 +68,7 @@ export default function App() {
           <Route path="goals" element={<ModeratorGoals />} />
           <Route path="claims" element={<ModeratorClaims />} />
           <Route path="donations" element={<ModeratorDonations />} />
+          <Route path="auctions" element={<ModeratorAuctions />} />
         </Route>
         <Route
           path="*"
@@ -82,6 +87,7 @@ export default function App() {
                   <Route path="/rewards" element={<DonateFlow />} />
                   <Route path="/polls" element={<DonateFlow />} />
                   <Route path="/goals" element={<DonateFlow />} />
+                  <Route path="/auctions" element={<Auctions />} />
                 </Routes>
               </CartProvider>
             </div>
