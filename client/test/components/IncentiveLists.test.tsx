@@ -250,6 +250,17 @@ describe('GoalList', () => {
     expect(await screen.findByRole('button', { name: 'remove' })).toBeInTheDocument();
   });
 
+  it('does not show an add button for completed goals', async () => {
+    mocks.getGoals.mockResolvedValue([{ ...goal, is_complete: true }]);
+    render(
+      <Wrapper>
+        <GoalList />
+      </Wrapper>,
+    );
+    expect(await screen.findByText('Race entry')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'add' })).toBeNull();
+  });
+
   it('shows the empty state', async () => {
     mocks.getGoals.mockResolvedValue([]);
     render(

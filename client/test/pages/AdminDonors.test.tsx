@@ -179,4 +179,28 @@ describe('AdminDonors', () => {
       expect(mocks.adjustDonorBalance).toHaveBeenCalledWith('d1', 500, null, 'MANUAL'),
     );
   });
+
+  it('shows poll votes and fund contributions in the spend history', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue({
+      ...wallet,
+      poll_votes: [{ id: 'v1', amount_cents: 500, reversed_at: null }],
+      fund_contributions: [
+        { id: 'c1', amount_cents: 300, reversed_at: null, goal: { title: 'Goal A' } },
+      ],
+    });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+
+    expect(await screen.findByText('poll votes')).toBeInTheDocument();
+    expect(screen.getByText('fund contributions')).toBeInTheDocument();
+    expect(screen.getByText(/Goal A/)).toBeInTheDocument();
+  });
 });
