@@ -214,8 +214,11 @@ VictoriaMetrics stack via OTLP HTTP:
 - W3C `traceparent` propagation links frontend and backend spans into a single
   distributed trace. The browser instruments axios/XHR (auto-injects the header),
   the server middleware (`server/middleware`/`tracingMiddleware`) continues it.
-- `docker-compose.yml` joins the `esa-observability_default` external network so
-  `dono-backend`/`dono-frontend` can reach `otelcol`.
+- `docker-compose.yml` does **not** join the `esa-observability_default` network by
+  default (added complexity/dependency an admin opts into, not a hard requirement).
+  To reach `otelcol` for tracing, an admin adds `networks: default: name:
+esa-observability_default \n external: true` back to `docker-compose.yml` (or an
+  override file) alongside enabling `OTEL_TRACES_ENABLED`/`VITE_OTEL_ENABLED`.
 - Manual spans: `pledge.create`, `donation.process`, `pledge.fulfill` (server);
   `page_view`, `tab_visit`, `channel_select`, `cart_add`/`cart_remove`,
   `checkout_start`/`complete`/`error`, `pledge_return`, `wallet_view` (client).
