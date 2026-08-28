@@ -108,7 +108,7 @@ describe('AdminAuctions', () => {
     await waitFor(() => expect(mocks.adminClient.post).toHaveBeenCalledWith('/auctions/a1/cancel'));
   });
 
-  it('shows resend/skip actions and the offers view for an awaiting-payment auction', async () => {
+  it('shows resend/skip actions and the results view for an awaiting-payment auction', async () => {
     const awaiting = { ...auction, status: 'AWAITING_PAYMENT' };
     mocks.adminClient.get.mockImplementation((path: string) => {
       if (path === '/auctions') return Promise.resolve({ data: [awaiting] });
@@ -143,7 +143,7 @@ describe('AdminAuctions', () => {
       expect(mocks.adminClient.post).toHaveBeenCalledWith('/auctions/a1/skip-offer'),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'offers' }));
+    fireEvent.click(screen.getByRole('button', { name: 'results' }));
     expect(await screen.findByText(/rank 1/)).toBeInTheDocument();
   });
 });

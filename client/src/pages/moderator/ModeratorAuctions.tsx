@@ -234,7 +234,7 @@ export default function ModeratorAuctions() {
                     onClick={() => openOffers(a)}
                     className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"
                   >
-                    offers
+                    results
                   </button>
                   <button
                     onClick={() => openBids(a)}
@@ -438,7 +438,7 @@ export default function ModeratorAuctions() {
       )}
 
       {offersFor && (
-        <Modal title={`offers — ${offersFor.title}`} onClose={() => setOffersFor(null)}>
+        <Modal title={`results — ${offersFor.title}`} onClose={() => setOffersFor(null)}>
           {offers.length === 0 ? (
             <p className="font-body text-sm text-off-white/55">No offers sent yet.</p>
           ) : (
