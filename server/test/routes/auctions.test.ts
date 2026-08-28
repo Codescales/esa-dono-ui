@@ -137,4 +137,45 @@ describe('Auctions routes', () => {
 
     await cleanupAuction(auction.id);
   });
+
+  it('GET / flags is_current_highest_bidder for the logged-in high bidder', async () => {
+    const { donor, token } = await makeDonor();
+    const auction = await makeAuction({ current_bidder_id: donor.id, current_bid_cents: 1000 });
+
+    const res = await request(createApp())
+      .get('/api/auctions')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const found = res.body.find((a: { id: string }) => a.id === auction.id);
+    expect(found.is_current_highest_bidder).toBe(true);
+
+    // Anonymous requests get false.
+    const anon = await request(createApp()).get('/api/auctions');
+    const anonFound = anon.body.find((a: { id: string }) => a.id === auction.id);
+    expect(anonFound.is_current_highest_bidder).toBe(false);
+
+    await cleanupAuction(auction.id);
+    await cleanupDonor(donor.id);
+  });
+
+  it('GET / does not flag a non-bidder as highest bidder', async () => {
+    const { donor, token } = await makeDonor();
+    const other = await makeDonor();
+    const auction = await makeAuction({
+      current_bidder_id: other.donor.id,
+      current_bid_cents: 1000,
+    });
+
+    const res = await request(createApp())
+      .get('/api/auctions')
+      .set('Authorization', `Bearer ${token}`);
+
+    const found = res.body.find((a: { id: string }) => a.id === auction.id);
+    expect(found.is_current_highest_bidder).toBe(false);
+
+    await cleanupAuction(auction.id);
+    await cleanupDonor(donor.id);
+    await cleanupDonor(other.donor.id);
+  });
 });

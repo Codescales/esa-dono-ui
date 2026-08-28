@@ -25,6 +25,7 @@ function AuctionCard({ auction, onBid }: { auction: Auction; onBid: () => void }
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const isOpen = auction.status === 'OPEN';
+  const isHighestBidder = auction.is_current_highest_bidder === true;
 
   const submit = async () => {
     setError('');
@@ -58,7 +59,17 @@ function AuctionCard({ auction, onBid }: { auction: Auction; onBid: () => void }
           className="w-full h-48 object-cover mb-3 rounded-sm"
         />
       )}
-      <h2 className="font-data font-bold text-lg text-off-white">{auction.title}</h2>
+      <div className="flex justify-between items-start mb-2">
+        <h2 className="font-data font-bold text-lg text-off-white">{auction.title}</h2>
+        {isHighestBidder && (
+          <span
+            className="font-data text-xs font-bold px-2 py-0.5 rounded-sm"
+            style={{ color: 'var(--green)', background: 'rgba(92,189,125,.16)' }}
+          >
+            you're the highest bidder
+          </span>
+        )}
+      </div>
       {auction.description && (
         <p className="font-body text-sm text-off-white/55 mb-2">{auction.description}</p>
       )}
@@ -75,7 +86,7 @@ function AuctionCard({ auction, onBid }: { auction: Auction; onBid: () => void }
           {isOpen ? timeLeft(auction.ends_at) : auction.status.replace('_', ' ').toLowerCase()}
         </p>
       </div>
-      {isOpen && (
+      {isOpen && !isHighestBidder && (
         <div className="flex gap-2 items-start">
           <input
             type="number"

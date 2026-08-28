@@ -6,6 +6,7 @@ import { upload, processAndStore, publicUrlFor, deleteUploadByUrl } from '../lib
 import {
   closeAuctionTx,
   cancelAuctionTx,
+  reopenAuctionTx,
   skipCurrentOfferTx,
   resendCurrentOfferTx,
 } from '../services/auction.js';
@@ -618,6 +619,26 @@ router.get('/auctions/:id/offers', async (req, res) => {
     orderBy: { rank: 'asc' },
   });
   res.json(offers);
+});
+
+// All bids for an auction, newest first. Exposes only the opaque donor_id
+// (never donor.email — see file-level invariant), same as the offers view.
+router.get('/auctions/:id/bids', async (req, res) => {
+  const bids = await prisma.bid.findMany({
+    where: { auction_id: req.params.id },
+    orderBy: { created_at: 'desc' },
+  });
+  res.json(bids);
+});
+
+router.post('/auctions/:id/reopen', async (req, res) => {
+  try {
+    const result = await prisma.$transaction((tx) => reopenAuctionTx(tx, req.params.id));
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const status = (err as { status?: number }).status || 500;
+    res.status(status).json({ error: (err as Error).message });
+  }
 });
 
 router.post('/auctions/:id/close', async (req, res) => {

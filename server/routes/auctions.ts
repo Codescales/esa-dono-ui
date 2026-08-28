@@ -3,12 +3,13 @@ import type { Prisma } from '@prisma/client';
 import { minNextBidCents } from '@dono/shared';
 import prisma from '../lib/prisma.js';
 import { donorAuth } from '../middleware/donorAuth.js';
+import { donorAuthOptional } from '../middleware/donorAuthOptional.js';
 import { spendLimit } from '../middleware/rateLimit.js';
 import { placeBidTx } from '../services/auction.js';
 
 const router = Router();
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', donorAuthOptional, async (req: Request, res: Response) => {
   const { channel_id } = req.query;
   const auctions = await prisma.auction.findMany({
     where: {
@@ -21,11 +22,13 @@ router.get('/', async (req: Request, res: Response) => {
     auctions.map((a) => ({
       ...a,
       min_next_bid_cents: ['OPEN'].includes(a.status) ? minNextBidCents(a) : null,
+      is_current_highest_bidder:
+        !!req.donor && a.status === 'OPEN' && a.current_bidder_id === req.donor.id,
     })),
   );
 });
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', donorAuthOptional, async (req: Request, res: Response) => {
   const auction = await prisma.auction.findUnique({
     where: { id: req.params.id },
     include: {
@@ -40,6 +43,8 @@ router.get('/:id', async (req: Request, res: Response) => {
   res.json({
     ...auction,
     min_next_bid_cents: auction.status === 'OPEN' ? minNextBidCents(auction) : null,
+    is_current_highest_bidder:
+      !!req.donor && auction.status === 'OPEN' && auction.current_bidder_id === req.donor.id,
   });
 });
 

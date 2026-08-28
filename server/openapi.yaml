@@ -1752,6 +1752,34 @@ paths:
         '200':
           description: Offers ordered by rank ascending
 
+  /admin/auctions/{id}/bids:
+    get:
+      tags: [Admin]
+      summary: List all bids for an auction
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Bids ordered by created_at descending
+
+  /admin/auctions/{id}/reopen:
+    post:
+      tags: [Admin]
+      summary: Reopen a cancelled auction for bidding
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Auction reopened (status OPEN)
+
   /admin/auctions/{id}/close:
     post:
       tags: [Admin]
@@ -2505,6 +2533,40 @@ paths:
       responses:
         '200':
           description: Offers ordered by rank ascending (never includes donor email)
+
+  /moderator/auctions/{id}/bids:
+    get:
+      tags: [Moderator]
+      summary: List all bids for an auction
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Bids ordered by created_at descending (never includes donor email)
+
+  /moderator/auctions/{id}/reopen:
+    post:
+      tags: [Moderator]
+      summary: Reopen a cancelled auction for bidding
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Auction reopened (status OPEN)
 
   /moderator/auctions/{id}/close:
     post:

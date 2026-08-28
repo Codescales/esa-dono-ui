@@ -338,3 +338,26 @@ export async function cancelAuctionTx(tx: Tx, auctionId: string) {
 
   return { status: 'CANCELLED' as const };
 }
+
+/**
+ * Undo a cancel by reopening the auction for bidding. `cancelAuctionTx`
+ * preserves `current_bid_cents`/`current_bidder_id` (nothing is charged
+ * pre-payment, and no offers are pending after cancel), so we can simply flip
+ * the status back to OPEN. The rank/offer cascade is recomputed at close via
+ * `rankBids`, so any stale per-bid statuses (e.g. OFFERED) don't matter. If
+ * `ends_at` already passed, the moderator can force-close after reopening.
+ */
+export async function reopenAuctionTx(tx: Tx, auctionId: string) {
+  const auction = await tx.auction.findUnique({ where: { id: auctionId } });
+  if (!auction) throw httpError('Auction not found', 404);
+  if (auction.status !== 'CANCELLED') {
+    throw httpError('Only a cancelled auction can be reopened', 400);
+  }
+
+  await tx.auction.update({
+    where: { id: auction.id },
+    data: { status: 'OPEN', current_offer_id: null },
+  });
+
+  return { status: 'OPEN' as const };
+}

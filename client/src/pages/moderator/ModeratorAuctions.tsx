@@ -4,7 +4,7 @@ import Card from '../../components/Card';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useModeratorChannelFilter } from '../../context/ModeratorChannelFilterContext';
-import { apiErrorMessage, type Auction, type AuctionOffer } from '../../types';
+import { apiErrorMessage, type Auction, type AuctionBid, type AuctionOffer } from '../../types';
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -81,6 +81,8 @@ export default function ModeratorAuctions() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [offersFor, setOffersFor] = useState<Auction | null>(null);
   const [offers, setOffers] = useState<AuctionOffer[]>([]);
+  const [bidsFor, setBidsFor] = useState<Auction | null>(null);
+  const [bids, setBids] = useState<AuctionBid[]>([]);
   const { channels, selectedChannelId } = useModeratorChannelFilter();
 
   const reload = () => moderatorClient.get('/auctions').then((r) => setAuctions(r.data));
@@ -166,7 +168,7 @@ export default function ModeratorAuctions() {
 
   const runAction = async (
     id: string,
-    action: 'close' | 'cancel' | 'skip-offer' | 'resend-offer',
+    action: 'close' | 'cancel' | 'reopen' | 'skip-offer' | 'resend-offer',
   ) => {
     try {
       await moderatorClient.post(`/auctions/${id}/${action}`);
@@ -181,6 +183,12 @@ export default function ModeratorAuctions() {
     setOffersFor(a);
     const { data } = await moderatorClient.get(`/auctions/${a.id}/offers`);
     setOffers(data);
+  };
+
+  const openBids = async (a: Auction) => {
+    setBidsFor(a);
+    const { data } = await moderatorClient.get(`/auctions/${a.id}/bids`);
+    setBids(data);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -226,7 +234,13 @@ export default function ModeratorAuctions() {
                     onClick={() => openOffers(a)}
                     className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"
                   >
-                    cascade
+                    offers
+                  </button>
+                  <button
+                    onClick={() => openBids(a)}
+                    className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"
+                  >
+                    bids
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -253,6 +267,14 @@ export default function ModeratorAuctions() {
                         skip to next
                       </button>
                     </>
+                  )}
+                  {a.status === 'CANCELLED' && (
+                    <button
+                      onClick={() => runAction(a.id, 'reopen')}
+                      className="font-mono text-xs uppercase text-off-white/70 hover:text-off-white"
+                    >
+                      reopen
+                    </button>
                   )}
                   {!['SETTLED', 'CANCELLED'].includes(a.status) && (
                     <button
@@ -416,7 +438,7 @@ export default function ModeratorAuctions() {
       )}
 
       {offersFor && (
-        <Modal title={`cascade — ${offersFor.title}`} onClose={() => setOffersFor(null)}>
+        <Modal title={`offers — ${offersFor.title}`} onClose={() => setOffersFor(null)}>
           {offers.length === 0 ? (
             <p className="font-body text-sm text-off-white/55">No offers sent yet.</p>
           ) : (
@@ -433,6 +455,30 @@ export default function ModeratorAuctions() {
                       </p>
                     </div>
                     <StatusBadge status={o.status} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {bidsFor && (
+        <Modal title={`bids — ${bidsFor.title}`} onClose={() => setBidsFor(null)}>
+          {bids.length === 0 ? (
+            <p className="font-body text-sm text-off-white/55">No bids yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {bids.map((b) => (
+                <Card key={b.id}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-data font-bold text-off-white">{fmt(b.amount_cents)}</p>
+                      <p className="font-data text-xs text-off-white/55">
+                        {new Date(b.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <StatusBadge status={b.status} />
                   </div>
                 </Card>
               ))}

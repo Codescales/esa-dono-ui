@@ -97,7 +97,7 @@ describe('ModeratorAuctions', () => {
     await waitFor(() => expect(moderatorClient.post).toHaveBeenCalledWith('/auctions/a1/cancel'));
   });
 
-  it('shows the cascade view with resend/skip actions for an awaiting-payment auction', async () => {
+  it('shows the offers view with resend/skip actions for an awaiting-payment auction', async () => {
     const awaiting = { ...auction, status: 'AWAITING_PAYMENT' };
     moderatorClient.get.mockImplementation((path: string) => {
       if (path === '/auctions') return Promise.resolve({ data: [awaiting] });
@@ -131,7 +131,48 @@ describe('ModeratorAuctions', () => {
       expect(moderatorClient.post).toHaveBeenCalledWith('/auctions/a1/skip-offer'),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'cascade' }));
+    fireEvent.click(screen.getByRole('button', { name: 'offers' }));
     expect(await screen.findByText(/rank 1/)).toBeInTheDocument();
+  });
+
+  it('shows all bids in the bids modal', async () => {
+    const cancelled = { ...auction, status: 'CANCELLED' };
+    moderatorClient.get.mockImplementation((path: string) => {
+      if (path === '/auctions') return Promise.resolve({ data: [cancelled] });
+      if (path === '/auctions/a1/bids') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 'b1',
+              auction_id: 'a1',
+              donor_id: 'd1',
+              amount_cents: 1500,
+              status: 'ACTIVE',
+              created_at: new Date(Date.now() - 1000).toISOString(),
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderPage();
+    await screen.findByText('Signed Guitar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'bids' }));
+    expect(await screen.findByText('$15.00')).toBeInTheDocument();
+    expect(moderatorClient.get).toHaveBeenCalledWith('/auctions/a1/bids');
+  });
+
+  it('reopens a cancelled auction', async () => {
+    const cancelled = { ...auction, status: 'CANCELLED' };
+    moderatorClient.get.mockResolvedValue({ data: [cancelled] });
+    moderatorClient.post.mockResolvedValue({ data: { success: true, status: 'OPEN' } });
+
+    renderPage();
+    await screen.findByText('Signed Guitar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'reopen' }));
+    await waitFor(() => expect(moderatorClient.post).toHaveBeenCalledWith('/auctions/a1/reopen'));
   });
 });

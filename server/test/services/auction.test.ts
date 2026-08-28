@@ -21,6 +21,7 @@ import {
   resendCurrentOfferTx,
   settleWinTx,
   cancelAuctionTx,
+  reopenAuctionTx,
 } from '../../services/auction.js';
 
 const prisma = new PrismaClient();
@@ -448,6 +449,34 @@ describe('auction service', () => {
 
       await cleanupAuction(auction.id);
       await cleanupDonor(donor.id);
+    });
+
+    it('reopenAuctionTx returns a cancelled auction to OPEN, preserving the high bid', async () => {
+      const donor = await makeDonor();
+      const auction = await makeAuction();
+      await prisma.$transaction((tx) => placeBidTx(tx, donor.id, auction.id, 1000));
+      await prisma.$transaction((tx) => cancelAuctionTx(tx, auction.id));
+
+      const result = await prisma.$transaction((tx) => reopenAuctionTx(tx, auction.id));
+      expect(result.status).toBe('OPEN');
+
+      const updated = await prisma.auction.findUnique({ where: { id: auction.id } });
+      expect(updated!.status).toBe('OPEN');
+      expect(updated!.current_bid_cents).toBe(1000);
+      expect(updated!.current_bidder_id).toBe(donor.id);
+
+      await cleanupAuction(auction.id);
+      await cleanupDonor(donor.id);
+    });
+
+    it('reopenAuctionTx rejects reopening an auction that is not cancelled', async () => {
+      const auction = await makeAuction({ status: 'UNSOLD' });
+
+      await expect(prisma.$transaction((tx) => reopenAuctionTx(tx, auction.id))).rejects.toThrow(
+        'Only a cancelled auction can be reopened',
+      );
+
+      await cleanupAuction(auction.id);
     });
   });
 });

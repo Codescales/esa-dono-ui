@@ -174,4 +174,62 @@ describe('Moderator auction routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('CANCELLED');
   });
+
+  it('reopens a cancelled auction and exposes all bids without donor email', async () => {
+    const { donor: moderator, token } = await makeModerator();
+    donorIds.push(moderator.id);
+    const bidder = await makeBidder();
+    donorIds.push(bidder.id);
+
+    const auction = await prisma.auction.create({
+      data: {
+        title: 'Mod Reopen Me',
+        type: 'DIGITAL',
+        starting_price_cents: 1000,
+        min_increment_cents: 100,
+        ends_at: new Date(Date.now() + 3_600_000),
+        current_bid_cents: 1000,
+        current_bidder_id: bidder.id,
+        status: 'CANCELLED',
+      },
+    });
+    auctionIds.push(auction.id);
+    await prisma.bid.create({
+      data: { auction_id: auction.id, donor_id: bidder.id, amount_cents: 1000, status: 'ACTIVE' },
+    });
+
+    const bidsRes = await request(createApp())
+      .get(`/api/moderator/auctions/${auction.id}/bids`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(bidsRes.status).toBe(200);
+    expect(bidsRes.body.length).toBe(1);
+    expect(bidsRes.body[0].donor_id).toBe(bidder.id);
+    expect(JSON.stringify(bidsRes.body)).not.toContain(bidder.email);
+
+    const reopenRes = await request(createApp())
+      .post(`/api/moderator/auctions/${auction.id}/reopen`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(reopenRes.status).toBe(200);
+    expect(reopenRes.body.status).toBe('OPEN');
+  });
+
+  it('rejects reopening an auction that is not cancelled', async () => {
+    const { donor, token } = await makeModerator();
+    donorIds.push(donor.id);
+    const auction = await prisma.auction.create({
+      data: {
+        title: 'Mod Not Cancelled',
+        type: 'DIGITAL',
+        starting_price_cents: 1000,
+        min_increment_cents: 100,
+        ends_at: new Date(Date.now() + 3_600_000),
+      },
+    });
+    auctionIds.push(auction.id);
+
+    const res = await request(createApp())
+      .post(`/api/moderator/auctions/${auction.id}/reopen`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
 });

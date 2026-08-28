@@ -198,7 +198,18 @@ export interface Auction {
   status: AuctionStatus;
   is_active?: boolean;
   channel_id?: string | null;
+  is_current_highest_bidder?: boolean;
   bids?: { id: string; amount_cents: number; status: string; created_at: string }[];
+}
+
+export interface AuctionBid {
+  id: string;
+  auction_id: string;
+  donor_id: string;
+  amount_cents: number;
+  rank?: number | null;
+  status: string;
+  created_at: string;
 }
 
 export interface AuctionOffer {

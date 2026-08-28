@@ -88,4 +88,24 @@ describe('Auctions page', () => {
     expect(screen.queryByRole('button', { name: 'bid' })).not.toBeInTheDocument();
     expect(screen.getByText('settled')).toBeInTheDocument();
   });
+
+  it('shows a highest-bidder badge and hides the bid form when the user leads', async () => {
+    vi.mocked(getAuctions).mockResolvedValue([
+      { ...openAuction, current_bid_cents: 1000, is_current_highest_bidder: true },
+    ]);
+    render(<Auctions />);
+    await screen.findByText('Signed Guitar');
+    expect(screen.getByText(/highest bidder/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'bid' })).not.toBeInTheDocument();
+  });
+
+  it('does not show a highest-bidder badge when the user does not lead', async () => {
+    vi.mocked(getAuctions).mockResolvedValue([
+      { ...openAuction, current_bid_cents: 1000, is_current_highest_bidder: false },
+    ]);
+    render(<Auctions />);
+    await screen.findByText('Signed Guitar');
+    expect(screen.queryByText(/highest bidder/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'bid' })).toBeInTheDocument();
+  });
 });
