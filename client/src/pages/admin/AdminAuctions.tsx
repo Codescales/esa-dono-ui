@@ -239,12 +239,14 @@ export default function AdminAuctions() {
                   >
                     edit
                   </button>
-                  <button
-                    onClick={() => openOffers(a)}
-                    className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"
-                  >
-                    results
-                  </button>
+                  {a.status !== 'OPEN' && (
+                    <button
+                      onClick={() => openOffers(a)}
+                      className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"
+                    >
+                      results
+                    </button>
+                  )}
                   <button
                     onClick={() => openBids(a)}
                     className="font-mono text-sm uppercase text-d-yellow hover:text-off-white"

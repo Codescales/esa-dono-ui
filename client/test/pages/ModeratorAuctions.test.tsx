@@ -57,6 +57,13 @@ describe('ModeratorAuctions', () => {
     expect(screen.getByText(/current bid:/)).toHaveTextContent('$15.00');
   });
 
+  it('does not show the results button for an OPEN auction', async () => {
+    mockGet();
+    renderPage();
+    await screen.findByText('Signed Guitar');
+    expect(screen.queryByRole('button', { name: 'results' })).not.toBeInTheDocument();
+  });
+
   it('creates an auction', async () => {
     moderatorClient.get.mockResolvedValue({ data: [] });
     moderatorClient.post.mockResolvedValue({ data: { id: 'a2' } });

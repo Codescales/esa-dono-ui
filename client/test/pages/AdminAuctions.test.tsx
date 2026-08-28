@@ -60,6 +60,13 @@ describe('AdminAuctions', () => {
     expect(screen.getByText(/current bid:/)).toHaveTextContent('$15.00');
   });
 
+  it('does not show the results button for an OPEN auction', async () => {
+    mockGet();
+    render(<AdminAuctions />);
+    await screen.findByText('Signed Guitar');
+    expect(screen.queryByRole('button', { name: 'results' })).not.toBeInTheDocument();
+  });
+
   it('creates an auction', async () => {
     mocks.adminClient.get.mockResolvedValue({ data: [] });
     mocks.adminClient.post.mockResolvedValue({ data: { id: 'a2' } });
