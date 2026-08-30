@@ -23,7 +23,9 @@ import AdminBlockedWords from './pages/admin/AdminBlockedWords';
 import AdminPledges from './pages/admin/AdminPledges';
 import AdminAuctions from './pages/admin/AdminAuctions';
 import AdminDestinations from './pages/admin/AdminDestinations';
+import AdminHelp from './pages/admin/AdminHelp';
 import ModeratorLayout from './pages/moderator/ModeratorLayout';
+import ModeratorHelp from './pages/moderator/ModeratorHelp';
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard';
 import ModeratorChannels from './pages/moderator/ModeratorChannels';
 import ModeratorPolls from './pages/moderator/ModeratorPolls';
@@ -32,7 +34,6 @@ import ModeratorGoals from './pages/moderator/ModeratorGoals';
 import ModeratorClaims from './pages/moderator/ModeratorClaims';
 import ModeratorDonations from './pages/moderator/ModeratorDonations';
 import ModeratorAuctions from './pages/moderator/ModeratorAuctions';
-
 /** Fires a `page_view` span on every client-side route change. */
 function PageViewTracker() {
   const location = useLocation();
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="blocked-words" element={<AdminBlockedWords />} />
           <Route path="auctions" element={<AdminAuctions />} />
           <Route path="destinations" element={<AdminDestinations />} />
+          <Route path="help" element={<AdminHelp />} />
         </Route>
         <Route path="/moderate" element={<ModeratorLayout />}>
           <Route index element={<ModeratorDashboard />} />
@@ -69,6 +71,7 @@ export default function App() {
           <Route path="claims" element={<ModeratorClaims />} />
           <Route path="donations" element={<ModeratorDonations />} />
           <Route path="auctions" element={<ModeratorAuctions />} />
+          <Route path="help" element={<ModeratorHelp />} />
         </Route>
         <Route
           path="*"

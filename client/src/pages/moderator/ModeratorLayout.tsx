@@ -14,6 +14,7 @@ import {
   PlayIcon,
   HomeIcon,
   LogoutIcon,
+  InfoIcon,
 } from '../../components/icons';
 import {
   ModeratorChannelFilterProvider,
@@ -29,6 +30,7 @@ const NAV: SidebarNavItem[] = [
   { to: '/moderate/auctions', label: 'auctions', icon: GiftIcon },
   { to: '/moderate/claims', label: 'claims', icon: CheckBadgeIcon },
   { to: '/moderate/donations', label: 'donations', icon: ReceiptIcon },
+  { to: '/moderate/help', label: 'help', icon: InfoIcon },
 ];
 
 type AccessState = 'checking' | 'granted' | 'denied';

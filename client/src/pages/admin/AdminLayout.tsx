@@ -16,6 +16,7 @@ import {
   PlayIcon,
   HomeIcon,
   LogoutIcon,
+  InfoIcon,
 } from '../../components/icons';
 
 const NAV: SidebarNavItem[] = [
@@ -31,6 +32,7 @@ const NAV: SidebarNavItem[] = [
   { to: '/admin/blocked-words', label: 'blocked words', icon: BanIcon },
   { to: '/admin/destinations', label: 'destinations', icon: PlayIcon },
   { to: '/admin/simulate', label: 'simulate', icon: PlayIcon },
+  { to: '/admin/help', label: 'help', icon: InfoIcon },
 ];
 
 type AccessState = 'checking' | 'granted' | 'denied';
