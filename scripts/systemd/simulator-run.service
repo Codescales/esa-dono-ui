@@ -16,3 +16,9 @@ User=ubuntu
 # Keep a bounded amount of run history in the journal.
 StandardOutput=journal
 StandardError=journal
+
+# A scheduled container-process upgrade on the host can SIGKILL the backend
+# (and the sim's docker exec session) mid-run. That's an expected, benign
+# interruption — the partial run's data is still valid and the next hour
+# restarts fresh — so don't mark the service failed on exit 137 (SIGKILL).
+SuccessExitStatus=137
