@@ -3,6 +3,7 @@ import Card from '../Card';
 import Modal from '../Modal';
 import ProgressBar from '../ProgressBar';
 import LoadingSpinner from '../LoadingSpinner';
+import ShareLinkButton from '../ShareLinkButton';
 import { useCart } from '../../context/CartContext';
 import { sanitizeMoneyInput } from '../../utils/money';
 import {
@@ -18,7 +19,16 @@ function fmt(cents: number) {
 }
 
 export default function PollList() {
-  const { polls, loading, cart, addToCart, removeFromCart, markVisited } = useCart();
+  const {
+    polls,
+    loading,
+    cart,
+    addToCart,
+    removeFromCart,
+    markVisited,
+    stalePollIds,
+    staleOptionIds,
+  } = useCart();
 
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [writingIn, setWritingIn] = useState<Poll | null>(null);
@@ -153,15 +163,25 @@ export default function PollList() {
       </p>
       {polls.map((poll) => {
         const writeIn = writeInInCart(poll.id);
+        const pollUnavailable = stalePollIds.has(poll.id);
         return (
-          <Card key={poll.id} className="mb-4">
+          <Card key={poll.id} className={`mb-4 ${pollUnavailable ? 'opacity-50' : ''}`}>
             <h3 className="font-data font-bold text-lg text-off-white mb-1">{poll.title}</h3>
             {poll.description && (
               <p className="font-body text-sm text-off-white/55 mb-3">{poll.description}</p>
             )}
+            {pollUnavailable && (
+              <span
+                className="inline-block font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm mb-3"
+                style={{ background: 'rgba(224,90,90,.2)', color: 'var(--red)' }}
+              >
+                no longer available
+              </span>
+            )}
             <div className="space-y-3">
               {poll.options.map((opt) => {
                 const added = inCart(poll.id, opt.id);
+                const optionUnavailable = staleOptionIds.has(opt.id);
                 return (
                   <div key={opt.id} className="flex items-center gap-3">
                     <div className="flex-1">
@@ -184,6 +204,7 @@ export default function PollList() {
                         value={getAmount(poll.id, opt.id)}
                         onChange={(e) => handleAmountChange(poll, opt, e.target.value)}
                         onBlur={() => handleAmountBlur(poll, opt)}
+                        disabled={optionUnavailable}
                       />
                       {added ? (
                         <button
@@ -195,11 +216,13 @@ export default function PollList() {
                       ) : (
                         <button
                           onClick={() => handleAdd(poll, opt)}
+                          disabled={optionUnavailable}
                           className="btrl-button text-sm"
                         >
                           add
                         </button>
                       )}
+                      <ShareLinkButton path={`/polls?poll=${poll.id}&option=${opt.id}`} />
                     </div>
                   </div>
                 );

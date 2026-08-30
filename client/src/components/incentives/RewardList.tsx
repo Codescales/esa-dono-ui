@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Card from '../Card';
 import Modal from '../Modal';
 import LoadingSpinner from '../LoadingSpinner';
+import ShareLinkButton from '../ShareLinkButton';
 import { useCart } from '../../context/CartContext';
 import type { Reward } from '../../types';
 
@@ -25,7 +26,8 @@ const FIELDS: Record<string, FieldDef[]> = {
 };
 
 export default function RewardList() {
-  const { rewards, loading, cart, addToCart, removeFromCart, markVisited } = useCart();
+  const { rewards, loading, cart, addToCart, removeFromCart, markVisited, staleRewardIds } =
+    useCart();
   const [claiming, setClaiming] = useState<Reward | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -80,8 +82,9 @@ export default function RewardList() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {rewards.map((r) => {
           const soldOut = r.quantity_total !== null && r.quantity_claimed >= r.quantity_total;
+          const unavailable = staleRewardIds.has(r.id);
           return (
-            <Card key={r.id} className={soldOut ? 'opacity-50' : ''}>
+            <Card key={r.id} className={soldOut || unavailable ? 'opacity-50' : ''}>
               {r.image_url && (
                 <img
                   src={r.image_url}
@@ -95,6 +98,14 @@ export default function RewardList() {
                   <h3 className="font-data font-bold text-lg text-off-white">{r.title}</h3>
                   {r.description && (
                     <p className="font-body text-sm text-off-white/55 mt-1">{r.description}</p>
+                  )}
+                  {unavailable && (
+                    <span
+                      className="inline-block font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm mt-2"
+                      style={{ background: 'rgba(224,90,90,.2)', color: 'var(--red)' }}
+                    >
+                      no longer available
+                    </span>
                   )}
                   <span
                     className="inline-block font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-sm mt-2"
@@ -110,22 +121,25 @@ export default function RewardList() {
                 </div>
                 <div className="text-right ml-4">
                   <p className="font-display text-2xl text-d-yellow">{fmt(r.cost_cents)}</p>
-                  {inCart(r.id) ? (
-                    <button
-                      onClick={() => removeFromCart('REWARD', r.id)}
-                      className={`btrl-button btrl-button-outline mt-2 text-sm ${flashId === r.id ? 'animate-add-flash' : ''}`}
-                    >
-                      remove
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleAddClick(r)}
-                      disabled={soldOut}
-                      className="btrl-button mt-2 text-sm"
-                    >
-                      {soldOut ? 'sold out' : 'add'}
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-2 mt-2">
+                    <ShareLinkButton path={`/rewards?reward=${r.id}`} />
+                    {inCart(r.id) ? (
+                      <button
+                        onClick={() => removeFromCart('REWARD', r.id)}
+                        className={`btrl-button btrl-button-outline text-sm ${flashId === r.id ? 'animate-add-flash' : ''}`}
+                      >
+                        remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAddClick(r)}
+                        disabled={soldOut}
+                        className="btrl-button text-sm"
+                      >
+                        {soldOut ? 'sold out' : 'add'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>

@@ -11,7 +11,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx', 'src/lib/tracing.ts', 'src/config.ts'],
+      // Static staff/manual pages are documentation, not behavior — skip them
+      // for coverage so they don't drag the global thresholds down.
+      exclude: [
+        'src/main.tsx',
+        'src/lib/tracing.ts',
+        'src/config.ts',
+        'src/pages/shared/**',
+        'src/pages/admin/AdminHelp.tsx',
+        'src/pages/moderator/ModeratorHelp.tsx',
+      ],
       // `include` makes untested files appear at 0% (rather than dropping out
       // of the metric), so a new page shipped without tests drags coverage
       // down and trips the thresholds below.

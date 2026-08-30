@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getCampaign } from '../api/campaign';
 import ProgressBar from '../components/ProgressBar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { CAMPAIGN_POLL_MS } from '../config';
 import type { Campaign } from '../types';
 
 function fmt(cents: number) {
@@ -14,9 +15,21 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getCampaign()
-      .then(setCampaign)
-      .catch(() => setError('Failed to load campaign data.'));
+    let cancelled = false;
+    const load = () =>
+      getCampaign()
+        .then((c) => {
+          if (!cancelled) setCampaign(c);
+        })
+        .catch(() => {
+          if (!cancelled) setError('Failed to load campaign data.');
+        });
+    load();
+    const timer = setInterval(load, CAMPAIGN_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   if (error)

@@ -15,17 +15,104 @@ import { getChannels } from '../api/channels';
 import { createPledge } from '../api/pledge';
 import { track, trackAsync } from '../lib/tracing';
 import {
+  DEFAULT_VOTE_AMOUNT,
+  DEFAULT_GOAL_AMOUNT,
+  MIN_SPEND_CENTS,
+  MIN_SPEND_DOLLARS,
+} from '../config';
+import {
   apiErrorMessage,
   type CartItem,
   type Reward,
   type Poll,
+  type PollOption,
   type Goal,
   type Channel,
   type PledgeResult,
 } from '../types';
+import { INCENTIVES_POLL_MS } from '../config';
 
 const CART_STORAGE_KEY = 'donation_cart_v1';
 const EMAIL_STORAGE_KEY = 'last_donor_email';
+
+/**
+ * Merge freshly-fetched records into the current list while preserving the
+ * current on-screen order. Records present in both are updated in place;
+ * brand-new records are appended. Records that are no longer in the fresh
+ * payload are dropped UNLESS their id is in `protectedIds` — those are kept
+ * (with their last-known data) so a donor's in-progress cart selection is
+ * never yanked out from under them by a background refresh. Returns the set of
+ * ids that were kept only because they're protected (i.e. no longer present
+ * in the fresh payload) so callers can surface them as unavailable.
+ */
+function mergeById<T extends { id: string }>(
+  current: T[],
+  fresh: T[],
+  protectedIds: ReadonlySet<string>,
+): { merged: T[]; staleIds: Set<string> } {
+  const freshById = new Map(fresh.map((f) => [f.id, f]));
+  const currentIds = new Set(current.map((c) => c.id));
+  const staleIds = new Set<string>();
+  const merged = current
+    .filter((c) => {
+      if (freshById.has(c.id)) return true;
+      if (protectedIds.has(c.id)) {
+        staleIds.add(c.id);
+        return true;
+      }
+      return false;
+    })
+    .map((c) => freshById.get(c.id) ?? c);
+  for (const f of fresh) {
+    if (!currentIds.has(f.id)) merged.push(f);
+  }
+  return { merged, staleIds };
+}
+
+/**
+ * Poll-specific merge: the server orders options by votes_cents desc, so a
+ * naive replace would reorder options as votes come in and make the page jump
+ * under the donor. Preserve the current option order (updating counts in
+ * place) while still refreshing the poll's own fields. Options that are in the
+ * cart are protected from being dropped when they leave the fresh payload.
+ * Returns the sets of poll ids and option ids that were kept only because
+ * they're protected (no longer present in the fresh payload).
+ */
+function mergePolls(
+  current: Poll[],
+  fresh: Poll[],
+  protectedPollIds: ReadonlySet<string>,
+  protectedOptionIds: ReadonlySet<string>,
+): { merged: Poll[]; stalePollIds: Set<string>; staleOptionIds: Set<string> } {
+  const freshById = new Map(fresh.map((f) => [f.id, f]));
+  const currentIds = new Set(current.map((c) => c.id));
+  const stalePollIds = new Set<string>();
+  const staleOptionIds = new Set<string>();
+  const merged = current
+    .filter((c) => {
+      if (freshById.has(c.id)) return true;
+      if (protectedPollIds.has(c.id)) {
+        stalePollIds.add(c.id);
+        return true;
+      }
+      return false;
+    })
+    .map((c) => {
+      const f = freshById.get(c.id);
+      if (!f) return c;
+      const { merged: options, staleIds } = mergeById<PollOption>(
+        c.options,
+        f.options,
+        protectedOptionIds,
+      );
+      staleIds.forEach((id) => staleOptionIds.add(id));
+      return { ...f, options };
+    });
+  for (const f of fresh) {
+    if (!currentIds.has(f.id)) merged.push(f);
+  }
+  return { merged, stalePollIds, staleOptionIds };
+}
 
 export type IncentiveCategory = 'rewards' | 'polls' | 'goals';
 
@@ -127,6 +214,22 @@ interface CartContextValue {
   // chance to fix their cart instead of the whole pledge being rejected on
   // one stale item.
   revalidateCart: () => Promise<CartIssue[]>;
+
+  // Ids of incentives that are no longer present in the live payload but are
+  // kept visible because they're in the cart. Consumers render an
+  // "unavailable" indicator on these so the donor knows they've closed.
+  staleRewardIds: ReadonlySet<string>;
+  stalePollIds: ReadonlySet<string>;
+  staleOptionIds: ReadonlySet<string>;
+  staleGoalIds: ReadonlySet<string>;
+
+  // Prefills the cart from a shared permalink (e.g. /rewards?reward=<id>).
+  // Resolves the linked incentive against the loaded data, auto-selects its
+  // channel, adds it to the cart, and opens the drawer. Returns a warning
+  // string when the target is missing/inactive/sold out so the caller can
+  // surface it instead of silently doing nothing. Safe to call repeatedly —
+  // it only acts once per distinct target.
+  prefillFromLink: (params: URLSearchParams) => string | null;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -159,6 +262,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
+  // Ids of incentives that are no longer present in the live payload but are
+  // kept visible because they're in the cart. Consumers render an
+  // "unavailable" indicator on these so the donor knows they've closed.
+  const [staleRewardIds, setStaleRewardIds] = useState<Set<string>>(new Set());
+  const [stalePollIds, setStalePollIds] = useState<Set<string>>(new Set());
+  const [staleOptionIds, setStaleOptionIds] = useState<Set<string>>(new Set());
+  const [staleGoalIds, setStaleGoalIds] = useState<Set<string>>(new Set());
+
+  // Mirrors of the incentive lists so the polling interval can read the
+  // latest values without being recreated on every state change.
+  const prevRewardsRef = useRef(allRewards);
+  const prevPollsRef = useRef(allPolls);
+  const prevGoalsRef = useRef(allGoals);
+  prevRewardsRef.current = allRewards;
+  prevPollsRef.current = allPolls;
+  prevGoalsRef.current = allGoals;
+
+  // Permalinks are applied exactly once per distinct target so a re-render
+  // (or a re-navigation to the same link) doesn't re-add the item.
+  const consumedPrefill = useRef<Set<string>>(new Set());
+
   const fetchAll = useCallback(async () => {
     const [r, p, g, s] = await Promise.all([getRewards(), getPolls(), getGoals(), getChannels()]);
     setAllRewards(r);
@@ -170,6 +294,48 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  // Background refresh so incentive state (sold-out counts, poll tallies, goal
+  // progress, newly opened channels) updates for clients without a reload.
+  // The merge helpers above preserve the current on-screen order and never
+  // drop items that are in the cart, so a donor's in-progress selection is
+  // never disturbed by a refresh. The cart is read through a ref so the
+  // interval isn't torn down and recreated on every cart change.
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchAll().then(({ r, p, g, s }) => {
+        const currentCart = cartRef.current;
+        const protectedRewardIds = new Set(
+          currentCart.filter((i) => i.kind === 'REWARD').map((i) => i.target_id),
+        );
+        const protectedGoalIds = new Set(
+          currentCart.filter((i) => i.kind === 'GOAL').map((i) => i.target_id),
+        );
+        const protectedPollIds = new Set(
+          currentCart
+            .filter((i) => i.kind === 'POLL_VOTE' || i.kind === 'POLL_CUSTOM')
+            .map((i) => i.poll_id!),
+        );
+        const protectedOptionIds = new Set(
+          currentCart.filter((i) => i.kind === 'POLL_VOTE').map((i) => i.target_id),
+        );
+        const rewards = mergeById(prevRewardsRef.current, r, protectedRewardIds);
+        const polls = mergePolls(prevPollsRef.current, p, protectedPollIds, protectedOptionIds);
+        const goals = mergeById(prevGoalsRef.current, g, protectedGoalIds);
+        setAllRewards(rewards.merged);
+        setAllPolls(polls.merged);
+        setAllGoals(goals.merged);
+        setStaleRewardIds(rewards.staleIds);
+        setStalePollIds(polls.stalePollIds);
+        setStaleOptionIds(polls.staleOptionIds);
+        setStaleGoalIds(goals.staleIds);
+        setChannels(s);
+      });
+    }, INCENTIVES_POLL_MS);
+    return () => clearInterval(timer);
   }, [fetchAll]);
 
   // Session-scoped persistence. Incentive lifetimes are hours at most, so a
@@ -351,6 +517,87 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return issues;
   }, [cart, fetchAll]);
 
+  // Resolves a shared permalink into a cart item. Returns null when the
+  // target is missing/inactive/sold out (the caller surfaces a warning), or
+  // when the amount is below the minimum spend.
+  const prefillFromLink = useCallback(
+    (params: URLSearchParams): string | null => {
+      const rewardId = params.get('reward');
+      const pollId = params.get('poll');
+      const optionId = params.get('option');
+      const goalId = params.get('goal');
+      const amountParam = params.get('amount');
+
+      let item: CartItem | null = null;
+      let channelId: string | null = null;
+
+      if (rewardId) {
+        const reward = allRewards.find((r) => r.id === rewardId);
+        if (!reward || reward.is_active === false) return 'That reward is no longer available.';
+        const soldOut =
+          reward.quantity_total !== null && reward.quantity_claimed >= reward.quantity_total;
+        if (soldOut) return 'That reward is sold out.';
+        item = {
+          kind: 'REWARD',
+          target_id: reward.id,
+          amount_cents: reward.cost_cents,
+          label: reward.title,
+        };
+        channelId = reward.channel_id ?? null;
+      } else if (pollId && optionId) {
+        const poll = allPolls.find((p) => p.id === pollId);
+        if (!poll || poll.is_active === false) return 'That poll is no longer active.';
+        if (poll.ends_at && new Date(poll.ends_at) < new Date()) return 'That poll has ended.';
+        const option = poll.options.find((o) => o.id === optionId);
+        if (!option) return 'That poll option is no longer available.';
+        const cents = Math.round(parseFloat(amountParam ?? DEFAULT_VOTE_AMOUNT) * 100);
+        if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
+          return `Minimum vote amount is $${MIN_SPEND_DOLLARS.toFixed(2)}.`;
+        }
+        item = {
+          kind: 'POLL_VOTE',
+          target_id: option.id,
+          poll_id: poll.id,
+          amount_cents: cents,
+          label: option.label,
+        };
+        channelId = poll.channel_id ?? null;
+      } else if (goalId) {
+        const goal = allGoals.find((g) => g.id === goalId);
+        if (!goal || goal.is_active === false) return 'That fund goal is no longer active.';
+        if (goal.is_complete) return 'That fund goal is already complete.';
+        const cents = Math.round(parseFloat(amountParam ?? DEFAULT_GOAL_AMOUNT) * 100);
+        if (isNaN(cents) || cents < MIN_SPEND_CENTS) {
+          return `Minimum contribution is $${MIN_SPEND_DOLLARS.toFixed(2)}.`;
+        }
+        item = {
+          kind: 'GOAL',
+          target_id: goal.id,
+          amount_cents: cents,
+          label: goal.title,
+        };
+        channelId = goal.channel_id ?? null;
+      } else {
+        return null;
+      }
+
+      const key = `${item.kind}:${item.target_id}`;
+      if (consumedPrefill.current.has(key)) return null;
+      consumedPrefill.current.add(key);
+
+      // Auto-select the incentive's channel. Channel-specific items can't mix
+      // with another channel's, so if the donor already has a conflicting cart
+      // the switch is held pending confirmation (the existing modal) rather
+      // than silently dropping their items.
+      if (channelId) selectChannel(channelId);
+
+      addToCart(item);
+      openDrawer();
+      return null;
+    },
+    [allRewards, allPolls, allGoals, selectChannel, addToCart, openDrawer],
+  );
+
   const checkout = useCallback(async (): Promise<PledgeResult | null> => {
     setCheckoutError('');
     if (!email.trim()) {
@@ -445,6 +692,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCheckoutError,
     checkout,
     revalidateCart,
+    prefillFromLink,
+    staleRewardIds,
+    stalePollIds,
+    staleOptionIds,
+    staleGoalIds,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

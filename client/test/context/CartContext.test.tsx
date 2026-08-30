@@ -27,6 +27,7 @@ vi.mock('../../src/lib/tracing', () => ({
 }));
 
 import { CartProvider, useCart } from '../../src/context/CartContext';
+import { INCENTIVES_POLL_MS } from '../../src/config';
 
 const reward = {
   id: 'r1',
@@ -234,5 +235,208 @@ describe('CartContext', () => {
       issues = await result.current.revalidateCart();
     });
     expect((issues as Array<{ reason: string }>)[0]?.reason).toMatch(/Sold out/);
+  });
+
+  it('prefillFromLink adds a reward, selects its channel, and opens the drawer', async () => {
+    mocks.getRewards.mockResolvedValue([{ ...reward, channel_id: 'c1' }]);
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let warning: unknown;
+    act(() => {
+      warning = result.current.prefillFromLink(new URLSearchParams('reward=r1'));
+    });
+    expect(warning).toBeNull();
+    expect(result.current.cart).toHaveLength(1);
+    expect(result.current.cart[0]).toMatchObject({
+      kind: 'REWARD',
+      target_id: 'r1',
+      amount_cents: 1000,
+    });
+    expect(result.current.selectedChannelId).toBe('c1');
+    expect(result.current.drawerOpen).toBe(true);
+  });
+
+  it('prefillFromLink adds a poll vote with a custom amount', async () => {
+    mocks.getPolls.mockResolvedValue([
+      {
+        id: 'p1',
+        title: 'Pick a game',
+        options: [{ id: 'o1', label: 'Mario', votes_cents: 0 }],
+        total_votes_cents: 0,
+        is_active: true,
+      },
+    ]);
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let warning: unknown;
+    act(() => {
+      warning = result.current.prefillFromLink(new URLSearchParams('poll=p1&option=o1&amount=5'));
+    });
+    expect(warning).toBeNull();
+    expect(result.current.cart[0]).toMatchObject({
+      kind: 'POLL_VOTE',
+      target_id: 'o1',
+      poll_id: 'p1',
+      amount_cents: 500,
+    });
+  });
+
+  it('prefillFromLink adds a goal with the default amount', async () => {
+    mocks.getGoals.mockResolvedValue([
+      { id: 'g1', title: 'New PC', current_cents: 0, target_cents: 10000, is_active: true },
+    ]);
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let warning: unknown;
+    act(() => {
+      warning = result.current.prefillFromLink(new URLSearchParams('goal=g1'));
+    });
+    expect(warning).toBeNull();
+    expect(result.current.cart[0]).toMatchObject({
+      kind: 'GOAL',
+      target_id: 'g1',
+      amount_cents: 500,
+    });
+  });
+
+  it('prefillFromLink warns on a sold-out reward and does not add it', async () => {
+    mocks.getRewards.mockResolvedValue([{ ...reward, quantity_total: 5, quantity_claimed: 5 }]);
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let warning: unknown;
+    act(() => {
+      warning = result.current.prefillFromLink(new URLSearchParams('reward=r1'));
+    });
+    expect(warning).toMatch(/sold out/i);
+    expect(result.current.cart).toHaveLength(0);
+  });
+
+  it('prefillFromLink warns on an unknown target', async () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let warning: unknown;
+    act(() => {
+      warning = result.current.prefillFromLink(new URLSearchParams('reward=missing'));
+    });
+    expect(warning).toMatch(/no longer available/i);
+    expect(result.current.cart).toHaveLength(0);
+  });
+
+  it('prefillFromLink only applies once per target', async () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.prefillFromLink(new URLSearchParams('reward=r1'));
+    });
+    act(() => {
+      result.current.prefillFromLink(new URLSearchParams('reward=r1'));
+    });
+    expect(result.current.cart).toHaveLength(1);
+  });
+
+  it('poll refresh keeps a cart reward visible and flags it stale when it leaves the payload', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCart(), { wrapper });
+    // Flush the initial fetch (mocked promise resolves on a microtask).
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.loading).toBe(false);
+
+    act(() => {
+      result.current.addToCart({ kind: 'REWARD', target_id: 'r1', amount_cents: 1000 });
+    });
+
+    // The reward is dropped from the fresh payload on the next poll.
+    mocks.getRewards.mockResolvedValue([]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(INCENTIVES_POLL_MS);
+    });
+
+    expect(result.current.staleRewardIds.has('r1')).toBe(true);
+    // It stays visible (not removed) despite being absent from the payload.
+    expect(result.current.rewards.map((r) => r.id)).toContain('r1');
+
+    // Once removed from the cart, it drops off on the next refresh.
+    act(() => result.current.removeFromCart('REWARD', 'r1'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(INCENTIVES_POLL_MS);
+    });
+    expect(result.current.rewards.map((r) => r.id)).not.toContain('r1');
+    expect(result.current.staleRewardIds.has('r1')).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('poll refresh updates values in place and keeps a stale poll option flagged', async () => {
+    const pollObj = {
+      id: 'p1',
+      title: 'Pick a game',
+      options: [{ id: 'o1', label: 'Mario', votes_cents: 0 }],
+      total_votes_cents: 0,
+      is_active: true,
+    };
+    mocks.getPolls.mockResolvedValue([pollObj]);
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.loading).toBe(false);
+
+    act(() => {
+      result.current.addToCart({
+        kind: 'POLL_VOTE',
+        target_id: 'o1',
+        poll_id: 'p1',
+        amount_cents: 500,
+      });
+    });
+
+    // Option o1 is gone from the fresh poll; a new option o2 appears.
+    mocks.getPolls.mockResolvedValue([
+      {
+        id: 'p1',
+        title: 'Pick a game',
+        options: [{ id: 'o2', label: 'Zelda', votes_cents: 0 }],
+        total_votes_cents: 0,
+        is_active: true,
+      },
+    ]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(INCENTIVES_POLL_MS);
+    });
+
+    // Protected stale option o1 stays, new option o2 is appended, poll not stale.
+    const poll = result.current.polls[0]!;
+    expect(poll.options.map((o) => o.id)).toEqual(['o1', 'o2']);
+    expect(result.current.stalePollIds.has('p1')).toBe(false);
+    expect(result.current.staleOptionIds.has('o1')).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('poll refresh drops a non-cart incentive that leaves the payload', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.rewards).toHaveLength(1);
+
+    // Reward r1 was never added to the cart, so it should drop off.
+    mocks.getRewards.mockResolvedValue([]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(INCENTIVES_POLL_MS);
+    });
+    expect(result.current.rewards).toHaveLength(0);
+    expect(result.current.staleRewardIds.size).toBe(0);
+    vi.useRealTimers();
   });
 });
