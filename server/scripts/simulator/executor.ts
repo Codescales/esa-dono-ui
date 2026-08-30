@@ -69,6 +69,7 @@ export class Executor {
           email: donorEmail(this.opts.runId, donorRef),
           donor_name: donorRef,
           amount_cents: p.amountCents,
+          comment: p.comment as string | undefined,
           channel_id: p.channelRef ? this.ref(p.channelRef as string) : null,
         };
         const res = await fetch(`${baseUrl}/api/admin/simulate-donation`, {

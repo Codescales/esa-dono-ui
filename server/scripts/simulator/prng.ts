@@ -49,6 +49,7 @@ export const DIMENSIONS = [
   'incentivePick',
   'voteAmount',
   'timing',
+  'comment',
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 

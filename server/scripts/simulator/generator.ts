@@ -15,6 +15,22 @@ import { makeStreams, int, pick, weighted, exponentialDelayMs } from './prng.js'
 
 const MIN_SPEND_CENTS = 100;
 
+/** Canned donor comments attached to simulated DONATE events (#37). */
+const COMMENTS = [
+  'Good luck with the marathon!',
+  'Proud of everyone involved.',
+  'Keep up the great work!',
+  'Watching from home, sending love.',
+  'Amazing cause, happy to help.',
+  'One more run, go go go!',
+  'Rooting for you all.',
+  'This is why I love this community.',
+  'Keep the energy high!',
+  'In memory of a friend. 💙',
+  'Let’s smash that goal!',
+  'So glad to support this.',
+];
+
 const SPEND_WEIGHTS: readonly (readonly [ActionType, number])[] = [
   ['CLAIM_REWARD', 3],
   ['VOTE_POLL', 3],
@@ -55,6 +71,7 @@ export function generate(opts: GenerateOptions): DecisionEntry[] {
         params = {
           amountCents: int(s.amount, 5, 200) * 100, // $5–$200
           channelRef: pick(s.incentivePick, catalog.channels),
+          comment: pick(s.comment, COMMENTS),
         };
         break;
       case 'CLAIM_REWARD':
