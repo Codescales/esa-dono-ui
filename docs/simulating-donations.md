@@ -57,7 +57,10 @@ For a container deployment where the backend has Node + `tsx` baked in (the stan
 
 - **`server/scripts/run-sim.sh`** — runs _inside_ the backend container. Sane defaults (`SEED` auto-generated from a UTC timestamp, `EVENTS=150`, `RATE=3/s`, writes to `/data/sim-runs/<seed>` so output survives container restarts), all overridable via env vars, and prunes runs older than `KEEP_DAYS` (default 14).
 - **`scripts/run-simulator.sh`** — host-side wrapper that `docker exec`s into the running backend container to invoke `run-sim.sh`, forwarding any of the env overrides that are set.
-- **`scripts/systemd/`** — `simulator-run.service` + `simulator-run.timer` (every 6h by default, `Persistent=true`) and `install-systemd-timers.sh` to install/enable them (`sudo scripts/systemd/install-systemd-timers.sh`).
+- **`scripts/reset-demo.sh`** — host-side nightly reset: `docker compose down -v` (drops the DB volume), brings the stack back up, waits for health, and re-seeds the deterministic baseline. Gated on `DEMO_RESET_ALLOWED=1` so it can never wipe a non-demo stack by accident.
+- **`scripts/systemd/`** — three systemd units, all `Persistent=true`, installed/enabled by `install-systemd-timers.sh` (`sudo scripts/systemd/install-systemd-timers.sh`; idempotent and safe to re-run after editing unit files):
+  - `simulator-run.{service,timer}` — runs the simulator **hourly 06:00–22:00 UTC** for all-day coverage.
+  - `demo-reset.{service,timer}` — resets the demo **daily at 04:00 UTC**, after the last sim run of the previous day and before the first of the new one. `demo-reset.service` sets `DEMO_RESET_ALLOWED=1` and pulls `ADMIN_API_KEY` from `EnvironmentFile=` (the project `.env`); note the duplicate-key caveat below.
 
 ```bash
 # Run once, right now:
@@ -66,7 +69,12 @@ For a container deployment where the backend has Node + `tsx` baked in (the stan
 # With overrides:
 EVENTS=300 RATE=5/s ./scripts/run-simulator.sh
 
-# Install the recurring timer:
+# Install the recurring timers (simulator hourly 06-22 UTC + nightly 04:00 UTC reset):
 sudo scripts/systemd/install-systemd-timers.sh
-journalctl -u simulator-run.service -f   # tail logs
+journalctl -u simulator-run.service -f   # tail sim logs
+journalctl -u demo-reset.service -f      # tail reset logs
 ```
+
+> **`.env` duplicate-key caveat (applies to `demo-reset.service`).** `reset-demo.sh` re-seeds through the admin API, so the `ADMIN_API_KEY` it uses must match the one the running backend was started with. The project `.env` currently lists `ADMIN_API_KEY` twice (a stale first value and a newer one); docker-compose applies the **last** occurrence, which is what the container sees. `demo-reset.service` reads the whole `.env` via `EnvironmentFile=`, where the **last** `ADMIN_API_KEY` also wins — so seeding and the live backend stay in agreement. If you ever edit the `.env`, keep only one `ADMIN_API_KEY` to avoid drift, or pin it explicitly with an `Environment=ADMIN_API_KEY=...` line in `demo-reset.service`.
+>
+> If the backend has **no host port mapping** (e.g. the oci-public demo behind Caddy on a shared proxy network), `reset-demo.sh` falls back to health-checking and seeding from a throwaway `curlimages/curl` container on the backend's own Docker network, addressing it by its compose service DNS name (`dono-backend`). It only needs host docker/compose access — which the service's `ubuntu` user has via the `docker` group.
