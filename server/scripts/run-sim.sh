@@ -11,6 +11,8 @@
 # Env overrides (all optional):
 #   SEED        seed string (default: sim-<UTC timestamp>)
 #   EVENTS      event count (default: 150)
+#   DONORS      distinct synthetic donors (default: 25 — funds enough balance
+#               for the ~145 spend events per run to mostly succeed)
 #   RATE        mean arrival rate (default: 0.06/s — spreads 150 events across
 #               ~42 min, so an hourly run covers most of the hour)
 #   BASE_URL    API base (default: http://localhost:3001)
@@ -20,6 +22,7 @@ set -eu
 
 SEED="${SEED:-sim-$(date -u +%Y%m%dT%H%M%SZ)}"
 EVENTS="${EVENTS:-150}"
+DONORS="${DONORS:-25}"
 RATE="${RATE:-0.06/s}"
 BASE_URL="${BASE_URL:-http://localhost:3001}"
 OUT_DIR="${OUT_DIR:-/data/sim-runs/$SEED}"
@@ -38,6 +41,7 @@ echo "    seed=$SEED events=$EVENTS rate=$RATE base_url=$BASE_URL out=$OUT_DIR"
 node_modules/.bin/tsx server/scripts/simulate.ts \
   --seed "$SEED" \
   --events "$EVENTS" \
+  --donors "$DONORS" \
   --rate "$RATE" \
   --base-url "$BASE_URL" \
   --admin-key "$ADMIN_API_KEY" \

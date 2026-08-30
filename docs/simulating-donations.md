@@ -55,7 +55,7 @@ To reset the demo to a clean baseline before/after simulation runs: `DEMO_RESET_
 
 For a container deployment where the backend has Node + `tsx` baked in (the standard runtime image does) but no host access, three pieces run the simulator on a recurring schedule:
 
-- **`server/scripts/run-sim.sh`** — runs _inside_ the backend container. Sane defaults (`SEED` auto-generated from a UTC timestamp, `EVENTS=150`, `RATE=0.06/s` — spreads 150 events across ~42 min so an hourly run covers most of the hour, writes to `/data/sim-runs/<seed>` so output survives container restarts), all overridable via env vars, and prunes runs older than `KEEP_DAYS` (default 14).
+- **`server/scripts/run-sim.sh`** — runs _inside_ the backend container. Sane defaults (`SEED` auto-generated from a UTC timestamp, `EVENTS=150`, `DONORS=25` — enough distinct donors to fund the ~145 spend events per run so most succeed, `RATE=0.06/s` — spreads 150 events across ~42 min so an hourly run covers most of the hour, writes to `/data/sim-runs/<seed>` so output survives container restarts), all overridable via env vars, and prunes runs older than `KEEP_DAYS` (default 14).
 - **`scripts/run-simulator.sh`** — host-side wrapper that `docker exec`s into the running backend container to invoke `run-sim.sh`, forwarding any of the env overrides that are set.
 - **`scripts/reset-demo.sh`** — host-side nightly reset: `docker compose down -v` (drops the DB volume), brings the stack back up, waits for health, and re-seeds the deterministic baseline. Gated on `DEMO_RESET_ALLOWED=1` so it can never wipe a non-demo stack by accident.
 - **`scripts/systemd/`** — three systemd units, all `Persistent=true`, installed/enabled by `install-systemd-timers.sh` (`sudo scripts/systemd/install-systemd-timers.sh`; idempotent and safe to re-run after editing unit files):
@@ -67,7 +67,7 @@ For a container deployment where the backend has Node + `tsx` baked in (the stan
 ./scripts/run-simulator.sh
 
 # With overrides:
-EVENTS=300 RATE=0.1/s ./scripts/run-simulator.sh
+EVENTS=300 DONORS=40 RATE=0.1/s ./scripts/run-simulator.sh
 
 # Install the recurring timers (simulator hourly 06-22 UTC + nightly 04:00 UTC reset):
 sudo scripts/systemd/install-systemd-timers.sh
