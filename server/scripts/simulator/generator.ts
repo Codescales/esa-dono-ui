@@ -15,6 +15,35 @@ import { makeStreams, int, pick, weighted, exponentialDelayMs } from './prng.js'
 
 const MIN_SPEND_CENTS = 100;
 
+/**
+ * Empirical donation-amount distribution from real ESA Tiltify data
+ * (970 donations, Winter 2026). Heavily right-skewed: ~84% are $20 or under
+ * (median ~$15, mean ~$34), with a long tail of rare large gifts up to $1500.
+ * Each entry is [amountCents, weight]; weights mirror the observed histogram.
+ */
+const DONATE_AMOUNTS: readonly (readonly [number, number])[] = [
+  [100, 38], // $1
+  [200, 38], // $2
+  [300, 25], // $3
+  [400, 10], // $4
+  [500, 177], // $5
+  [1000, 185], // $6–$10
+  [1500, 25], // $11–$15
+  [2000, 240], // $16–$20
+  [2500, 23], // $21–$25
+  [3000, 17], // $26–$30
+  [3500, 8], // $31–$35
+  [4000, 9], // $36–$40
+  [5000, 85], // $41–$50
+  [6000, 3], // $51–$60
+  [7000, 8], // $61–$70
+  [10000, 39], // $71–$100
+  [15000, 7], // $101–$150
+  [20000, 9], // $151–$200
+  [50000, 19], // $201–$500
+  [100000, 5], // >$500
+];
+
 /** Canned donor comments attached to simulated DONATE events (#37). */
 const COMMENTS = [
   'Good luck with the marathon!',
@@ -69,7 +98,7 @@ export function generate(opts: GenerateOptions): DecisionEntry[] {
       case 'DONATE':
         donated.add(donorRef);
         params = {
-          amountCents: int(s.amount, 5, 200) * 100, // $5–$200
+          amountCents: weighted(s.amount, DONATE_AMOUNTS),
           channelRef: pick(s.incentivePick, catalog.channels),
           comment: pick(s.comment, COMMENTS),
         };
