@@ -27,19 +27,19 @@ describe('ShareLinkButton', () => {
     });
 
     render(<ShareLinkButton path="/rewards?reward=r1" />);
-    const button = screen.getByRole('button', { name: 'share' });
+    const button = screen.getByRole('button', { name: 'Share' });
 
     fireEvent.click(button);
 
     await act(async () => {});
     expect(writeText).toHaveBeenCalledWith('https://example.com/rewards?reward=r1');
-    expect(screen.getByRole('button', { name: 'copied!' })).toBeInTheDocument();
+    expect(screen.getByText('copied!')).toBeInTheDocument();
 
     // Confirmation resets after the timeout.
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    expect(screen.getByRole('button', { name: 'share' })).toBeInTheDocument();
+    expect(screen.queryByText('copied!')).not.toBeInTheDocument();
   });
 
   it('does not crash or show confirmation when the clipboard is unavailable', async () => {
@@ -49,10 +49,10 @@ describe('ShareLinkButton', () => {
     });
 
     render(<ShareLinkButton path="/goals?goal=g1" />);
-    fireEvent.click(screen.getByRole('button', { name: 'share' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
     await act(async () => {});
-    expect(screen.getByRole('button', { name: 'share' })).toBeInTheDocument();
+    expect(screen.queryByText('copied!')).not.toBeInTheDocument();
   });
 
   afterEach(() => {

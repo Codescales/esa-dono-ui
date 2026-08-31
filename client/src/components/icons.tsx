@@ -94,6 +94,18 @@ export function ClipboardIcon(props: IconProps) {
   );
 }
 
+export function ShareIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="5" cy="10" r="2" />
+      <circle cx="15" cy="4.5" r="2" />
+      <circle cx="15" cy="15.5" r="2" />
+      <path d="M6.8 8.8l6.4-3.1M6.8 11.2l6.4 3.1" />
+    </>,
+    props,
+  );
+}
+
 export function BanIcon(props: IconProps) {
   return base(
     <>

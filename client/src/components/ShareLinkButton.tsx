@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardIcon } from './icons';
+import { ShareIcon } from './icons';
 
 /** Copies a shareable permalink to the clipboard. Shows a brief "copied"
  * confirmation so the runner gets feedback without a toast system. */
@@ -22,9 +22,10 @@ export default function ShareLinkButton({ path }: { path: string }) {
       onClick={handleCopy}
       className="btrl-button btrl-button-ghost text-xs flex items-center gap-1"
       title="Copy a link that pre-fills this item into a donor's cart"
+      aria-label="Share"
     >
-      <ClipboardIcon className="w-3.5 h-3.5" />
-      {copied ? 'copied!' : 'share'}
+      <ShareIcon className="w-3.5 h-3.5" />
+      {copied && <span>copied!</span>}
     </button>
   );
 }

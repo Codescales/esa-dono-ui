@@ -8,7 +8,6 @@ import { CheckBadgeIcon } from '../components/icons';
 import RewardList from '../components/incentives/RewardList';
 import PollList from '../components/incentives/PollList';
 import GoalList from '../components/incentives/GoalList';
-
 const TABS = ['rewards', 'polls', 'goals'] as const;
 type Tab = (typeof TABS)[number];
 
@@ -38,11 +37,13 @@ export default function DonateFlow() {
     pendingChannelId,
     confirmChannelSwitch,
     cancelChannelSwitch,
+    prefillFromLink,
   } = useCart();
   const location = useLocation();
 
   const [tab, setTab] = useState<Tab>(() => tabFromPathname(location.pathname));
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const [prefillWarning, setPrefillWarning] = useState<string | null>(null);
 
   // Warning shown when "review & checkout" is clicked before every category
   // has been opened. A second click while it's showing bypasses it and
@@ -58,6 +59,33 @@ export default function DonateFlow() {
   useEffect(() => {
     setTab(tabFromPathname(location.pathname));
   }, [location.pathname]);
+
+  // Apply a shared permalink (e.g. /rewards?reward=<id>) once the incentive
+  // data has loaded. prefillFromLink resolves the target, auto-selects its
+  // channel, adds it to the cart, and opens the drawer; a non-null return is
+  // a warning about a missing/inactive/sold-out target that we surface
+  // instead of silently doing nothing.
+  useEffect(() => {
+    if (loading) return;
+    const warning = prefillFromLink(new URLSearchParams(location.search));
+    if (warning) setPrefillWarning(warning);
+  }, [loading, location.search, prefillFromLink]);
+
+  // A poll-only permalink (/polls?poll=<id>) doesn't prefill a cart item —
+  // it just takes the donor to the polls tab and scrolls to that poll so
+  // they can pick an option and amount themselves.
+  useEffect(() => {
+    if (loading) return;
+    const pollId = new URLSearchParams(location.search).get('poll');
+    if (!pollId) return;
+    setTab('polls');
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`poll-${pollId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [loading, location.search]);
 
   // Dismiss a lingering warning banner once the donor moves to a different
   // category — it did its job (or was bypassed) and shouldn't stick around
@@ -107,6 +135,17 @@ export default function DonateFlow() {
 
   return (
     <div className="max-w-3xl mx-auto p-8">
+      {prefillWarning && (
+        <div className="p-3 mb-6 rounded-sm text-sm" style={{ background: 'rgba(224,90,90,.16)' }}>
+          <p className="font-data" style={{ color: 'var(--red)' }}>
+            {prefillWarning}
+          </p>
+          <p className="font-body text-xs text-off-white/55 mt-1">
+            The item you were linked to couldn't be added to your cart.
+          </p>
+        </div>
+      )}
+
       {/* Channel picker — required before browsing incentives. Every donation
           routes to exactly one channel, and incentives tied to a specific
           channel cannot be mixed with another channel's in the same cart, so

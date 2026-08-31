@@ -165,8 +165,15 @@ export default function PollList() {
         const writeIn = writeInInCart(poll.id);
         const pollUnavailable = stalePollIds.has(poll.id);
         return (
-          <Card key={poll.id} className={`mb-4 ${pollUnavailable ? 'opacity-50' : ''}`}>
-            <h3 className="font-data font-bold text-lg text-off-white mb-1">{poll.title}</h3>
+          <Card
+            key={poll.id}
+            id={`poll-${poll.id}`}
+            className={`mb-4 ${pollUnavailable ? 'opacity-50' : ''}`}
+          >
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-data font-bold text-lg text-off-white">{poll.title}</h3>
+              <ShareLinkButton path={`/polls?poll=${poll.id}`} />
+            </div>
             {poll.description && (
               <p className="font-body text-sm text-off-white/55 mb-3">{poll.description}</p>
             )}
@@ -222,7 +229,6 @@ export default function PollList() {
                           add
                         </button>
                       )}
-                      <ShareLinkButton path={`/polls?poll=${poll.id}&option=${opt.id}`} />
                     </div>
                   </div>
                 );
