@@ -277,7 +277,6 @@ export interface Pledge {
   total_cents: number;
   top_up_cents?: number;
   expires_at: string;
-  magic_token?: string | null;
   items: PledgeItem[];
 }
 

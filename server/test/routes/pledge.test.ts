@@ -169,6 +169,43 @@ describe('GET /api/pledge/:token', () => {
     await prisma.pendingPledge.delete({ where: { id: pledge.id } });
   });
 
+  it('never exposes a donor magic token, even for a fulfilled pledge (account takeover guard, #48)', async () => {
+    const donor = await prisma.donor.create({
+      data: { email: `pledge-${crypto.randomUUID()}@example.com`, magic_token: 'super-secret-tok' },
+    });
+    const pledge = await prisma.pendingPledge.create({
+      data: {
+        pledge_token: `tok-${crypto.randomUUID()}`,
+        total_cents: 1000,
+        expires_at: new Date(Date.now() + 60_000),
+        items: { create: [{ kind: 'REWARD', target_id: 'r1', amount_cents: 1000 }] },
+      },
+    });
+    const donation = await prisma.donation.create({
+      data: {
+        external_id: `ext-${crypto.randomUUID()}`,
+        donor_id: donor.id,
+        amount_cents: 1000,
+      },
+    });
+    await prisma.pendingPledge.update({
+      where: { id: pledge.id },
+      data: { status: 'FULFILLED', fulfilled_by_donation_id: donation.id },
+    });
+
+    const res = await request(createApp()).get(`/api/pledge/${pledge.pledge_token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('FULFILLED');
+    expect(res.body).not.toHaveProperty('magic_token');
+    expect(res.body).not.toHaveProperty('is_new_donor');
+    expect(JSON.stringify(res.body)).not.toContain('super-secret-tok');
+
+    await prisma.pendingPledge.delete({ where: { id: pledge.id } });
+    await prisma.donation.delete({ where: { id: donation.id } });
+    await prisma.donor.delete({ where: { id: donor.id } });
+  });
+
   it('returns 404 for an unknown token', async () => {
     const res = await request(createApp()).get('/api/pledge/does-not-exist');
     expect(res.status).toBe(404);
