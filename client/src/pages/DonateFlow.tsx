@@ -34,6 +34,7 @@ export default function DonateFlow() {
     channels,
     selectedChannelId,
     selectChannel,
+    refreshChannels,
     pendingChannelId,
     confirmChannelSwitch,
     cancelChannelSwitch,
@@ -44,6 +45,16 @@ export default function DonateFlow() {
   const [tab, setTab] = useState<Tab>(() => tabFromPathname(location.pathname));
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [prefillWarning, setPrefillWarning] = useState<string | null>(null);
+
+  // Refetch the channel list once when the donate flow mounts (the channel
+  // picker at the top of this page), rather than relying solely on the
+  // background poll — CartProvider persists for the app's lifetime, so a
+  // channel opened by an admin while the donor was elsewhere on the site
+  // otherwise wouldn't show until the next poll tick (#46).
+  useEffect(() => {
+    refreshChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Warning shown when "review & checkout" is clicked before every category
   // has been opened. A second click while it's showing bypasses it and

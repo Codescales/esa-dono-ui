@@ -162,6 +162,11 @@ interface CartContextValue {
   // different channels.
   channels: Channel[];
   selectedChannelId: string | null;
+  // Refetches only the channel list on demand (e.g. when the donate flow
+  // mounts), so a newly opened channel shows up immediately instead of
+  // waiting for the next background poll (#46). Cheap and safe to call
+  // repeatedly — it's a plain replace, same as the background poll does.
+  refreshChannels: () => void;
   // Attempts to select a channel. If the current cart holds items tied to a
   // *different* specific channel, the switch is held pending confirmation
   // (see pendingChannelId) instead of applied immediately.
@@ -290,6 +295,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAllGoals(g);
     setChannels(s);
     return { r, p, g, s };
+  }, []);
+
+  const refreshChannels = useCallback(() => {
+    getChannels()
+      .then(setChannels)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -664,6 +675,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     loading,
     channels,
     selectedChannelId,
+    refreshChannels,
     selectChannel,
     pendingChannelId,
     confirmChannelSwitch,

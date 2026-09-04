@@ -59,6 +59,20 @@ describe('DonateFlow (tabbed browse page)', () => {
     vi.mocked(getGoals).mockResolvedValue([]);
   });
 
+  it('refetches channels when the donate flow mounts, picking up a channel opened after initial load (#46)', async () => {
+    vi.mocked(getChannels)
+      .mockResolvedValueOnce([{ id: 'event-1', name: 'Event One', is_active: true }])
+      .mockResolvedValue([
+        { id: 'event-1', name: 'Event One', is_active: true },
+        { id: 'event-2', name: 'New Event', is_active: true },
+      ]);
+    vi.mocked(getRewards).mockResolvedValue([]);
+
+    renderAt('/donate');
+
+    expect(await screen.findByText('New Event')).toBeInTheDocument();
+  });
+
   it('renders the rewards tab when visiting /rewards', async () => {
     localStorage.setItem('donor_session_active', '1');
     vi.mocked(getRewards).mockResolvedValue([
