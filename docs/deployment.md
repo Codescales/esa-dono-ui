@@ -107,11 +107,20 @@ docker build -f Dockerfile.backend --target runtime -t ghcr.io/codescales/esa-do
 docker build -f Dockerfile.frontend             -t ghcr.io/codescales/esa-dono-ui/frontend:latest .
 ```
 
-Or pull the CI-published multiarch images (amd64/arm64):
+Or pull the CI-published multiarch images (amd64/arm64). Every push to `main`
+or `dev` publishes images tagged with the sanitized branch name and the commit
+sha; `main` additionally gets `latest`. PRs against `main` publish `pr-<number>`
+(not scanned/smoke-tested further). `docker-compose.yml` defaults to `:latest`
+for both images; override with `BACKEND_IMAGE_TAG`/`FRONTEND_IMAGE_TAG` to run
+a specific branch or commit build instead:
 
 ```bash
 docker pull ghcr.io/codescales/esa-dono-ui/backend:latest
 docker pull ghcr.io/codescales/esa-dono-ui/frontend:latest
+
+# or a specific branch/commit build:
+docker pull ghcr.io/codescales/esa-dono-ui/backend:dev
+BACKEND_IMAGE_TAG=dev FRONTEND_IMAGE_TAG=dev docker compose up -d
 ```
 
 ### 2. Configure environment
@@ -253,7 +262,9 @@ cd server && npx prisma migrate dev --name <name> && npx prisma generate && cd .
 
 ### Rollback
 
-Redeploy a previous image tag (CI also tags `backend:<sha>` / `frontend:<sha>`):
+Redeploy a previous image tag (CI also tags `backend:<sha>` /
+`frontend:<sha>`, plus `backend:<branch>` / `frontend:<branch>` per pushed
+branch, e.g. `:main`, `:dev`):
 
 ```bash
 docker compose pull && docker compose up -d

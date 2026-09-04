@@ -79,10 +79,10 @@ After building, always confirm the stack _functions_ — not just that the image
 ADMIN_API_KEY=change-me FRONTEND_PORT=18080 ./scripts/smoke-test.sh
 ```
 
-The CI `container-test` job runs this against the freshly built runtime images, and `docker-publish.yml` runs it against the just-pushed `:latest` images after the Trivy gate.
+The CI `container-test` job runs this against the freshly built runtime images, and `docker-publish.yml` runs it against the just-pushed `:<sha>` images (not `:latest`, so it verifies exactly what this run built, on any branch) after the Trivy gate.
 
 Images publish to `ghcr.io/codescales/esa-dono-ui/{backend,frontend}` via
-`.github/workflows/docker-publish.yml` (buildx multiarch amd64/arm64 + Trivy CRITICAL gate) on push to `main`.
+`.github/workflows/docker-publish.yml` (buildx multiarch amd64/arm64 + Trivy CRITICAL gate) on push to `main`/`dev` and on PRs against `main`. Every push tags `:<sha>` and a sanitized `:<branch>` (e.g. `:dev`); `main` additionally gets `:latest`. PRs publish `:pr-<number>` (Trivy-scanned, but skip the smoke test since there's nothing to compose/deploy). `docker-compose.yml` image tags default to `latest`, overridable via `BACKEND_IMAGE_TAG`/`FRONTEND_IMAGE_TAG` env vars to run a specific branch/commit build.
 
 ## Bootstrap
 
