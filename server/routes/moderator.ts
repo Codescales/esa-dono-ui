@@ -412,7 +412,21 @@ router.delete('/rewards/:id', async (req, res) => {
 // admin.ts's PATCH /claims/:id, which is unrelated and untouched).
 router.get('/claims', async (req, res) => {
   const claims = await prisma.rewardClaim.findMany({
-    include: { reward: true },
+    include: {
+      reward: true,
+      // Human-readable donor identity without ever touching email (#57):
+      // donor_name is a plain column on Donation (self-reported at checkout),
+      // not on Donor — join to the donor's most recent donation for it.
+      donor: {
+        select: {
+          donations: {
+            orderBy: { created_at: 'desc' },
+            take: 1,
+            select: { donor_name: true },
+          },
+        },
+      },
+    },
     orderBy: { created_at: 'desc' },
   });
   res.json(
@@ -423,7 +437,12 @@ router.get('/claims', async (req, res) => {
       } catch {
         /* ignore */
       }
-      return { ...c, claim_data: parsed };
+      const { donor, ...rest } = c;
+      return {
+        ...rest,
+        claim_data: parsed,
+        donor_name: donor?.donations[0]?.donor_name ?? null,
+      };
     }),
   );
 });

@@ -2280,7 +2280,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Claims with reward details (no donor email)
+          description: Claims with reward details and a human-readable donor_name (from the donor's most recent donation; never donor email or id)
 
   /moderator/donations:
     get:

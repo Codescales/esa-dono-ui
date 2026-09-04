@@ -315,6 +315,9 @@ export interface AdminClaim {
   claim_data?: unknown;
   created_at: string;
   donor?: { email?: string } | null;
+  // Human-readable donor identity for the moderator view (#57) — sourced
+  // from the donor's most recent Donation.donor_name, never email/id.
+  donor_name?: string | null;
   reward?: {
     title?: string;
     type?: string;

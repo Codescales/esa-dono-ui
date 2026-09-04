@@ -55,7 +55,12 @@ export default function ModeratorClaims() {
                     <ChannelPill label={channelName(c)} />
                   </div>
                   <p className="font-data text-xs text-off-white/55">type: {c.reward?.type}</p>
-                  {name && <p className="font-data text-xs text-off-white/55">donor: {name}</p>}
+                  <p className="font-data text-xs text-off-white/55">
+                    donor: {c.donor_name || 'Anonymous'}
+                  </p>
+                  {name && (
+                    <p className="font-data text-xs text-off-white/55">entered name: {name}</p>
+                  )}
                   {message && (
                     <p className="font-body text-sm text-off-white/55 mt-1">
                       &ldquo;{message}&rdquo;
