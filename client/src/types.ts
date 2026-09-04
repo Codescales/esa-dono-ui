@@ -354,6 +354,7 @@ export interface AdminDonorWallet {
   balance_remaining: number;
   role?: Role;
   is_frozen?: boolean;
+  donations?: DonationRecord[];
   reward_claims?: SpendRecord[];
   poll_votes?: SpendRecord[];
   fund_contributions?: SpendRecord[];

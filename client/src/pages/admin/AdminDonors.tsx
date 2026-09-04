@@ -252,6 +252,36 @@ export default function AdminDonors() {
                   </div>
 
                   <div>
+                    <h3 className="font-display text-2xl uppercase mt-6 mb-3">donation history</h3>
+                    {(wallet.donations?.length ?? 0) > 0 ? (
+                      <div className="space-y-2">
+                        {wallet.donations!.map((d) => (
+                          <div
+                            key={d.id}
+                            className="btrl-panel p-3 flex justify-between items-center text-sm"
+                          >
+                            <div>
+                              <span className="font-data font-bold text-off-white">
+                                {fmt(d.amount_cents)}
+                              </span>
+                              {d.comment && (
+                                <span className="ml-2 font-body text-off-white/55">
+                                  &mdash; {d.comment}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-mono text-xs text-off-white/55">
+                              {new Date(d.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="font-body text-sm text-off-white/55">No donation history.</p>
+                    )}
+                  </div>
+
+                  <div>
                     <h3 className="font-display text-2xl uppercase mt-6 mb-3">spend history</h3>
 
                     {(wallet.reward_claims?.length ?? 0) > 0 && (

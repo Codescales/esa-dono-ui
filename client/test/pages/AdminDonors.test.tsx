@@ -23,6 +23,7 @@ const wallet = {
   balance_remaining: 100,
   role: 'USER',
   is_frozen: false,
+  donations: [],
   reward_claims: [],
   poll_votes: [],
   fund_contributions: [],
@@ -77,6 +78,7 @@ describe('AdminDonors', () => {
     fireEvent.click(await screen.findByText('alice@example.com'));
 
     expect(await screen.findByText('No spend history.')).toBeInTheDocument();
+    expect(screen.getByText('No donation history.')).toBeInTheDocument();
   });
 
   it('opens the create-donor modal and creates a donor', async () => {
@@ -178,6 +180,32 @@ describe('AdminDonors', () => {
     await waitFor(() =>
       expect(mocks.adjustDonorBalance).toHaveBeenCalledWith('d1', 500, null, 'MANUAL'),
     );
+  });
+
+  it('shows donation history for the donor (#47)', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue({
+      ...wallet,
+      donations: [
+        { id: 'don1', amount_cents: 1000, comment: 'go team!', created_at: '2024-01-01T00:00:00Z' },
+        { id: 'don2', amount_cents: 500, comment: null, created_at: '2024-01-02T00:00:00Z' },
+      ],
+    });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByText('alice@example.com'));
+
+    expect(await screen.findByText('donation history')).toBeInTheDocument();
+    expect(screen.getByText('$10.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$5.00').length).toBeGreaterThan(0);
+    expect(screen.getByText(/go team!/)).toBeInTheDocument();
+    expect(screen.queryByText('No donation history.')).not.toBeInTheDocument();
   });
 
   it('shows poll votes and fund contributions in the spend history', async () => {
