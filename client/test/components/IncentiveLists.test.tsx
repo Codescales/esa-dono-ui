@@ -161,6 +161,37 @@ describe('PollList', () => {
     expect(screen.queryByText('add your own option')).toBeNull();
   });
 
+  it('re-hydrates and edits an already-added write-in option (#44)', async () => {
+    mocks.getPolls.mockResolvedValue([{ ...poll, allow_custom_entries: true, auto_approve: true }]);
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: '+ add your own option' }));
+    fireEvent.change(screen.getByPlaceholderText('Type your option...'), {
+      target: { value: 'My runner' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'add to cart' }));
+
+    // Now in cart, showing the read-only summary with edit/remove.
+    expect(await screen.findByText(/your option: "My runner"/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'edit' }));
+
+    // The modal reopens pre-filled with the existing draft, not blank.
+    expect(screen.getByText('edit your option')).toBeInTheDocument();
+    const labelInput = screen.getByPlaceholderText('Type your option...') as HTMLInputElement;
+    expect(labelInput.value).toBe('My runner');
+
+    fireEvent.change(labelInput, { target: { value: 'My edited runner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'save changes' }));
+
+    // Still a single write-in entry, now updated — not a duplicate.
+    expect(await screen.findByText(/your option: "My edited runner"/)).toBeInTheDocument();
+    expect(screen.queryByText(/your option: "My runner"/)).toBeNull();
+  });
+
   it('removes a vote from the cart', async () => {
     render(
       <Wrapper>

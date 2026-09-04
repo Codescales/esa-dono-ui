@@ -408,7 +408,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
       if (idx >= 0) {
         const updated = [...prev];
-        updated[idx] = { ...updated[idx]!, amount_cents: item.amount_cents, data: item.data };
+        // label must also sync on re-add: a POLL_CUSTOM write-in's label can
+        // change when the donor edits it (#44) — previously only
+        // amount_cents/data were carried over, so an edited write-in silently
+        // kept its old label in the cart despite the modal showing the edit.
+        updated[idx] = {
+          ...updated[idx]!,
+          amount_cents: item.amount_cents,
+          label: item.label,
+          data: item.data,
+        };
         return updated;
       }
       return [...prev, item];
