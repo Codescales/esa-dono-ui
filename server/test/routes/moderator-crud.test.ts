@@ -186,7 +186,7 @@ describe('Moderator CRUD routes', () => {
   });
 
   describe('claims', () => {
-    it('lists and patches a claim status', async () => {
+    it('lists claims (read-only, no fulfillment-status toggle) (#56)', async () => {
       const { token, donor } = await makeModerator();
       donorIds.push(donor.id);
       const reward = await prisma.reward.create({
@@ -201,13 +201,16 @@ describe('Moderator CRUD routes', () => {
         .get('/api/moderator/claims')
         .set('Authorization', `Bearer ${token}`);
       expect(listRes.status).toBe(200);
+      expect(listRes.body.some((c: { id: string }) => c.id === claim.id)).toBe(true);
 
+      // The moderator status-toggle endpoint was removed — fulfillment is not
+      // moderator-managed. The admin side retains its own PATCH /claims/:id
+      // (unaffected, different router).
       const patchRes = await request(createApp())
         .patch(`/api/moderator/claims/${claim.id}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ status: 'FULFILLED' });
-      expect(patchRes.status).toBe(200);
-      expect(patchRes.body.status).toBe('FULFILLED');
+      expect(patchRes.status).toBe(404);
     });
   });
 

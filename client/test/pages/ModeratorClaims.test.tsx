@@ -25,7 +25,7 @@ describe('ModeratorClaims', () => {
     vi.clearAllMocks();
   });
 
-  it('lists claims with their donor details', async () => {
+  it('lists claims with their donor details (no fulfillment status/toggle) (#56)', async () => {
     moderatorClient.get.mockImplementation((path: string) =>
       Promise.resolve({ data: path === '/claims' ? [claim] : [] }),
     );
@@ -37,8 +37,9 @@ describe('ModeratorClaims', () => {
     );
 
     expect(await screen.findByText('T-shirt')).toBeInTheDocument();
-    expect(screen.getByText('PENDING')).toBeInTheDocument();
     expect(screen.getByText('donor: Alice')).toBeInTheDocument();
+    expect(screen.queryByText('PENDING')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mark fulfilled|mark pending/ })).toBeNull();
   });
 
   it('shows the empty state', async () => {

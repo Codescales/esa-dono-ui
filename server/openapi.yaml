@@ -2282,34 +2282,6 @@ paths:
         '200':
           description: Claims with reward details (no donor email)
 
-  /moderator/claims/{id}:
-    patch:
-      tags: [Moderator]
-      summary: Update claim status
-      parameters:
-        - name: token
-          in: query
-          required: true
-          schema: { type: string }
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [status]
-              properties:
-                status:
-                  type: string
-                  enum: [PENDING, FULFILLED]
-      responses:
-        '200':
-          description: Claim updated
-
   /moderator/donations:
     get:
       tags: [Moderator]

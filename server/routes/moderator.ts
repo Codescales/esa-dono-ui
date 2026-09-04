@@ -407,6 +407,9 @@ router.delete('/rewards/:id', async (req, res) => {
 });
 
 // Claims
+// Read-only from the moderator side: fulfillment status is not
+// displayed/tracked here (admin retains its own status toggle at
+// admin.ts's PATCH /claims/:id, which is unrelated and untouched).
 router.get('/claims', async (req, res) => {
   const claims = await prisma.rewardClaim.findMany({
     include: { reward: true },
@@ -423,19 +426,6 @@ router.get('/claims', async (req, res) => {
       return { ...c, claim_data: parsed };
     }),
   );
-});
-
-router.patch('/claims/:id', async (req, res) => {
-  const { status } = req.body;
-  if (!['PENDING', 'FULFILLED'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status' });
-  }
-  const claim = await prisma.rewardClaim.update({
-    where: { id: req.params.id },
-    data: { status },
-    include: { reward: true },
-  });
-  res.json(claim);
 });
 
 // Donations — read-only list + moderation flag. Downstream tools (exports,
