@@ -384,6 +384,64 @@ describe('Pledge Service', () => {
       await prisma.pendingPledge.delete({ where: { pledge_token } });
       await prisma.reward.delete({ where: { id: reward.id } });
     }, 10000);
+
+    it('creates a Donation row when the wallet fully covers the pledge (#43)', async () => {
+      const reward = await prisma.reward.create({
+        data: {
+          title: 'Fully wallet-covered reward',
+          type: 'DIGITAL',
+          cost_cents: 500,
+          quantity_total: 10,
+        },
+      });
+      const { pledge_token } = await createPledge({
+        email: 'walletcovered@example.com',
+        items: [{ kind: 'REWARD', target_id: reward.id }],
+        channel_id: channelId,
+      });
+      const donor = await prisma.donor.create({
+        data: {
+          email: 'walletcovered@example.com',
+          total_donated: 10000,
+          balance_remaining: 10000,
+          magic_token: 'tok-wallet-covered',
+          token_expires_at: new Date(Date.now() + 60000),
+        },
+      });
+
+      const result = await createCheckoutForPledge(
+        pledge_token,
+        {
+          id: donor.id,
+          email: donor.email,
+          balance_remaining: donor.balance_remaining,
+          magic_token: donor.magic_token,
+        },
+        'walletcovered@example.com',
+      );
+
+      // Wallet covers the entire 500-cent pledge — no Stripe charge.
+      expect(result.checkout_session_id).toBeNull();
+      expect(result.wallet_discount_cents).toBe(500);
+
+      // A Donation row must exist so this appears in the donor's history.
+      const donation = await prisma.donation.findFirst({ where: { donor_id: donor.id } });
+      expect(donation).toBeTruthy();
+      expect(donation!.amount_cents).toBe(500);
+      expect(donation!.external_id).toMatch(/^wallet-/);
+      expect(donation!.channel_id).toBe(channelId);
+
+      // The pledge is FULFILLED and linked back to the wallet donation.
+      const pledge = await prisma.pendingPledge.findUnique({ where: { pledge_token } });
+      expect(pledge!.status).toBe('FULFILLED');
+      expect(pledge!.fulfilled_by_donation_id).toBe(donation!.id);
+
+      await prisma.rewardClaim.deleteMany({ where: { donor_id: donor.id } });
+      await prisma.pendingPledge.delete({ where: { pledge_token } });
+      await prisma.donation.deleteMany({ where: { donor_id: donor.id } });
+      await prisma.donor.delete({ where: { id: donor.id } });
+      await prisma.reward.delete({ where: { id: reward.id } });
+    }, 10000);
   });
 
   describe('fulfillPledge via processDonation', () => {

@@ -7,6 +7,7 @@ import { claimRewardTx, votePollTx, contributeGoalTx, proposeCustomEntryTx } fro
 import { checkBlockedWords } from './blockedWords.js';
 import { isStripeConfigured } from './stripe.js';
 import { sendMagicLink } from './email.js';
+import { emitWebhookEvent, buildDonationCreatedPayload } from './eventDelivery.js';
 import { PLEDGE_TTL_MS, TOKEN_TTL_MS } from '../config.js';
 
 const STRIPE_MIN_CHARGE_CENTS = 50;
@@ -444,16 +445,44 @@ export async function createCheckoutForPledge(
           include: { items: true },
         });
 
-        await prisma.$transaction(async (tx) => {
+        // Wallet fully covers the pledge, so no Stripe/webhook event ever
+        // fires and processDonation() is never reached. Create the Donation
+        // row here (external_id = wallet-<uuid>) so this shows up in the
+        // donor's history like any other donation (#43). amount_cents is the
+        // wallet spend that fulfilled the pledge (the full total).
+        const walletExternalId = `wallet-${crypto.randomUUID()}`;
+        const donation = await prisma.$transaction(async (tx) => {
+          const created = await tx.donation.create({
+            data: {
+              external_id: walletExternalId,
+              donor_id: donor.id,
+              amount_cents: pledge.total_cents,
+              comment: fullPledge.comment ?? null,
+              channel_id: fullPledge.channel_id ?? null,
+            },
+          });
           await fulfillPledge(tx, fullPledge, donor.id);
           await tx.pendingPledge.update({
             where: { pledge_token: pledgeToken },
             data: {
               wallet_discount_cents: pledge.total_cents,
               status: 'FULFILLED',
+              fulfilled_by_donation_id: created.id,
             },
           });
+          return created;
         });
+
+        emitWebhookEvent(
+          'donation.created',
+          buildDonationCreatedPayload({
+            donationId: donation.id,
+            externalId: walletExternalId,
+            amountCents: pledge.total_cents,
+            channelId: fullPledge.channel_id ?? null,
+            donorRef: donor.id,
+          }),
+        );
 
         sendMagicLink(donor.email, donor.magic_token!).catch((err) =>
           console.error('Email error:', err),
