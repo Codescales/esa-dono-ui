@@ -307,6 +307,11 @@ export interface AdminDonation {
   moderated_at?: string | null;
   moderated_by?: string | null;
   channel?: { id: string; name: string } | null;
+  // What the donor selected/pledged toward (#58) — human-readable labels
+  // only (e.g. "Best Runner: Runner A", "T-shirt"), never a raw target_id.
+  // Only present on the moderator donations list; undefined elsewhere.
+  pledge_items?: { kind: string; label: string; amount_cents: number }[];
+  top_up_cents?: number | null;
 }
 
 export interface AdminClaim {

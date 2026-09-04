@@ -455,10 +455,107 @@ router.get('/claims', async (req, res) => {
 // (see file-level invariant above; caught by moderator-donor-email.test.ts).
 router.get('/donations', async (req, res) => {
   const donations = await prisma.donation.findMany({
-    include: { channel: { select: { id: true, name: true } } },
+    include: {
+      channel: { select: { id: true, name: true } },
+      pledge: { include: { items: true } },
+    },
     orderBy: { created_at: 'desc' },
   });
-  res.json(donations);
+
+  // Batch-resolve each pledge item's target into a human-readable label
+  // (#58) — e.g. "Best Runner: Runner A" or "T-shirt", never a raw
+  // target_id/uuid — so a moderator can see at a glance what a donor
+  // selected/pledged toward. target_id is polymorphic by kind (reward_id |
+  // poll_option_id | goal_id | poll_id for a POLL_CUSTOM write-in), so there's
+  // no direct Prisma relation to include — resolve it via a few batched
+  // lookups instead of one query per item.
+  const allItems = donations.flatMap((d) => d.pledge?.items ?? []);
+  const rewardIds = [
+    ...new Set(allItems.filter((i) => i.kind === 'REWARD').map((i) => i.target_id)),
+  ];
+  const goalIds = [...new Set(allItems.filter((i) => i.kind === 'GOAL').map((i) => i.target_id))];
+  const optionIds = [
+    ...new Set(allItems.filter((i) => i.kind === 'POLL_VOTE').map((i) => i.target_id)),
+  ];
+  const pollIds = [
+    ...new Set(
+      allItems
+        .filter((i) => i.kind === 'POLL_VOTE' || i.kind === 'POLL_CUSTOM')
+        .map((i) => i.poll_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+
+  const [rewards, goals, options, polls] = await Promise.all([
+    rewardIds.length
+      ? prisma.reward.findMany({
+          where: { id: { in: rewardIds } },
+          select: { id: true, title: true },
+        })
+      : [],
+    goalIds.length
+      ? prisma.fundGoal.findMany({
+          where: { id: { in: goalIds } },
+          select: { id: true, title: true },
+        })
+      : [],
+    optionIds.length
+      ? prisma.pollOption.findMany({
+          where: { id: { in: optionIds } },
+          select: { id: true, label: true },
+        })
+      : [],
+    pollIds.length
+      ? prisma.poll.findMany({ where: { id: { in: pollIds } }, select: { id: true, title: true } })
+      : [],
+  ]);
+
+  const rewardMap = new Map(rewards.map((r) => [r.id, r.title]));
+  const goalMap = new Map(goals.map((g) => [g.id, g.title]));
+  const optionMap = new Map(options.map((o) => [o.id, o.label]));
+  const pollMap = new Map(polls.map((p) => [p.id, p.title]));
+
+  const labelForItem = (item: {
+    kind: string;
+    target_id: string;
+    poll_id: string | null;
+    data: string | null;
+  }) => {
+    if (item.kind === 'REWARD') return rewardMap.get(item.target_id) ?? 'Unknown reward';
+    if (item.kind === 'GOAL') return goalMap.get(item.target_id) ?? 'Unknown goal';
+    if (item.kind === 'POLL_VOTE') {
+      const pollTitle = item.poll_id ? pollMap.get(item.poll_id) : undefined;
+      const optionLabel = optionMap.get(item.target_id) ?? 'Unknown option';
+      return pollTitle ? `${pollTitle}: ${optionLabel}` : optionLabel;
+    }
+    if (item.kind === 'POLL_CUSTOM') {
+      const pollTitle = item.poll_id ? pollMap.get(item.poll_id) : undefined;
+      let writeInLabel = 'write-in';
+      try {
+        const parsed = item.data ? JSON.parse(item.data) : null;
+        if (parsed?.label) writeInLabel = parsed.label;
+      } catch {
+        /* ignore */
+      }
+      return pollTitle ? `${pollTitle}: "${writeInLabel}"` : `"${writeInLabel}"`;
+    }
+    return 'Unknown item';
+  };
+
+  res.json(
+    donations.map((d) => {
+      const { pledge, ...rest } = d;
+      return {
+        ...rest,
+        pledge_items: (pledge?.items ?? []).map((i) => ({
+          kind: i.kind,
+          label: labelForItem(i),
+          amount_cents: i.amount_cents,
+        })),
+        top_up_cents: pledge?.top_up_cents ?? null,
+      };
+    }),
+  );
 });
 
 router.patch('/donations/:id', async (req, res) => {

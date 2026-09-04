@@ -2293,7 +2293,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Donations with donor name (no donor email), channel (id, name), and moderation status
+          description: Donations with donor name (no donor email), channel (id, name), moderation status, and pledge_items — human-readable labels (never raw target_id) for each reward/poll-vote/poll-custom/goal the donor selected, plus top_up_cents for the additional contribution
 
   /moderator/donations/{id}:
     patch:
