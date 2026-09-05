@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import Navbar from './components/Navbar';
+import GlobalProgressBar from './components/GlobalProgressBar';
 import CartDrawer from './components/CartDrawer';
 import { CartProvider } from './context/CartContext';
+import { CampaignProvider } from './context/CampaignContext';
 import { track } from './lib/tracing';
 import Home from './pages/Home';
 import DonateFlow from './pages/DonateFlow';
@@ -77,22 +79,25 @@ export default function App() {
           path="*"
           element={
             <div className="min-h-screen">
-              <CartProvider>
-                <PageViewTracker />
-                <Navbar />
-                <CartDrawer />
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/donate" element={<DonateFlow />} />
-                  <Route path="/pledge/:token" element={<PledgeReturn />} />
-                  <Route path="/wallet" element={<MyWallet />} />
-                  <Route path="/help" element={<Help />} />
-                  <Route path="/rewards" element={<DonateFlow />} />
-                  <Route path="/polls" element={<DonateFlow />} />
-                  <Route path="/goals" element={<DonateFlow />} />
-                  <Route path="/auctions" element={<Auctions />} />
-                </Routes>
-              </CartProvider>
+              <CampaignProvider>
+                <CartProvider>
+                  <PageViewTracker />
+                  <Navbar />
+                  <GlobalProgressBar />
+                  <CartDrawer />
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/donate" element={<DonateFlow />} />
+                    <Route path="/pledge/:token" element={<PledgeReturn />} />
+                    <Route path="/wallet" element={<MyWallet />} />
+                    <Route path="/help" element={<Help />} />
+                    <Route path="/rewards" element={<DonateFlow />} />
+                    <Route path="/polls" element={<DonateFlow />} />
+                    <Route path="/goals" element={<DonateFlow />} />
+                    <Route path="/auctions" element={<Auctions />} />
+                  </Routes>
+                </CartProvider>
+              </CampaignProvider>
             </div>
           }
         />
