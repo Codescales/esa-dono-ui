@@ -342,4 +342,32 @@ describe('AdminDonors', () => {
       ),
     );
   });
+
+  it('gives the donor list and detail panel their own independent scroll viewport (#64)', async () => {
+    mocks.getDonors.mockResolvedValue({
+      donors: [
+        { id: 'd1', email: 'alice@example.com', total_donated: 500, balance_remaining: 100 },
+      ],
+      total: 1,
+    });
+    mocks.getDonorWallet.mockResolvedValue(wallet);
+
+    render(<AdminDonors />);
+
+    const listColumn = (await screen.findByText('alice@example.com')).closest(
+      'div.lg\\:col-span-1',
+    ) as HTMLElement;
+    expect(listColumn).not.toBeNull();
+    expect(listColumn.className).toContain('overflow-y-auto');
+    expect(listColumn.className).toContain('h-full');
+
+    fireEvent.click(screen.getByText('alice@example.com'));
+
+    const detailColumn = (await screen.findByText('adjust balance')).closest(
+      'div.lg\\:col-span-2',
+    ) as HTMLElement;
+    expect(detailColumn).not.toBeNull();
+    expect(detailColumn.className).toContain('overflow-y-auto');
+    expect(detailColumn.className).toContain('h-full');
+  });
 });
