@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import { useCampaign } from '../context/CampaignContext';
 import ProgressBar from './ProgressBar';
 
@@ -7,6 +8,13 @@ function fmt(cents: number) {
 
 export default function GlobalProgressBar() {
   const { raisedCents, goalCents, campaign } = useCampaign();
+  const location = useLocation();
+
+  // The homepage already shows its own hero progress bar, so showing this
+  // one too would be redundant.
+  if (location.pathname === '/') {
+    return null;
+  }
 
   // If campaign isn't loaded yet or has no goal/raised data, don't show an empty bar
   if (!campaign && goalCents === 0 && raisedCents === 0) {
