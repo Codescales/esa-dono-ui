@@ -31,7 +31,7 @@ const NAV: SidebarNavItem[] = [
   { to: '/admin/pledges', label: 'pledges', icon: ClipboardIcon },
   { to: '/admin/blocked-words', label: 'blocked words', icon: BanIcon },
   { to: '/admin/destinations', label: 'destinations', icon: PlayIcon },
-  { to: '/admin/simulate', label: 'simulate', icon: PlayIcon },
+  { to: '/admin/simulate', label: 'add donation', icon: PlayIcon },
   { to: '/admin/help', label: 'help', icon: InfoIcon },
 ];
 

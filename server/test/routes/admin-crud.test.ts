@@ -321,6 +321,64 @@ describe('Admin CRUD routes', () => {
         .set(AUTH);
       expect(res.status).toBe(400);
     });
+
+    it('records a real donation received externally with a caller-supplied external_id and backdate (#62)', async () => {
+      const email = `manual-${crypto.randomUUID()}@example.com`;
+      const externalRef = `hekathon-${crypto.randomUUID()}`;
+      const occurredAt = '2026-01-15T12:00:00.000Z';
+
+      const res = await request(createApp())
+        .post('/api/admin/simulate-donation')
+        .send({
+          email,
+          amount_cents: 2500,
+          external_id: externalRef,
+          occurred_at: occurredAt,
+          donor_name: 'HEKATHON Donor',
+        })
+        .set(AUTH);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const donor = await prisma.donor.findUnique({ where: { email } });
+      donorIds.push(donor!.id);
+      const donation = await prisma.donation.findUnique({ where: { external_id: externalRef } });
+      expect(donation).toBeTruthy();
+      expect(donation!.amount_cents).toBe(2500);
+      expect(donation!.created_at.toISOString()).toBe(occurredAt);
+    });
+
+    it('rejects a duplicate external_id with 409', async () => {
+      const email = `dup-${crypto.randomUUID()}@example.com`;
+      const externalRef = `hekathon-${crypto.randomUUID()}`;
+
+      const first = await request(createApp())
+        .post('/api/admin/simulate-donation')
+        .send({ email, amount_cents: 1000, external_id: externalRef })
+        .set(AUTH);
+      expect(first.status).toBe(200);
+      const donor = await prisma.donor.findUnique({ where: { email } });
+      donorIds.push(donor!.id);
+
+      const second = await request(createApp())
+        .post('/api/admin/simulate-donation')
+        .send({ email, amount_cents: 1000, external_id: externalRef })
+        .set(AUTH);
+      expect(second.status).toBe(409);
+    });
+
+    it('rejects an invalid occurred_at', async () => {
+      const res = await request(createApp())
+        .post('/api/admin/simulate-donation')
+        .send({
+          email: `bad-date-${crypto.randomUUID()}@example.com`,
+          amount_cents: 1000,
+          occurred_at: 'not-a-date',
+        })
+        .set(AUTH);
+      expect(res.status).toBe(400);
+    });
   });
 
   describe('destinations CRUD', () => {

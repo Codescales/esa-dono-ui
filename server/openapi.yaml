@@ -910,7 +910,14 @@ paths:
   /admin/simulate-donation:
     post:
       tags: [Admin]
-      summary: Simulate a donation (no real money)
+      summary: Add a donation (manual entry / no real payment) — dev simulation or a real donation received externally (#62)
+      description: |
+        Credits a donor's wallet balance and sends a magic link exactly as if
+        a real Stripe donation had completed. Used both for dev/test
+        simulations and for recording a real donation received outside
+        Stripe (e.g. at an external event) — pass `external_id` with that
+        platform's own reference for dedup/traceability, and `occurred_at`
+        to backdate it to when it was actually received.
       security: [{ AdminKey: [] }]
       requestBody:
         required: true
@@ -928,10 +935,17 @@ paths:
                 channel_id:
                   type: string
                   nullable: true
-                  description: Optional channel to attribute this simulated donation to (bypasses the pledge flow's required-channel check).
+                  description: Optional channel to attribute this donation to (bypasses the pledge flow's required-channel check).
+                external_id:
+                  type: string
+                  description: Optional caller-supplied reference (e.g. an external platform's own transaction id) for dedup/traceability. Falls back to an auto-generated sim-<uuid> when omitted. Must be unique — reusing one returns 409.
+                occurred_at:
+                  type: string
+                  format: date-time
+                  description: Optional; backdates the created Donation's created_at to when the donation actually occurred (e.g. on the external platform). Defaults to now.
       responses:
         '200':
-          description: Donation simulated
+          description: Donation added
           content:
             application/json:
               schema:
@@ -946,6 +960,10 @@ paths:
                       email: { type: string }
                       balance_remaining: { type: integer }
                   pledge: { type: object, nullable: true }
+        '400':
+          description: Missing/invalid email, amount_cents, external_id, or occurred_at
+        '409':
+          description: A donation with the given external_id already exists
 
   /admin/donors:
     get:

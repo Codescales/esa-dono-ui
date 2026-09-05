@@ -236,9 +236,9 @@ ngrok http 3001
 # Omit STRIPE_WEBHOOK_SECRET during dev to skip signature verification
 ```
 
-### Simulate Donations (no real money)
+### Simulate Donations (no real money) / Add a Real External Donation (#62)
 
-**Option A — Admin UI:** Visit `/admin/simulate`, fill in donor email + amount, click "Simulate Donation". Copy the generated magic link to access the donor wallet.
+**Option A — Admin UI:** Visit `/admin/simulate` (nav label "add donation"), fill in donor email + amount, click "Add Donation". Copy the generated magic link to access the donor wallet. Same form doubles as a dev/test tool and as the way to record a donation actually received outside Stripe (e.g. at an external event/platform) — set an **external reference** (that platform's own transaction id, for dedup/traceability) and a **date received** (backdates `Donation.created_at`) when recording a real one.
 
 **Option B — curl (full webhook path):** When `STRIPE_WEBHOOK_SECRET` is unset, signature verification is skipped. POST directly:
 
@@ -255,6 +255,14 @@ curl -X POST http://localhost:3001/api/admin/simulate-donation \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer key_admin_change-me" \
   -d '{"email":"test@example.com","amount_cents":1000}'
+
+# Recording a real donation received externally (#62) — external_id and
+# occurred_at are both optional; external_id must be unique (409 on reuse),
+# occurred_at backdates Donation.created_at (defaults to now):
+curl -X POST http://localhost:3001/api/admin/simulate-donation \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer key_admin_change-me" \
+  -d '{"email":"test@example.com","amount_cents":2500,"external_id":"hekathon-12345","occurred_at":"2026-01-15T12:00:00.000Z","channel_id":"<channel-id>"}'
 ```
 
 Returns `{ success: true, token, donor }`. Use the token to build a magic link: `http://localhost:5173/api/auth/magic?token=<token>` (sets the session cookie and redirects to the wallet).

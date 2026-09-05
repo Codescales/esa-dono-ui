@@ -312,17 +312,51 @@ router.delete('/rewards/:id', async (req, res) => {
   }
 });
 
-// Simulate donation
+// Add donation (manual entry for real donations received externally, e.g.
+// HEKATHON — #62; also doubles as the dev/test "simulate donation" tool).
 router.post('/simulate-donation', async (req, res) => {
   try {
-    const { email, donor_name, amount_cents, comment, pledge_token, channel_id } = req.body;
+    const {
+      email,
+      donor_name,
+      amount_cents,
+      comment,
+      pledge_token,
+      channel_id,
+      external_id,
+      occurred_at,
+    } = req.body;
     const cents = Number(amount_cents);
     if (!email || !Number.isInteger(cents) || cents < MIN_SPEND_CENTS) {
       return res
         .status(400)
         .json({ error: `email and amount_cents (min ${MIN_SPEND_CENTS}) required` });
     }
-    const externalId = `sim-${crypto.randomUUID()}`;
+
+    let occurredAt: Date | null = null;
+    if (occurred_at) {
+      const parsed = new Date(occurred_at);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({ error: 'occurred_at must be a valid date' });
+      }
+      occurredAt = parsed;
+    }
+
+    // A caller-supplied external_id lets an admin record a real donation
+    // received on another platform using that platform's own reference (for
+    // dedup/traceability) instead of an opaque auto-generated id. Falls back
+    // to a fresh sim-<uuid> for plain dev/test simulations, matching prior
+    // behavior.
+    let externalId: string;
+    if (external_id != null) {
+      externalId = String(external_id).trim();
+      if (!externalId) {
+        return res.status(400).json({ error: 'external_id must not be empty when provided' });
+      }
+    } else {
+      externalId = `sim-${crypto.randomUUID()}`;
+    }
+
     const result = await processDonation({
       externalId,
       email,
@@ -331,11 +365,12 @@ router.post('/simulate-donation', async (req, res) => {
       comment: comment || null,
       pledgeToken: pledge_token || null,
       channelId: channel_id || null,
+      occurredAt,
     });
     if ('duplicate' in result) {
-      // sim always uses a fresh externalId, so this branch is unreachable;
-      // narrow the union for TypeScript without altering behavior.
-      throw new Error('Duplicate donation');
+      return res
+        .status(409)
+        .json({ error: `A donation with external_id "${externalId}" already exists` });
     }
     res.json({
       success: true,
