@@ -133,7 +133,7 @@ paths:
     get:
       tags: [Donor]
       summary: Get current donor profile
-      description: Returns the authenticated donor with nested donations, claims, votes, contributions, and custom entries.
+      description: Returns the authenticated donor with nested donations (including each donation's channel, #53), claims, votes, contributions, and custom entries.
       parameters:
         - name: token
           in: query

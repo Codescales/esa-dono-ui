@@ -40,6 +40,9 @@ export interface DonationRecord {
   donor_name?: string | null;
   created_at: string;
   donor?: { email?: string } | null;
+  // Which channel this donation was routed to, or null/absent for a shared
+  // (unscoped) donation (#53).
+  channel?: { id: string; name: string } | null;
 }
 
 export interface RewardSummary {
