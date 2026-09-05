@@ -713,6 +713,9 @@ paths:
                   claims: { type: integer }
                   pledges: { type: integer }
                   total_raised_cents: { type: integer }
+                  unallocated_credits_cents:
+                    type: integer
+                    description: Sum of Donor.balance_remaining across all donors — credited but not yet spent on a reward/poll/goal (#59)
                   channels:
                     type: array
                     description: Per-channel raised totals (admin-only; not shown publicly)

@@ -288,6 +288,9 @@ export interface AdminStats {
   donations: number;
   claims: number;
   pledges: number;
+  // Sum of Donor.balance_remaining across all donors (#59) — credited but
+  // not yet spent on a reward/poll/goal.
+  unallocated_credits_cents?: number;
   channels?: { id: string; name: string; raised_cents: number; donations: number }[];
 }
 

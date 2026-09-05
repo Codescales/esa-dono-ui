@@ -27,15 +27,27 @@ router.use(adminAuth);
 
 // Stats
 router.get('/stats', async (req, res) => {
-  const [donorCount, donationCount, claimCount, totalRaised, pledgeCount, channels] =
-    await Promise.all([
-      prisma.donor.count(),
-      prisma.donation.count(),
-      prisma.rewardClaim.count(),
-      prisma.donation.aggregate({ _sum: { amount_cents: true } }),
-      prisma.pendingPledge.count(),
-      prisma.channel.findMany({ orderBy: { created_at: 'asc' } }),
-    ]);
+  const [
+    donorCount,
+    donationCount,
+    claimCount,
+    totalRaised,
+    pledgeCount,
+    channels,
+    unallocatedCredits,
+  ] = await Promise.all([
+    prisma.donor.count(),
+    prisma.donation.count(),
+    prisma.rewardClaim.count(),
+    prisma.donation.aggregate({ _sum: { amount_cents: true } }),
+    prisma.pendingPledge.count(),
+    prisma.channel.findMany({ orderBy: { created_at: 'asc' } }),
+    // Aggregate of Donor.balance_remaining (#59): credited but not yet spent
+    // on a reward/poll/goal — i.e. the platform's total outstanding
+    // liability to donors, not visible anywhere except by summing every
+    // donor individually.
+    prisma.donor.aggregate({ _sum: { balance_remaining: true } }),
+  ]);
 
   const perChannel = await Promise.all(
     channels.map(async (channel) => {
@@ -61,6 +73,7 @@ router.get('/stats', async (req, res) => {
     claims: claimCount,
     pledges: pledgeCount,
     total_raised_cents: totalRaised._sum.amount_cents ?? 0,
+    unallocated_credits_cents: unallocatedCredits._sum.balance_remaining ?? 0,
     channels: perChannel,
   });
 });

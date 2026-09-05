@@ -52,6 +52,22 @@ describe('Admin CRUD routes', () => {
     expect(res.body).toHaveProperty('donors');
   });
 
+  it('GET /stats includes unallocated_credits_cents summed across all donors (#59)', async () => {
+    const a = await prisma.donor.create({
+      data: { email: `stats-a-${crypto.randomUUID()}@example.com`, balance_remaining: 1500 },
+    });
+    const b = await prisma.donor.create({
+      data: { email: `stats-b-${crypto.randomUUID()}@example.com`, balance_remaining: 2500 },
+    });
+    donorIds.push(a.id, b.id);
+
+    const before = await request(createApp()).get('/api/admin/stats').set(AUTH);
+    const after = await prisma.donor.aggregate({ _sum: { balance_remaining: true } });
+
+    expect(before.body.unallocated_credits_cents).toBe(after._sum.balance_remaining);
+    expect(before.body.unallocated_credits_cents).toBeGreaterThanOrEqual(4000);
+  });
+
   it('GET /pledges returns a list', async () => {
     const res = await request(createApp()).get('/api/admin/pledges').set(AUTH);
     expect(res.status).toBe(200);
