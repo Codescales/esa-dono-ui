@@ -7,15 +7,22 @@ const router = Router();
 /**
  * POST /api/pledge
  * Create a pending pledge from cart items.
- * Body: { email?, comment?, items: [{ kind, target_id, amount_cents?, poll_id?, data? }] }
+ * Body: { email?, comment?, display_name?, items: [{ kind, target_id, amount_cents?, poll_id?, data? }] }
  * Query: ?token=<magic_token> — when a valid donor token is provided, the donor's
  *         wallet balance is applied as a discount on the Stripe checkout amount.
  * Returns: { pledge_token, total_cents, expires_at, donate_url, has_checkout, wallet_discount_cents }
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, comment, items, top_up_cents, channel_id } = req.body;
-    const pledge = await createPledge({ email, comment, items, top_up_cents, channel_id });
+    const { email, comment, display_name, items, top_up_cents, channel_id } = req.body;
+    const pledge = await createPledge({
+      email,
+      comment,
+      display_name,
+      items,
+      top_up_cents,
+      channel_id,
+    });
 
     // Resolve authenticated donor from magic token (wallet discount) — optional.
     // Must be a valid, non-expired, non-frozen token. Wallet discount is only

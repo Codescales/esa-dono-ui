@@ -584,6 +584,10 @@ paths:
                 comment:
                   type: string
                   maxLength: 500
+                display_name:
+                  type: string
+                  maxLength: 60
+                  description: Optional donor-facing display name, carried through to the fulfilled Donation's donor_name (falls back to Stripe's customer name, or null, when omitted)
                 channel_id:
                   type: string
                   description: Required. The channel this donation is routed to.

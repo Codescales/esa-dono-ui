@@ -132,6 +132,7 @@ async function processDonationInner({
             data: {
               pledge: { connect: { id: pledge.id } },
               ...(pledge.comment ? { comment: pledge.comment } : {}),
+              ...(pledge.display_name ? { donor_name: pledge.display_name } : {}),
               ...(pledge.channel_id ? { channel_id: pledge.channel_id } : {}),
             },
           });

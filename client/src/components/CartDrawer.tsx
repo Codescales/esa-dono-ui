@@ -36,6 +36,8 @@ export default function CartDrawer() {
     setEmail,
     comment,
     setComment,
+    displayName,
+    setDisplayName,
     cartTotal,
     totalCents,
     unvisitedAvailableCategories,
@@ -300,6 +302,21 @@ export default function CartDrawer() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block font-data font-bold text-sm mb-1 text-off-white">
+              display name <span className="text-off-white/40 font-normal">(optional)</span>{' '}
+              <InfoTip text="Shown alongside your donation instead of your email. Leave blank to donate anonymously." />
+            </label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 text-sm"
+              placeholder="Your name"
+              maxLength={60}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
             />
           </div>
 

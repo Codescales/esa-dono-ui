@@ -188,6 +188,7 @@ describe('CartContext', () => {
 
     act(() => {
       result.current.setEmail('a@b.com');
+      result.current.setDisplayName('Jane Donor');
       result.current.selectChannel('c1');
       result.current.addToCart({ kind: 'REWARD', target_id: 'r1', amount_cents: 1000 });
     });
@@ -197,7 +198,11 @@ describe('CartContext', () => {
     });
     expect(res).toEqual({ total_cents: 1000, donate_url: null });
     expect(mocks.createPledge).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'a@b.com', channel_id: 'c1' }),
+      expect.objectContaining({
+        email: 'a@b.com',
+        display_name: 'Jane Donor',
+        channel_id: 'c1',
+      }),
     );
     expect(result.current.cart).toHaveLength(0);
   });

@@ -23,12 +23,14 @@ interface PledgeItemInput {
 interface CreatePledgeInput {
   email?: string | null;
   comment?: string | null;
+  display_name?: string | null;
   items: PledgeItemInput[];
   top_up_cents?: number;
   channel_id?: string | null;
 }
 
 const COMMENT_MAX_LENGTH = 500;
+const DISPLAY_NAME_MAX_LENGTH = 60;
 
 /**
  * Create a pending pledge from cart items.
@@ -45,18 +47,20 @@ const COMMENT_MAX_LENGTH = 500;
 export async function createPledge({
   email,
   comment,
+  display_name,
   items,
   top_up_cents,
   channel_id,
 }: CreatePledgeInput) {
   return withSpan('pledge.create', async () => {
-    return createPledgeInner({ email, comment, items, top_up_cents, channel_id });
+    return createPledgeInner({ email, comment, display_name, items, top_up_cents, channel_id });
   });
 }
 
 async function createPledgeInner({
   email,
   comment,
+  display_name,
   items,
   top_up_cents,
   channel_id,
@@ -94,6 +98,25 @@ async function createPledgeInner({
       );
     }
     const blockedError = await checkBlockedWords(commentValue);
+    if (blockedError) {
+      throw Object.assign(new Error(blockedError), { status: 400 });
+    }
+  }
+
+  // Donor-facing display name (#54) — carried through to the fulfilled
+  // Donation's donor_name. Optional: falls back to the existing sources
+  // (Stripe customer_details.name, or null for a wallet-covered checkout
+  // that never had a name to draw from at all).
+  let displayNameValue: string | null = null;
+  if (display_name != null && display_name.trim().length > 0) {
+    displayNameValue = display_name.trim();
+    if (displayNameValue.length > DISPLAY_NAME_MAX_LENGTH) {
+      throw Object.assign(
+        new Error(`Display name exceeds maximum of ${DISPLAY_NAME_MAX_LENGTH} characters`),
+        { status: 400 },
+      );
+    }
+    const blockedError = await checkBlockedWords(displayNameValue);
     if (blockedError) {
       throw Object.assign(new Error(blockedError), { status: 400 });
     }
@@ -227,6 +250,7 @@ async function createPledgeInner({
       pledge_token: pledgeToken,
       donor_email: email || null,
       comment: commentValue,
+      display_name: displayNameValue,
       total_cents: totalCents + topUp,
       top_up_cents: topUp,
       requires_shipping: requiresShipping,
@@ -458,6 +482,7 @@ export async function createCheckoutForPledge(
               donor_id: donor.id,
               amount_cents: pledge.total_cents,
               comment: fullPledge.comment ?? null,
+              donor_name: fullPledge.display_name ?? null,
               channel_id: fullPledge.channel_id ?? null,
             },
           });

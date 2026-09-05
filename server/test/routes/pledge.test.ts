@@ -61,6 +61,32 @@ describe('POST /api/pledge', () => {
     expect(res.body.has_checkout).toBe(true);
   });
 
+  it('forwards display_name to createPledge (#54)', async () => {
+    vi.mocked(createPledge).mockResolvedValue({
+      pledge_token: 'pledge-abc',
+      total_cents: 500,
+      expires_at: new Date().toISOString(),
+    } as any);
+    vi.mocked(createCheckoutForPledge).mockResolvedValue({
+      donate_url: null,
+      checkout_session_id: null,
+      wallet_discount_cents: 0,
+    });
+
+    await request(createApp())
+      .post('/api/pledge')
+      .send({
+        email: 'donor@example.com',
+        display_name: 'Jane Donor',
+        channel_id: 'event-1',
+        items: [{ kind: 'REWARD', target_id: 'reward-1' }],
+      });
+
+    expect(createPledge).toHaveBeenCalledWith(
+      expect.objectContaining({ display_name: 'Jane Donor' }),
+    );
+  });
+
   it('omits top_up_cents when not provided', async () => {
     vi.mocked(createPledge).mockResolvedValue({
       pledge_token: 'pledge-abc',

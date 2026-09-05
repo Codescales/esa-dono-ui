@@ -34,6 +34,7 @@ import { INCENTIVES_POLL_MS } from '../config';
 
 const CART_STORAGE_KEY = 'donation_cart_v1';
 const EMAIL_STORAGE_KEY = 'last_donor_email';
+const DISPLAY_NAME_STORAGE_KEY = 'last_donor_display_name';
 
 /**
  * Merge freshly-fetched records into the current list while preserving the
@@ -191,6 +192,8 @@ interface CartContextValue {
   setEmail: (value: string) => void;
   comment: string;
   setComment: (value: string) => void;
+  displayName: string;
+  setDisplayName: (value: string) => void;
   totalCents: number;
 
   // Tracks which incentive categories the donor has actually been shown
@@ -261,6 +264,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
   const [email, setEmail] = useState(() => localStorage.getItem(EMAIL_STORAGE_KEY) || '');
+  const [displayName, setDisplayName] = useState(
+    () => localStorage.getItem(DISPLAY_NAME_STORAGE_KEY) || '',
+  );
 
   const [visited, setVisited] = useState<Set<IncentiveCategory>>(new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -644,6 +650,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           createPledge({
             email: email.trim(),
             comment: comment.trim() || undefined,
+            display_name: displayName.trim() || undefined,
             top_up_cents: topUpCents > 0 ? topUpCents : undefined,
             channel_id: selectedChannelId,
             items: cart.map((item) => ({
@@ -657,6 +664,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         { 'pledge.total_cents': totalCents },
       );
       localStorage.setItem(EMAIL_STORAGE_KEY, email.trim());
+      if (displayName.trim()) {
+        localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, displayName.trim());
+      }
       // Clear now — the server-side PendingPledge is the source of truth
       // from here on. Re-submitting the same client cart after this point
       // (e.g. the donor hits "back" from Stripe) would create a duplicate
@@ -675,7 +685,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setSubmitting(false);
     }
-  }, [email, comment, cart, topUpCents, selectedChannelId, totalCents, clearCart]);
+  }, [email, comment, displayName, cart, topUpCents, selectedChannelId, totalCents, clearCart]);
 
   const value: CartContextValue = {
     rewards,
@@ -700,6 +710,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setEmail,
     comment,
     setComment,
+    displayName,
+    setDisplayName,
     totalCents,
     markVisited,
     unvisitedAvailableCategories,

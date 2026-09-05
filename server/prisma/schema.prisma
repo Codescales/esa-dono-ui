@@ -211,6 +211,7 @@ model PendingPledge {
   checkout_session_id   String?      // Stripe Checkout Session id for deterministic linkage
   checkout_url          String?      // Stripe Checkout Session URL used in the redirect
   comment               String?      // donor comment captured in the cart before checkout
+  display_name          String?      // donor-facing display name captured in the cart, carried through to Donation.donor_name (#54)
   channel_id            String?      // channel this donation routes to (required at creation)
   fulfilled_by_donation_id String? @unique
   created_at            DateTime     @default(now())
