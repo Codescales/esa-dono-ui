@@ -36,6 +36,7 @@ describe('Admin CRUD routes', () => {
     await prisma.blockedWord.deleteMany({ where: { id: { in: blockedWordIds } } });
     await prisma.rewardClaim.deleteMany({ where: { donor_id: { in: donorIds } } });
     await prisma.pollVote.deleteMany({ where: { donor_id: { in: donorIds } } });
+    await prisma.balanceAdjustment.deleteMany({ where: { donor_id: { in: donorIds } } });
     await prisma.donation.deleteMany({ where: { donor_id: { in: donorIds } } });
     await prisma.donor.deleteMany({ where: { id: { in: donorIds } } });
     await prisma.pollOption.deleteMany({ where: { poll_id: { in: pollIds } } });
@@ -66,6 +67,99 @@ describe('Admin CRUD routes', () => {
 
     expect(before.body.unallocated_credits_cents).toBe(after._sum.balance_remaining);
     expect(before.body.unallocated_credits_cents).toBeGreaterThanOrEqual(4000);
+  });
+
+  it('POST /donors/sweep-credits previews without writing when confirm is omitted (#60)', async () => {
+    const donor = await prisma.donor.create({
+      data: { email: `sweep-preview-${crypto.randomUUID()}@example.com`, balance_remaining: 750 },
+    });
+    donorIds.push(donor.id);
+    await prisma.donation.create({
+      data: {
+        external_id: `ext-${crypto.randomUUID()}`,
+        donor_id: donor.id,
+        amount_cents: 750,
+        donor_name: 'Jane Donor',
+      },
+    });
+
+    const res = await request(createApp()).post('/api/admin/donors/sweep-credits').set(AUTH);
+
+    expect(res.status).toBe(200);
+    expect(res.body.preview).toBe(true);
+    expect(res.body.success).toBeUndefined();
+    const sampleEntry = res.body.sample.find((s: { id: string }) => s.id === donor.id);
+    expect(sampleEntry).toMatchObject({ balance_remaining: 750, donor_name: 'Jane Donor' });
+
+    // Nothing written — balance untouched.
+    const stillThere = await prisma.donor.findUnique({ where: { id: donor.id } });
+    expect(stillThere!.balance_remaining).toBe(750);
+  });
+
+  it('POST /donors/sweep-credits zeros matching balances and records a labeled adjustment when confirmed (#60)', async () => {
+    const donor = await prisma.donor.create({
+      data: { email: `sweep-confirm-${crypto.randomUUID()}@example.com`, balance_remaining: 900 },
+    });
+    donorIds.push(donor.id);
+    await prisma.donation.create({
+      data: {
+        external_id: `ext-${crypto.randomUUID()}`,
+        donor_id: donor.id,
+        amount_cents: 900,
+        donor_name: 'Sweep Target',
+      },
+    });
+
+    const res = await request(createApp())
+      .post('/api/admin/donors/sweep-credits')
+      .set(AUTH)
+      .send({ confirm: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.donor_count).toBeGreaterThanOrEqual(1);
+
+    const swept = await prisma.donor.findUnique({ where: { id: donor.id } });
+    expect(swept!.balance_remaining).toBe(0);
+
+    const adjustment = await prisma.balanceAdjustment.findFirst({
+      where: { donor_id: donor.id },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(adjustment).toMatchObject({
+      type: 'FREEZE_ZERO',
+      amount_cents: -900,
+      balance_after_cents: 0,
+    });
+    expect(adjustment!.reason).toContain('Sweep Target');
+  });
+
+  it('POST /donors/sweep-credits respects min/max_balance_cents filters (#60)', async () => {
+    const small = await prisma.donor.create({
+      data: { email: `sweep-small-${crypto.randomUUID()}@example.com`, balance_remaining: 50 },
+    });
+    const large = await prisma.donor.create({
+      data: { email: `sweep-large-${crypto.randomUUID()}@example.com`, balance_remaining: 5000 },
+    });
+    donorIds.push(small.id, large.id);
+
+    const res = await request(createApp())
+      .post('/api/admin/donors/sweep-credits')
+      .set(AUTH)
+      .send({ max_balance_cents: 100 });
+
+    expect(res.status).toBe(200);
+    const ids = res.body.sample.map((s: { id: string }) => s.id);
+    expect(ids).toContain(small.id);
+    expect(ids).not.toContain(large.id);
+  });
+
+  it('POST /donors/sweep-credits rejects an invalid filter', async () => {
+    const res = await request(createApp())
+      .post('/api/admin/donors/sweep-credits')
+      .set(AUTH)
+      .send({ min_balance_cents: -1 });
+    expect(res.status).toBe(400);
   });
 
   it('GET /pledges returns a list', async () => {

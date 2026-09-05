@@ -496,6 +496,98 @@ router.post('/donors/:id/adjust-balance', async (req, res) => {
   });
 });
 
+/**
+ * POST /admin/donors/sweep-credits
+ * Bulk credit sweep-out (#60): zeros balance_remaining for every donor
+ * matching an optional balance-range filter. Two-step confirmation:
+ *   - confirm omitted/false → dry-run PREVIEW only (donor_count, total_cents,
+ *     and a small sample) — nothing is written.
+ *   - confirm: true → actually performs the sweep.
+ * This mirrors the client's own "are you sure?" dialog with a
+ * server-enforced confirmation, so a bulk zero-out can never happen from a
+ * single accidental request.
+ *
+ * Each swept donor gets a FREEZE_ZERO BalanceAdjustment. Donor has no name
+ * field (see #57) — reason references the donor's most recent donation's
+ * self-reported donor_name (or "Anonymous") so the audit trail is
+ * human-readable instead of just a bare donor id.
+ */
+router.post('/donors/sweep-credits', async (req, res) => {
+  const { min_balance_cents, max_balance_cents, confirm } = req.body;
+
+  const where: {
+    balance_remaining: { gt: number; gte?: number; lte?: number };
+  } = { balance_remaining: { gt: 0 } };
+  if (min_balance_cents != null) {
+    const min = Number(min_balance_cents);
+    if (!Number.isInteger(min) || min < 0) {
+      return res.status(400).json({ error: 'min_balance_cents must be a non-negative integer' });
+    }
+    where.balance_remaining.gte = min;
+  }
+  if (max_balance_cents != null) {
+    const max = Number(max_balance_cents);
+    if (!Number.isInteger(max) || max < 0) {
+      return res.status(400).json({ error: 'max_balance_cents must be a non-negative integer' });
+    }
+    where.balance_remaining.lte = max;
+  }
+
+  const donors = await prisma.donor.findMany({
+    where,
+    select: {
+      id: true,
+      balance_remaining: true,
+      donations: {
+        orderBy: { created_at: 'desc' },
+        take: 1,
+        select: { donor_name: true },
+      },
+    },
+  });
+
+  const totalCents = donors.reduce((sum, d) => sum + d.balance_remaining, 0);
+
+  if (confirm !== true) {
+    return res.json({
+      preview: true,
+      donor_count: donors.length,
+      total_cents: totalCents,
+      sample: donors.slice(0, 10).map((d) => ({
+        id: d.id,
+        balance_remaining: d.balance_remaining,
+        donor_name: d.donations[0]?.donor_name ?? null,
+      })),
+    });
+  }
+
+  if (donors.length > 0) {
+    await prisma.$transaction(
+      donors.flatMap((d) => {
+        const displayName = d.donations[0]?.donor_name || 'Anonymous';
+        return [
+          prisma.donor.update({
+            where: { id: d.id },
+            data: { balance_remaining: { decrement: d.balance_remaining } },
+          }),
+          prisma.balanceAdjustment.create({
+            data: {
+              donor_id: d.id,
+              amount_cents: -d.balance_remaining,
+              balance_after_cents: 0,
+              type: 'FREEZE_ZERO',
+              reason: `Bulk credit sweep (${displayName})`,
+              created_by: 'admin',
+            },
+          }),
+        ];
+      }),
+    );
+  }
+
+  res.json({ success: true, donor_count: donors.length, total_cents: totalCents });
+});
+
 router.post('/donors/:id/reverse-spend', async (req, res) => {
   const { spend_type, spend_id } = req.body;
   if (!spend_type || !spend_id) {

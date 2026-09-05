@@ -1139,6 +1139,55 @@ paths:
                   balance_after: { type: integer }
                   adjustment: { type: object }
 
+  /admin/donors/sweep-credits:
+    post:
+      tags: [Admin]
+      summary: Bulk credit sweep-out (#60)
+      description: |
+        Zeros balance_remaining for every donor with a positive balance,
+        optionally filtered to a balance range. Two-step confirmation:
+        omit/false `confirm` for a dry-run preview (nothing written);
+        `confirm: true` to actually perform the sweep. Each swept donor gets
+        a FREEZE_ZERO BalanceAdjustment whose reason references the donor's
+        most recent donation's self-reported donor_name (or "Anonymous").
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                min_balance_cents: { type: integer, minimum: 0 }
+                max_balance_cents: { type: integer, minimum: 0 }
+                confirm:
+                  type: boolean
+                  description: Must be true to actually perform the sweep; otherwise a preview is returned.
+      responses:
+        '200':
+          description: Preview (confirm omitted/false) or sweep result (confirm true)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preview: { type: boolean, description: 'true only on the dry-run response' }
+                  success:
+                    { type: boolean, description: 'true only on the executed-sweep response' }
+                  donor_count: { type: integer }
+                  total_cents: { type: integer }
+                  sample:
+                    type: array
+                    description: First 10 matching donors (preview only)
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        balance_remaining: { type: integer }
+                        donor_name: { type: string, nullable: true }
+        '400':
+          description: Invalid min_balance_cents/max_balance_cents
+
   /admin/donors/{id}/reverse-spend:
     post:
       tags: [Admin]

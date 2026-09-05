@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   adjustDonorBalance: vi.fn(),
   reverseDonorSpend: vi.fn(),
   setDonorRole: vi.fn(),
+  sweepCredits: vi.fn(),
 }));
 
 vi.mock('../../src/api/admin', () => mocks);
@@ -279,5 +280,66 @@ describe('AdminDonors', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'save' })[0]!);
 
     expect(await screen.findByText('Enter a non-zero amount')).toBeInTheDocument();
+  });
+
+  it('previews and confirms a bulk credit sweep (#60)', async () => {
+    mocks.getDonors.mockResolvedValue({ donors: [], total: 0 });
+    mocks.sweepCredits.mockImplementation((_filter, confirm) =>
+      Promise.resolve(
+        confirm
+          ? { success: true, donor_count: 2, total_cents: 900 }
+          : {
+              preview: true,
+              donor_count: 2,
+              total_cents: 900,
+              sample: [
+                { id: 'd1', balance_remaining: 500, donor_name: 'Jane Donor' },
+                { id: 'd2', balance_remaining: 400, donor_name: null },
+              ],
+            },
+      ),
+    );
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'sweep credits' }));
+    expect(screen.getByRole('heading', { name: 'bulk credit sweep' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'preview' }));
+
+    expect(await screen.findByText(/This will zero/)).toBeInTheDocument();
+    expect(screen.getByText('Jane Donor')).toBeInTheDocument();
+    expect(screen.getByText('Anonymous')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'confirm sweep' }));
+
+    expect(await screen.findByText(/Swept 2 donors/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mocks.sweepCredits).toHaveBeenLastCalledWith(expect.objectContaining({}), true),
+    );
+  });
+
+  it('applies min/max balance filters to the sweep preview', async () => {
+    mocks.getDonors.mockResolvedValue({ donors: [], total: 0 });
+    mocks.sweepCredits.mockResolvedValue({
+      preview: true,
+      donor_count: 0,
+      total_cents: 0,
+      sample: [],
+    });
+
+    render(<AdminDonors />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'sweep credits' }));
+    fireEvent.change(screen.getByPlaceholderText('e.g. 0.00'), { target: { value: '0.00' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. 1.00'), { target: { value: '1.00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'preview' }));
+
+    await waitFor(() =>
+      expect(mocks.sweepCredits).toHaveBeenCalledWith(
+        { min_balance_cents: 0, max_balance_cents: 100 },
+        false,
+      ),
+    );
   });
 });
