@@ -1,5 +1,11 @@
 # Issue tracker status (upstream esamarathon/esa-dono-ui)
 
+> **Update (2026-09-05, post write-access grant):** all 15 issues below were closed
+> with summary comments once admin/triage access landed. **#60 was then reopened** —
+> the bulk sweep-out mechanism itself shipped, but the ledger/refund-provenance
+> question it raised is still unresolved and needs to stay open as tracked follow-up
+> work, not be marked done. See the reopen comment on the issue for details.
+
 The real issue tracker for this project lives upstream at `esamarathon/esa-dono-ui`
 (issues are disabled on the `Codescales/esa-dono-ui` fork used as `origin`). See
 `docs/agents/issue-tracker.md` for general `gh` conventions — note that doc predates
