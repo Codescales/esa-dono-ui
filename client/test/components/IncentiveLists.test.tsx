@@ -207,6 +207,40 @@ describe('PollList', () => {
     fireEvent.click(removeBtn);
   });
 
+  it('renders a donation-impact preview once the vote is in the cart (#52)', async () => {
+    mocks.getPolls.mockResolvedValue([
+      { ...poll, options: [{ ...poll.options[0], votes_cents: 100 }], total_votes_cents: 1000 },
+    ]);
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+
+    await screen.findByText('Best Runner');
+    expect(document.querySelector('[data-testid="progress-preview"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'add' }));
+    await screen.findByRole('button', { name: 'remove' });
+
+    expect(document.querySelector('[data-testid="progress-preview"]')).not.toBeNull();
+  });
+
+  it('keeps the add/remove button a fixed width regardless of label (#52)', async () => {
+    render(
+      <Wrapper>
+        <PollList />
+      </Wrapper>,
+    );
+
+    const addBtn = await screen.findByRole('button', { name: 'add' });
+    expect(addBtn.className).toContain('w-20');
+
+    fireEvent.click(addBtn);
+    const removeBtn = await screen.findByRole('button', { name: 'remove' });
+    expect(removeBtn.className).toContain('w-20');
+  });
+
   it('updates an in-cart vote amount on change and blur', async () => {
     render(
       <Wrapper>
@@ -279,6 +313,22 @@ describe('GoalList', () => {
     const removeBtn = await screen.findByRole('button', { name: 'remove' });
     expect(removeBtn).toBeInTheDocument();
     fireEvent.click(removeBtn);
+  });
+
+  it('renders a donation-impact preview once the contribution is in the cart (#52)', async () => {
+    render(
+      <Wrapper>
+        <GoalList />
+      </Wrapper>,
+    );
+
+    await screen.findByText('Race entry');
+    expect(document.querySelector('[data-testid="progress-preview"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'add' }));
+    await screen.findByRole('button', { name: 'remove' });
+
+    expect(document.querySelector('[data-testid="progress-preview"]')).not.toBeNull();
   });
 
   it('allows changing the contribution amount before adding', async () => {

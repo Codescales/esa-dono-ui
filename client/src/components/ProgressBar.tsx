@@ -5,6 +5,16 @@ export interface ProgressBarProps {
   max: number;
   label?: ReactNode;
   animateOnChange?: boolean;
+  /**
+   * Donation-impact preview (#52): the percentage (0-100) the bar would
+   * reach if the donor's currently pending cart amount for this poll
+   * option/goal were included. Callers compute this themselves since the
+   * math differs (a poll option's denominator grows with the pending vote;
+   * a goal's target does not). Rendered as a translucent/glow segment
+   * layered on top of the existing fill, from the current fill out to this
+   * value. Ignored when at or below the current fill percentage.
+   */
+  previewPct?: number;
 }
 
 export default function ProgressBar({
@@ -12,8 +22,12 @@ export default function ProgressBar({
   max,
   label,
   animateOnChange = true,
+  previewPct,
 }: ProgressBarProps) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  const clampedPreviewPct =
+    previewPct !== undefined ? Math.min(100, Math.max(0, previewPct)) : undefined;
+  const showPreview = clampedPreviewPct !== undefined && clampedPreviewPct > pct;
 
   const [animating, setAnimating] = useState(false);
   const [gainText, setGainText] = useState<string | null>(null);
@@ -53,6 +67,22 @@ export default function ProgressBar({
         style={{ background: 'rgba(0,0,0,0.4)' }}
         data-testid="progress-track"
       >
+        {/* Donation-impact preview overlay (#52) — rendered first/underneath
+            so the solid fill below covers it up to the current pct, leaving
+            only the [pct, previewPct] range visible as a translucent glow. */}
+        {showPreview && (
+          <div
+            className="absolute top-0 left-0 h-full rounded-sm transition-all duration-300 ease-out animate-preview-pulse"
+            style={{
+              width: `${clampedPreviewPct}%`,
+              background: 'var(--grad)',
+              opacity: 0.35,
+              boxShadow: '0 0 10px rgba(208, 152, 70, 0.55)',
+            }}
+            data-testid="progress-preview"
+          />
+        )}
+
         {/* Fill Gauge */}
         <div
           className="h-full rounded-sm transition-all duration-700 ease-out overflow-hidden"

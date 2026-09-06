@@ -596,4 +596,18 @@ tr.border-t:hover {
   .animate-plus-float {
     animation: plus-float 1.2s ease-out forwards;
   }
+
+  @keyframes preview-pulse {
+    0%,
+    100% {
+      opacity: 0.28;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-preview-pulse {
+    animation: preview-pulse 1.6s ease-in-out infinite;
+  }
 }

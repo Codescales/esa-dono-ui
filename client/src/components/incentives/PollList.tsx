@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Card from '../Card';
 import Modal from '../Modal';
 import ProgressBar from '../ProgressBar';
+import AddRemoveButton from '../AddRemoveButton';
 import LoadingSpinner from '../LoadingSpinner';
 import ShareLinkButton from '../ShareLinkButton';
 import { useCart } from '../../context/CartContext';
@@ -62,6 +63,22 @@ export default function PollList() {
 
   const inCart = (pollId: string, optionId: string) =>
     cart.some((i) => i.kind === 'POLL_VOTE' && i.target_id === optionId && i.poll_id === pollId);
+
+  // Donation-impact preview (#52): if this option already has a pending cart
+  // amount, show what its bar would look like once that vote is cast. Both
+  // numerator and denominator grow by the pending amount (the vote adds to
+  // this option's total *and* the poll's total_votes_cents), so recompute
+  // the percentage with both adjusted rather than just overlaying the raw
+  // cents onto the existing percentage.
+  const previewPctFor = (poll: Poll, opt: PollOption) => {
+    const item = cart.find(
+      (i) => i.kind === 'POLL_VOTE' && i.target_id === opt.id && i.poll_id === poll.id,
+    );
+    if (!item) return undefined;
+    const newValue = opt.votes_cents + item.amount_cents;
+    const newMax = (poll.total_votes_cents || 1) + item.amount_cents;
+    return (newValue / newMax) * 100;
+  };
 
   const writeInInCart = (pollId: string) =>
     cart.find((i) => i.kind === 'POLL_CUSTOM' && i.poll_id === pollId);
@@ -212,7 +229,11 @@ export default function PollList() {
                           {fmt(opt.votes_cents)}
                         </span>
                       </div>
-                      <ProgressBar value={opt.votes_cents} max={poll.total_votes_cents || 1} />
+                      <ProgressBar
+                        value={opt.votes_cents}
+                        max={poll.total_votes_cents || 1}
+                        previewPct={previewPctFor(poll, opt)}
+                      />
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <input
@@ -225,22 +246,13 @@ export default function PollList() {
                         onBlur={() => handleAmountBlur(poll, opt)}
                         disabled={optionUnavailable}
                       />
-                      {added ? (
-                        <button
-                          onClick={() => removeFromCart('POLL_VOTE', opt.id)}
-                          className={`btrl-button btrl-button-outline text-sm ${flashKey === `${poll.id}-${opt.id}` ? 'animate-add-flash' : ''}`}
-                        >
-                          remove
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleAdd(poll, opt)}
-                          disabled={optionUnavailable}
-                          className="btrl-button text-sm"
-                        >
-                          add
-                        </button>
-                      )}
+                      <AddRemoveButton
+                        added={added}
+                        onAdd={() => handleAdd(poll, opt)}
+                        onRemove={() => removeFromCart('POLL_VOTE', opt.id)}
+                        disabled={optionUnavailable}
+                        flash={flashKey === `${poll.id}-${opt.id}`}
+                      />
                     </div>
                   </div>
                 );

@@ -76,4 +76,27 @@ describe('ProgressBar', () => {
     rerender(<ProgressBar value={7000} max={10000} animateOnChange={false} />);
     expect(screen.queryByTestId('progress-animation')).toBeNull();
   });
+
+  it('shows a donation-impact preview overlay when previewPct exceeds the current fill (#52)', () => {
+    const { container } = render(<ProgressBar value={5000} max={10000} previewPct={75} />);
+    const preview = container.querySelector('[data-testid="progress-preview"]') as HTMLElement;
+    expect(preview).toBeDefined();
+    expect(preview.style.width).toBe('75%');
+  });
+
+  it('does not show a preview overlay when previewPct is at or below the current fill', () => {
+    const { container } = render(<ProgressBar value={5000} max={10000} previewPct={50} />);
+    expect(container.querySelector('[data-testid="progress-preview"]')).toBeNull();
+  });
+
+  it('does not show a preview overlay when previewPct is omitted', () => {
+    const { container } = render(<ProgressBar value={5000} max={10000} />);
+    expect(container.querySelector('[data-testid="progress-preview"]')).toBeNull();
+  });
+
+  it('clamps previewPct to 100', () => {
+    const { container } = render(<ProgressBar value={5000} max={10000} previewPct={140} />);
+    const preview = container.querySelector('[data-testid="progress-preview"]') as HTMLElement;
+    expect(preview.style.width).toBe('100%');
+  });
 });
