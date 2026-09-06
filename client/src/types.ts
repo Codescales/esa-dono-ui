@@ -302,6 +302,8 @@ export interface BlockedWord {
   word: string;
 }
 
+export type DonationStatus = 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'CHARGEBACK';
+
 export interface AdminDonation {
   id: string;
   amount_cents: number;
@@ -313,6 +315,8 @@ export interface AdminDonation {
   moderated_at?: string | null;
   moderated_by?: string | null;
   channel?: { id: string; name: string } | null;
+  status: DonationStatus;
+  refund_id?: string | null;
   // What the donor selected/pledged toward (#58) — human-readable labels
   // only (e.g. "Best Runner: Runner A", "T-shirt"), never a raw target_id.
   // Only present on the moderator donations list; undefined elsewhere.

@@ -795,9 +795,51 @@ paths:
       tags: [Admin]
       summary: List all donations
       security: [{ AdminKey: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Comma-separated status filter (#63), e.g. "REFUNDED,CHARGEBACK"
+          schema: { type: string }
       responses:
         '200':
           description: Donations with donor email and channel (id, name), ordered by created_at descending
+
+  /admin/donations/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Set a donation's lifecycle status (#63)
+      description: >-
+        Moving into REFUNDED/CHARGEBACK claws back whatever of the donation's
+        amount is still sitting in the donor's unspent balance_remaining
+        (capped there), records a linked BalanceAdjustment, and stamps
+        Donation.refund_id. Once a donation has a refund_id it is terminal —
+        no further status changes are allowed.
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [PENDING, COMPLETED, REFUNDED, CHARGEBACK]
+                reason: { type: string }
+      responses:
+        '200':
+          description: Donation updated
+        '400':
+          description: Invalid status, unchanged status, or donation already refunded/charged back
+        '404':
+          description: Donation not found
 
   /admin/claims:
     get:

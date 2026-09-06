@@ -131,12 +131,93 @@ router.delete('/channels/:id', async (req, res) => {
 });
 
 // Donations
+const DONATION_STATUSES = ['PENDING', 'COMPLETED', 'REFUNDED', 'CHARGEBACK'];
+
 router.get('/donations', async (req, res) => {
+  const { status } = req.query;
+  const statuses = typeof status === 'string' ? status.split(',').filter(Boolean) : [];
+  if (statuses.some((s) => !DONATION_STATUSES.includes(s))) {
+    return res.status(400).json({ error: 'Invalid status filter' });
+  }
   const donations = await prisma.donation.findMany({
+    where: statuses.length > 0 ? { status: { in: statuses } } : undefined,
     include: { donor: { select: { email: true } }, channel: { select: { id: true, name: true } } },
     orderBy: { created_at: 'desc' },
   });
   res.json(donations);
+});
+
+/**
+ * PATCH /admin/donations/:id/status (#63)
+ * Sets a donation's lifecycle status. Moving into REFUNDED/CHARGEBACK claws
+ * back whatever of the donation's amount is still sitting in the donor's
+ * unspent balance_remaining (capped there — already-spent credit is not
+ * cascaded through claims/votes/goals; use reverse-spend for that), records
+ * a linked BalanceAdjustment, and stamps Donation.refund_id. Once a donation
+ * has a refund_id it is terminal: no further status changes are allowed.
+ */
+router.patch('/donations/:id/status', async (req, res) => {
+  const { status, reason } = req.body;
+  if (!DONATION_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const donation = await prisma.donation.findUnique({
+    where: { id: req.params.id },
+    include: { donor: true },
+  });
+  if (!donation) return res.status(404).json({ error: 'Donation not found' });
+  if (donation.refund_id) {
+    return res
+      .status(400)
+      .json({ error: 'Donation is refunded/charged back and cannot change status' });
+  }
+  if (donation.status === status) {
+    return res.status(400).json({ error: 'Donation already has this status' });
+  }
+
+  if (status === 'REFUNDED' || status === 'CHARGEBACK') {
+    // BalanceAdjustment.type uses the existing REFUND/CHARGEBACK vocabulary
+    // (adjust-balance, reverse-spend, sweep-credits), not the past-tense
+    // Donation.status value.
+    const adjustmentType = status === 'REFUNDED' ? 'REFUND' : 'CHARGEBACK';
+    const clawback = Math.min(donation.amount_cents, donation.donor.balance_remaining);
+    const balanceAfter = donation.donor.balance_remaining - clawback;
+
+    const [, adjustment] = await prisma.$transaction([
+      prisma.donor.update({
+        where: { id: donation.donor_id },
+        data: { balance_remaining: { decrement: clawback } },
+      }),
+      prisma.balanceAdjustment.create({
+        data: {
+          donor_id: donation.donor_id,
+          amount_cents: -clawback,
+          balance_after_cents: balanceAfter,
+          type: adjustmentType,
+          reason: reason || `Donation ${status.toLowerCase()}`,
+          reference_id: donation.id,
+          created_by: 'admin',
+        },
+      }),
+    ]);
+    const updated = await prisma.donation.update({
+      where: { id: donation.id },
+      data: { status, refund_id: adjustment.id },
+      include: {
+        donor: { select: { email: true } },
+        channel: { select: { id: true, name: true } },
+      },
+    });
+    return res.json(updated);
+  }
+
+  const updated = await prisma.donation.update({
+    where: { id: donation.id },
+    data: { status },
+    include: { donor: { select: { email: true } }, channel: { select: { id: true, name: true } } },
+  });
+  res.json(updated);
 });
 
 // Claims

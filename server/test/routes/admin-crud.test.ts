@@ -174,6 +174,177 @@ describe('Admin CRUD routes', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  describe('donation status (#63)', () => {
+    it('defaults new donations to COMPLETED', async () => {
+      const donor = await prisma.donor.create({
+        data: { email: `status-default-${crypto.randomUUID()}@example.com` },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 1000,
+        },
+      });
+      expect(donation.status).toBe('COMPLETED');
+      expect(donation.refund_id).toBeNull();
+    });
+
+    it('GET /donations filters by status', async () => {
+      const donor = await prisma.donor.create({
+        data: { email: `status-filter-${crypto.randomUUID()}@example.com` },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 1000,
+          status: 'PENDING',
+        },
+      });
+
+      const res = await request(createApp())
+        .get('/api/admin/donations')
+        .query({ status: 'PENDING' })
+        .set(AUTH);
+      expect(res.status).toBe(200);
+      expect(res.body.some((d: any) => d.id === donation.id)).toBe(true);
+      expect(res.body.every((d: any) => d.status === 'PENDING')).toBe(true);
+    });
+
+    it('GET /donations rejects an invalid status filter', async () => {
+      const res = await request(createApp())
+        .get('/api/admin/donations')
+        .query({ status: 'BOGUS' })
+        .set(AUTH);
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH /donations/:id/status refunds and claws back unspent balance, linking the adjustment', async () => {
+      const donor = await prisma.donor.create({
+        data: {
+          email: `status-refund-${crypto.randomUUID()}@example.com`,
+          balance_remaining: 1000,
+        },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 1000,
+        },
+      });
+
+      const res = await request(createApp())
+        .patch(`/api/admin/donations/${donation.id}/status`)
+        .set(AUTH)
+        .send({ status: 'REFUNDED' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('REFUNDED');
+      expect(res.body.refund_id).toBeTruthy();
+
+      const donorAfter = await prisma.donor.findUnique({ where: { id: donor.id } });
+      expect(donorAfter!.balance_remaining).toBe(0);
+
+      const adjustment = await prisma.balanceAdjustment.findUnique({
+        where: { id: res.body.refund_id },
+      });
+      expect(adjustment).toMatchObject({
+        type: 'REFUND',
+        amount_cents: -1000,
+        balance_after_cents: 0,
+        reference_id: donation.id,
+      });
+    });
+
+    it("PATCH /donations/:id/status caps the clawback at the donor's remaining balance", async () => {
+      const donor = await prisma.donor.create({
+        data: {
+          email: `status-partial-${crypto.randomUUID()}@example.com`,
+          balance_remaining: 300,
+        },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 1000,
+        },
+      });
+
+      const res = await request(createApp())
+        .patch(`/api/admin/donations/${donation.id}/status`)
+        .set(AUTH)
+        .send({ status: 'CHARGEBACK' });
+
+      expect(res.status).toBe(200);
+      const donorAfter = await prisma.donor.findUnique({ where: { id: donor.id } });
+      expect(donorAfter!.balance_remaining).toBe(0);
+
+      const adjustment = await prisma.balanceAdjustment.findUnique({
+        where: { id: res.body.refund_id },
+      });
+      expect(adjustment).toMatchObject({ type: 'CHARGEBACK', amount_cents: -300 });
+    });
+
+    it('PATCH /donations/:id/status rejects further changes once refunded (terminal)', async () => {
+      const donor = await prisma.donor.create({
+        data: { email: `status-terminal-${crypto.randomUUID()}@example.com` },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 500,
+          status: 'REFUNDED',
+          refund_id: (
+            await prisma.balanceAdjustment.create({
+              data: {
+                donor_id: donor.id,
+                amount_cents: -500,
+                balance_after_cents: 0,
+                type: 'REFUND',
+                created_by: 'admin',
+              },
+            })
+          ).id,
+        },
+      });
+
+      const res = await request(createApp())
+        .patch(`/api/admin/donations/${donation.id}/status`)
+        .set(AUTH)
+        .send({ status: 'COMPLETED' });
+      expect(res.status).toBe(400);
+    });
+
+    it('PATCH /donations/:id/status rejects an invalid status', async () => {
+      const donor = await prisma.donor.create({
+        data: { email: `status-invalid-${crypto.randomUUID()}@example.com` },
+      });
+      donorIds.push(donor.id);
+      const donation = await prisma.donation.create({
+        data: {
+          external_id: `ext-${crypto.randomUUID()}`,
+          donor_id: donor.id,
+          amount_cents: 500,
+        },
+      });
+
+      const res = await request(createApp())
+        .patch(`/api/admin/donations/${donation.id}/status`)
+        .set(AUTH)
+        .send({ status: 'BOGUS' });
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('blocked words', () => {
     it('creates, lists, and deletes a blocked word', async () => {
       const createRes = await request(createApp())

@@ -45,9 +45,16 @@ model Donation {
   moderated_at DateTime?
   moderated_by String?
   channel_id  String?
+  // PENDING | COMPLETED | REFUNDED | CHARGEBACK (#63). Existing/new webhook
+  // and simulated donations default to COMPLETED since they only ever get
+  // created after a successful payment; REFUNDED/CHARGEBACK are set when a
+  // linked BalanceAdjustment reverses the donation.
+  status      String   @default("COMPLETED")
+  refund_id   String?  @unique
   created_at  DateTime @default(now())
   donor       Donor    @relation(fields: [donor_id], references: [id])
   channel     Channel? @relation(fields: [channel_id], references: [id])
+  refund      BalanceAdjustment? @relation("DonationRefund", fields: [refund_id], references: [id])
   pledge      PendingPledge?
 }
 
@@ -197,6 +204,7 @@ model BalanceAdjustment {
   created_by        String   @default("admin")
   created_at        DateTime @default(now())
   donor             Donor    @relation(fields: [donor_id], references: [id])
+  refunded_donation Donation? @relation("DonationRefund")
 }
 
 model PendingPledge {
