@@ -257,15 +257,15 @@ export default function CartDrawer() {
           </div>
 
           <div
-            className="flex justify-between font-data font-bold pt-3 mb-4"
+            className="flex justify-between items-center font-data font-bold pt-3 mb-4"
             style={{ borderTop: '1px solid rgba(239,238,236,.08)' }}
           >
-            <span className="text-off-white">
+            <span className="text-off-white text-lg">
               total{' '}
               <InfoTip text="The full value of your cart — the cost of your incentives plus any additional contribution." />
             </span>
             <span
-              className={`text-d-yellow inline-block ${totalPulse ? 'animate-total-pulse' : ''}`}
+              className={`font-display text-4xl text-d-yellow inline-block ${totalPulse ? 'animate-total-pulse' : ''}`}
             >
               {fmt(totalCents)}
             </span>
@@ -397,7 +397,7 @@ export default function CartDrawer() {
           <button
             onClick={handleCheckoutClick}
             disabled={disableCheckout}
-            className="btrl-button w-full text-center text-lg py-3"
+            className="btrl-button w-full text-center text-xl py-4"
             style={{ background: 'var(--d-yellow)', color: 'black' }}
           >
             {submitting

@@ -107,12 +107,12 @@ export default function Navbar() {
       <div className="ml-auto flex items-center gap-4">
         <button
           onClick={toggleDrawer}
-          className="relative font-data font-bold text-sm tracking-wider uppercase text-off-white/80 hover:text-off-white flex items-center gap-2"
+          className="relative font-data font-bold text-base tracking-wider uppercase text-off-white/80 hover:text-off-white flex items-center gap-2"
         >
           <span>cart</span>
           {cart.length > 0 && (
             <span
-              className={`font-data text-xs font-bold px-2 py-0.5 rounded-sm ${pop ? 'animate-cart-pop' : ''}`}
+              className={`font-data text-sm font-bold px-3 py-1 rounded-sm ${pop ? 'animate-cart-pop' : ''}`}
               style={{ background: 'var(--d-yellow)', color: 'black' }}
             >
               {cart.length} &middot; {fmt(totalCents)}
