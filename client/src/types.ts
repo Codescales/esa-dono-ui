@@ -258,6 +258,10 @@ export interface CartItem {
   poll_id?: string;
   label?: string;
   data?: Record<string, string> | { label: string };
+  /** REWARD only: number of units this line claims. amount_cents is always
+   *  the line total (unit cost_cents * quantity), never the unit price.
+   *  Defaults to 1 when omitted. */
+  quantity?: number;
 }
 
 export interface PledgeItem {
@@ -267,6 +271,7 @@ export interface PledgeItem {
   amount_cents: number;
   poll_id?: string | null;
   data?: string | null;
+  quantity?: number;
 }
 
 export interface PledgeResult {

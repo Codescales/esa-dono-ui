@@ -177,7 +177,9 @@ describe('DonateFlow (tabbed browse page)', () => {
     const addButton = await screen.findByText('add');
     addButton.click();
 
-    expect(await screen.findByText('remove')).toBeDefined();
+    // PHYSICAL is a fieldless reward type, so it shows a quantity stepper
+    // once in the cart rather than a plain "remove" button (#50).
+    expect(await screen.findByRole('button', { name: 'increase quantity' })).toBeDefined();
   });
 
   it('switches to the polls tab when clicked', async () => {

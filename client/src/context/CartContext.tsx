@@ -180,6 +180,13 @@ interface CartContextValue {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (kind: CartItem['kind'], targetId: string) => void;
+  // REWARD-only quantity stepper: increments/decrements the quantity of an
+  // already-added reward, recomputing amount_cents as cost_cents * quantity
+  // from the live reward data. Decrementing to 0 removes the item. A no-op
+  // if the reward isn't in the cart, or (increment) if it would exceed the
+  // reward's remaining stock.
+  incrementRewardQuantity: (targetId: string) => void;
+  decrementRewardQuantity: (targetId: string) => void;
   cartTotal: number;
 
   // Additional donation on top of incentives, plus donor-facing fields.
@@ -435,6 +442,56 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => prev.filter((i) => !(i.kind === kind && i.target_id === targetId)));
   }, []);
 
+  const incrementRewardQuantity = useCallback(
+    (targetId: string) => {
+      const reward = allRewards.find((r) => r.id === targetId);
+      if (!reward) return;
+      setCart((prev) => {
+        const idx = prev.findIndex((i) => i.kind === 'REWARD' && i.target_id === targetId);
+        if (idx < 0) return prev;
+        const current = prev[idx]!;
+        const nextQuantity = (current.quantity ?? 1) + 1;
+        const available =
+          reward.quantity_total === null
+            ? Infinity
+            : reward.quantity_total - reward.quantity_claimed;
+        if (nextQuantity > available) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...current,
+          quantity: nextQuantity,
+          amount_cents: reward.cost_cents * nextQuantity,
+        };
+        return updated;
+      });
+    },
+    [allRewards],
+  );
+
+  const decrementRewardQuantity = useCallback(
+    (targetId: string) => {
+      setCart((prev) => {
+        const idx = prev.findIndex((i) => i.kind === 'REWARD' && i.target_id === targetId);
+        if (idx < 0) return prev;
+        const current = prev[idx]!;
+        const nextQuantity = (current.quantity ?? 1) - 1;
+        if (nextQuantity <= 0) {
+          return prev.filter((_, i) => i !== idx);
+        }
+        const reward = allRewards.find((r) => r.id === targetId);
+        const unitCost = reward?.cost_cents ?? current.amount_cents / (current.quantity ?? 1);
+        const updated = [...prev];
+        updated[idx] = {
+          ...current,
+          quantity: nextQuantity,
+          amount_cents: unitCost * nextQuantity,
+        };
+        return updated;
+      });
+    },
+    [allRewards],
+  );
+
   const clearCart = useCallback(() => {
     setCart([]);
     setTopUp('');
@@ -520,7 +577,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           continue;
         }
         const soldOut =
-          reward.quantity_total !== null && reward.quantity_claimed >= reward.quantity_total;
+          reward.quantity_total !== null &&
+          reward.quantity_total - reward.quantity_claimed < (item.quantity ?? 1);
         if (soldOut) issues.push({ item, reason: 'Sold out' });
       } else if (item.kind === 'POLL_VOTE' || item.kind === 'POLL_CUSTOM') {
         const poll = freshPolls.find((p) => p.id === item.poll_id);
@@ -659,6 +717,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               amount_cents: item.amount_cents,
               poll_id: item.poll_id,
               data: item.data,
+              quantity: item.quantity,
             })),
           }),
         { 'pledge.total_cents': totalCents },
@@ -702,6 +761,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cart,
     addToCart,
     removeFromCart,
+    incrementRewardQuantity,
+    decrementRewardQuantity,
     cartTotal,
     topUp,
     setTopUp,

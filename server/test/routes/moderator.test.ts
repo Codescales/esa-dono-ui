@@ -371,6 +371,49 @@ describe('Moderator donations', () => {
     await prisma.donor.delete({ where: { id: donor.id } });
   });
 
+  it('prefixes a REWARD label with quantity when quantity > 1 (#50)', async () => {
+    const { token: modToken } = await makeModerator();
+    const donor = await makeDonorWithBalance(1000);
+
+    const reward = await prisma.reward.create({
+      data: { title: 'Sticker Pack', type: 'DIGITAL', cost_cents: 500 },
+    });
+    const donation = await prisma.donation.create({
+      data: {
+        external_id: `ext-${crypto.randomUUID()}`,
+        donor_id: donor.id,
+        amount_cents: 1500,
+        donor_name: 'Test Donor',
+      },
+    });
+    const pledge = await prisma.pendingPledge.create({
+      data: {
+        pledge_token: `tok-${crypto.randomUUID()}`,
+        total_cents: 1500,
+        expires_at: new Date(Date.now() + 60_000),
+        status: 'FULFILLED',
+        fulfilled_by_donation_id: donation.id,
+        items: {
+          create: [{ kind: 'REWARD', target_id: reward.id, amount_cents: 1500, quantity: 3 }],
+        },
+      },
+    });
+
+    const res = await request(createApp())
+      .get('/api/moderator/donations')
+      .set('Authorization', `Bearer ${modToken}`);
+
+    const found = res.body.find((d: { id: string }) => d.id === donation.id);
+    expect(found.pledge_items).toContainEqual(
+      expect.objectContaining({ kind: 'REWARD', label: '3× Sticker Pack', quantity: 3 }),
+    );
+
+    await prisma.pendingPledge.delete({ where: { id: pledge.id } });
+    await prisma.donation.delete({ where: { id: donation.id } });
+    await prisma.reward.delete({ where: { id: reward.id } });
+    await prisma.donor.delete({ where: { id: donor.id } });
+  });
+
   it('marks a donation as moderated, recording who and when', async () => {
     const { donor: modDonor, token: modToken } = await makeModerator();
     const donor = await makeDonorWithBalance(1000);

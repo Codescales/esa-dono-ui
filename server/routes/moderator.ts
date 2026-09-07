@@ -520,8 +520,12 @@ router.get('/donations', async (req, res) => {
     target_id: string;
     poll_id: string | null;
     data: string | null;
+    quantity: number;
   }) => {
-    if (item.kind === 'REWARD') return rewardMap.get(item.target_id) ?? 'Unknown reward';
+    if (item.kind === 'REWARD') {
+      const title = rewardMap.get(item.target_id) ?? 'Unknown reward';
+      return item.quantity > 1 ? `${item.quantity}× ${title}` : title;
+    }
     if (item.kind === 'GOAL') return goalMap.get(item.target_id) ?? 'Unknown goal';
     if (item.kind === 'POLL_VOTE') {
       const pollTitle = item.poll_id ? pollMap.get(item.poll_id) : undefined;
@@ -551,6 +555,7 @@ router.get('/donations', async (req, res) => {
           kind: i.kind,
           label: labelForItem(i),
           amount_cents: i.amount_cents,
+          quantity: i.quantity,
         })),
         top_up_cents: pledge?.top_up_cents ?? null,
       };

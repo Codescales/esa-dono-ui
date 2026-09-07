@@ -217,7 +217,9 @@ export default function CartDrawer() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-data text-off-white truncate">
-                      {item.label || item.kind.toLowerCase()}
+                      {item.quantity && item.quantity > 1
+                        ? `${item.quantity}× ${item.label || item.kind.toLowerCase()}`
+                        : item.label || item.kind.toLowerCase()}
                     </p>
                     <p className="font-mono text-[10px] text-off-white/55 uppercase">
                       {KIND_LABELS[item.kind] ?? item.kind.toLowerCase()}

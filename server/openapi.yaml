@@ -342,6 +342,11 @@ paths:
               type: object
               properties:
                 claim_data: {}
+                quantity:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                  description: Number of units of this reward to claim in one call. Decrements quantity_total by this amount and creates one RewardClaim row per unit (claim_data is shared across all of them).
       responses:
         '200':
           description: Claim created
@@ -614,6 +619,11 @@ paths:
                       poll_id:
                         type: string
                         description: Required for POLL_VOTE and POLL_CUSTOM
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        default: 1
+                        description: REWARD only — number of units of this reward to claim. amount_cents should be cost_cents * quantity (the line total, not the unit price). Ignored for other kinds.
                       data:
                         description: Claim data for REWARD, { label } for POLL_CUSTOM
       responses:

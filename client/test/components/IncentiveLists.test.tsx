@@ -405,7 +405,28 @@ describe('RewardList', () => {
 
     expect(await screen.findByText('T-shirt')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'add' }));
-    expect(await screen.findByRole('button', { name: 'remove' })).toBeInTheDocument();
+    // Fieldless reward types (PHYSICAL/DIGITAL) show a quantity stepper once
+    // in the cart, not a plain "remove" button (#50).
+    expect(await screen.findByRole('button', { name: 'increase quantity' })).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+  });
+
+  it("increases and decreases a fieldless reward's quantity, removing it at zero (#50)", async () => {
+    render(
+      <Wrapper>
+        <RewardList />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'add' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'increase quantity' }));
+    expect(await screen.findByText('2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'decrease quantity' }));
+    expect(await screen.findByText('1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'decrease quantity' }));
+    expect(await screen.findByRole('button', { name: 'add' })).toBeInTheDocument();
   });
 
   it('shows the empty state', async () => {

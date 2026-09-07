@@ -18,6 +18,7 @@ interface PledgeItemInput {
   amount_cents?: number;
   poll_id?: string | null;
   data?: unknown;
+  quantity?: number;
 }
 
 interface CreatePledgeInput {
@@ -147,18 +148,27 @@ async function createPledgeInner({
     }
 
     if (kind === 'REWARD') {
+      const quantity = item.quantity ?? 1;
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw Object.assign(new Error('REWARD quantity must be a positive integer'), {
+          status: 400,
+        });
+      }
       const reward = await prisma.reward.findUnique({ where: { id: target_id } });
       if (!reward || !reward.is_active) {
         throw Object.assign(new Error(`Reward not found: ${target_id}`), { status: 404 });
       }
       assertChannelMatch(reward.channel_id, `Reward "${reward.title}"`);
-      if (reward.quantity_total !== null && reward.quantity_claimed >= reward.quantity_total) {
+      if (
+        reward.quantity_total !== null &&
+        reward.quantity_claimed + quantity > reward.quantity_total
+      ) {
         throw Object.assign(new Error(`Reward sold out: ${reward.title}`), { status: 400 });
       }
       if (reward.type === 'PHYSICAL') {
         requiresShipping = true;
       }
-      totalCents += reward.cost_cents;
+      totalCents += reward.cost_cents * quantity;
     } else if (kind === 'POLL_VOTE') {
       if (!Number.isInteger(amount_cents) || amount_cents! < MIN_SPEND_CENTS) {
         throw Object.assign(new Error(`POLL_VOTE amount_cents (min ${MIN_SPEND_CENTS}) required`), {
@@ -263,6 +273,7 @@ async function createPledgeInner({
           target_id: item.target_id,
           poll_id: item.poll_id || null,
           amount_cents: item.amount_cents || 0,
+          quantity: item.kind === 'REWARD' ? (item.quantity ?? 1) : 1,
           data: item.data ? JSON.stringify(item.data) : null,
         })),
       },
@@ -307,7 +318,7 @@ async function fulfillPledgeInner(
       let result: { cost: number } | undefined;
       if (item.kind === 'REWARD') {
         const data = item.data ? JSON.parse(item.data) : {};
-        result = await claimRewardTx(tx, donorId, item.target_id, data);
+        result = await claimRewardTx(tx, donorId, item.target_id, data, item.quantity);
       } else if (item.kind === 'POLL_VOTE') {
         result = await votePollTx(tx, donorId, item.poll_id!, item.target_id, item.amount_cents);
       } else if (item.kind === 'GOAL') {
