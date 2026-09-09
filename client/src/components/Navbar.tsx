@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { getDonor } from '../api/donor';
+import { getFeatureFlags } from '../api/featureFlags';
 import { isSessionActive, endSession } from '../utils/authToken';
 import { useCart } from '../context/CartContext';
 import UserMenu from './UserMenu';
@@ -12,6 +13,7 @@ function fmt(cents: number) {
 
 export default function Navbar() {
   const [donor, setDonor] = useState<DonorWallet | null>(null);
+  const [auctionsEnabled, setAuctionsEnabled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { cart, totalCents, toggleDrawer } = useCart();
@@ -34,6 +36,12 @@ export default function Navbar() {
     const timer = setTimeout(() => setPop(false), 400);
     return () => clearTimeout(timer);
   }, [cart.length, totalCents]);
+
+  useEffect(() => {
+    getFeatureFlags()
+      .then((flags) => setAuctionsEnabled(flags.auctions ?? false))
+      .catch(() => setAuctionsEnabled(false));
+  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -87,14 +95,16 @@ export default function Navbar() {
       >
         help
       </NavLink>
-      <NavLink
-        to="/auctions"
-        className={({ isActive }) =>
-          `font-data font-bold text-sm tracking-wider uppercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
-        }
-      >
-        auctions
-      </NavLink>
+      {auctionsEnabled && (
+        <NavLink
+          to="/auctions"
+          className={({ isActive }) =>
+            `font-data font-bold text-sm tracking-wider uppercase ${isActive ? 'text-off-white' : 'text-off-white/55 hover:text-off-white'}`
+          }
+        >
+          auctions
+        </NavLink>
+      )}
       <NavLink
         to="/donate"
         className={({ isActive }) =>
