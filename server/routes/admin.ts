@@ -1700,26 +1700,32 @@ router.delete('/feature-flags/:name', async (req, res) => {
 // Broadcast Banner CRUD
 router.get('/broadcast', async (req, res) => {
   const broadcast = await prisma.broadcast.findFirst();
-  res.json(broadcast || { id: null, message: '', is_active: false });
+  res.json(broadcast || { id: null, message: '', level: null, is_active: false });
 });
 
+const BROADCAST_LEVELS = ['INFO', 'WARNING', 'CRITICAL'];
+
 router.put('/broadcast', async (req, res) => {
-  const { message } = req.body;
+  const { message, level } = req.body;
   if (typeof message !== 'string') {
     return res.status(400).json({ error: 'message must be a string' });
   }
+  if (level !== undefined && level !== null && !BROADCAST_LEVELS.includes(level)) {
+    return res.status(400).json({ error: 'level must be one of INFO, WARNING, CRITICAL, or null' });
+  }
+  const normalizedLevel = level ?? null;
   const trimmed = message.trim();
   if (!trimmed) {
     // Clear the broadcast
     await prisma.broadcast.deleteMany();
-    return res.json({ id: null, message: '', is_active: false });
+    return res.json({ id: null, message: '', level: null, is_active: false });
   }
   // Upsert: update if exists, create if not
   const existing = await prisma.broadcast.findFirst();
   const broadcast = await prisma.broadcast.upsert({
     where: { id: existing?.id || 'default' },
-    create: { id: 'default', message: trimmed, is_active: true },
-    update: { message: trimmed, is_active: true, updated_at: new Date() },
+    create: { id: 'default', message: trimmed, level: normalizedLevel, is_active: true },
+    update: { message: trimmed, level: normalizedLevel, is_active: true, updated_at: new Date() },
   });
   res.json(broadcast);
 });

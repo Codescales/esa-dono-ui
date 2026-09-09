@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
@@ -28,6 +28,7 @@ describe('Admin CRUD routes', () => {
   });
 
   afterAll(async () => {
+    await prisma.broadcast.deleteMany();
     await prisma.eventDelivery.deleteMany({ where: { destination_id: { in: destinationIds } } });
     await prisma.eventDestinationSeq.deleteMany({
       where: { destination_id: { in: destinationIds } },
@@ -627,6 +628,57 @@ describe('Admin CRUD routes', () => {
         .send({ url: 'https://example.com/hook', event_types: ['nope'] })
         .set(AUTH);
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('broadcast banner (#68 level)', () => {
+    afterEach(async () => {
+      await prisma.broadcast.deleteMany();
+    });
+
+    it('returns an inactive default with a null level when none set', async () => {
+      const res = await request(createApp()).get('/api/admin/broadcast').set(AUTH);
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: null, message: '', level: null, is_active: false });
+    });
+
+    it('creates a broadcast with a null level (backward-compatible default)', async () => {
+      const res = await request(createApp())
+        .put('/api/admin/broadcast')
+        .send({ message: 'hello world' })
+        .set(AUTH);
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('hello world');
+      expect(res.body.level).toBeNull();
+      expect(res.body.is_active).toBe(true);
+    });
+
+    it('creates a broadcast with a WARNING level', async () => {
+      const res = await request(createApp())
+        .put('/api/admin/broadcast')
+        .send({ message: 'careful now', level: 'WARNING' })
+        .set(AUTH);
+      expect(res.status).toBe(200);
+      expect(res.body.level).toBe('WARNING');
+    });
+
+    it('rejects an unrecognized level', async () => {
+      const res = await request(createApp())
+        .put('/api/admin/broadcast')
+        .send({ message: 'bad level', level: 'URGENT' })
+        .set(AUTH);
+      expect(res.status).toBe(400);
+    });
+
+    it('clears the level along with the message on delete', async () => {
+      await request(createApp())
+        .put('/api/admin/broadcast')
+        .send({ message: 'to clear', level: 'CRITICAL' })
+        .set(AUTH);
+      const delRes = await request(createApp()).delete('/api/admin/broadcast').set(AUTH);
+      expect(delRes.status).toBe(200);
+      const getRes = await request(createApp()).get('/api/admin/broadcast').set(AUTH);
+      expect(getRes.body).toMatchObject({ id: null, message: '', level: null, is_active: false });
     });
   });
 });

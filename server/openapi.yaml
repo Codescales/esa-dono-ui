@@ -141,6 +141,11 @@ paths:
                 type: object
                 properties:
                   message: { type: string, nullable: true }
+                  level:
+                    type: string
+                    nullable: true
+                    enum: [INFO, WARNING, CRITICAL]
+                    description: Banner severity; null uses the original fixed style
 
   # ─── Donor ───
   /donor:
@@ -1614,11 +1619,16 @@ paths:
                 message:
                   type: string
                   description: Banner text; an empty/blank string clears the banner
+                level:
+                  type: string
+                  nullable: true
+                  enum: [INFO, WARNING, CRITICAL]
+                  description: Optional severity level; omit/null for the original fixed style (#68)
       responses:
         '200':
           description: Broadcast updated (or cleared)
         '400':
-          description: message must be a string
+          description: message must be a string, or level is not a recognized value
     delete:
       tags: [Admin]
       summary: Clear the site-wide broadcast banner

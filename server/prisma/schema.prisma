@@ -388,6 +388,7 @@ model FeatureFlag {
 model Broadcast {
   id         String   @id @default(cuid())
   message    String   // The banner message/content
+  level      String?  // INFO | WARNING | CRITICAL (#68); null = original single fixed style
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
