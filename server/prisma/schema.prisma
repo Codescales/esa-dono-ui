@@ -375,3 +375,11 @@ model EventDelivery {
   @@unique([destination_id, seq])
   @@map("WebhookDelivery")
 }
+
+model Broadcast {
+  id         String   @id @default(cuid())
+  message    String   // The banner message/content
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}

@@ -1623,4 +1623,36 @@ router.post('/destinations/:id/test', async (req, res) => {
   res.json({ success: true, seq });
 });
 
+// Broadcast Banner CRUD
+router.get('/broadcast', async (req, res) => {
+  const broadcast = await prisma.broadcast.findFirst();
+  res.json(broadcast || { id: null, message: '', is_active: false });
+});
+
+router.put('/broadcast', async (req, res) => {
+  const { message } = req.body;
+  if (typeof message !== 'string') {
+    return res.status(400).json({ error: 'message must be a string' });
+  }
+  const trimmed = message.trim();
+  if (!trimmed) {
+    // Clear the broadcast
+    await prisma.broadcast.deleteMany();
+    return res.json({ id: null, message: '', is_active: false });
+  }
+  // Upsert: update if exists, create if not
+  const existing = await prisma.broadcast.findFirst();
+  const broadcast = await prisma.broadcast.upsert({
+    where: { id: existing?.id || 'default' },
+    create: { id: 'default', message: trimmed, is_active: true },
+    update: { message: trimmed, is_active: true, updated_at: new Date() },
+  });
+  res.json(broadcast);
+});
+
+router.delete('/broadcast', async (req, res) => {
+  await prisma.broadcast.deleteMany();
+  res.json({ success: true });
+});
+
 export default router;

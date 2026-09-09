@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import GlobalProgressBar from './components/GlobalProgressBar';
 import CartDrawer from './components/CartDrawer';
+import BroadcastBanner from './components/BroadcastBanner';
 import { CartProvider } from './context/CartContext';
 import { CampaignProvider } from './context/CampaignContext';
 import { track } from './lib/tracing';
@@ -22,6 +23,7 @@ import AdminDonations from './pages/admin/AdminDonations';
 import AdminSimulate from './pages/admin/AdminSimulate';
 import AdminDonors from './pages/admin/AdminDonors';
 import AdminBlockedWords from './pages/admin/AdminBlockedWords';
+import AdminBroadcast from './pages/admin/AdminBroadcast';
 import AdminPledges from './pages/admin/AdminPledges';
 import AdminAuctions from './pages/admin/AdminAuctions';
 import AdminDestinations from './pages/admin/AdminDestinations';
@@ -60,6 +62,7 @@ export default function App() {
           <Route path="simulate" element={<AdminSimulate />} />
           <Route path="pledges" element={<AdminPledges />} />
           <Route path="blocked-words" element={<AdminBlockedWords />} />
+          <Route path="broadcast" element={<AdminBroadcast />} />
           <Route path="auctions" element={<AdminAuctions />} />
           <Route path="destinations" element={<AdminDestinations />} />
           <Route path="help" element={<AdminHelp />} />
@@ -78,24 +81,27 @@ export default function App() {
         <Route
           path="*"
           element={
-            <div className="min-h-screen">
+            <div className="min-h-screen flex flex-col">
+              <BroadcastBanner />
               <CampaignProvider>
                 <CartProvider>
                   <PageViewTracker />
                   <Navbar />
                   <GlobalProgressBar />
                   <CartDrawer />
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/donate" element={<DonateFlow />} />
-                    <Route path="/pledge/:token" element={<PledgeReturn />} />
-                    <Route path="/wallet" element={<MyWallet />} />
-                    <Route path="/help" element={<Help />} />
-                    <Route path="/rewards" element={<DonateFlow />} />
-                    <Route path="/polls" element={<DonateFlow />} />
-                    <Route path="/goals" element={<DonateFlow />} />
-                    <Route path="/auctions" element={<Auctions />} />
-                  </Routes>
+                  <div className="flex-1">
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/donate" element={<DonateFlow />} />
+                      <Route path="/pledge/:token" element={<PledgeReturn />} />
+                      <Route path="/wallet" element={<MyWallet />} />
+                      <Route path="/help" element={<Help />} />
+                      <Route path="/rewards" element={<DonateFlow />} />
+                      <Route path="/polls" element={<DonateFlow />} />
+                      <Route path="/goals" element={<DonateFlow />} />
+                      <Route path="/auctions" element={<Auctions />} />
+                    </Routes>
+                  </div>
                 </CartProvider>
               </CampaignProvider>
             </div>
