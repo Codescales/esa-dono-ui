@@ -13,6 +13,7 @@ import {
   skipCurrentOfferTx,
   resendCurrentOfferTx,
 } from '../services/auction.js';
+import { invalidateFlagCache } from '../services/featureFlags.js';
 import { TOKEN_TTL_MS } from '../config.js';
 import {
   emitWebhookEvent,
@@ -1621,6 +1622,79 @@ router.post('/destinations/:id/test', async (req, res) => {
   });
 
   res.json({ success: true, seq });
+});
+
+// Feature Flags CRUD
+router.get('/feature-flags', async (req, res) => {
+  const flags = await prisma.featureFlag.findMany({
+    orderBy: { name: 'asc' },
+  });
+  res.json(flags);
+});
+
+router.get('/feature-flags/:name', async (req, res) => {
+  const flag = await prisma.featureFlag.findUnique({
+    where: { name: req.params.name },
+  });
+  if (!flag) return res.status(404).json({ error: 'Feature flag not found' });
+  res.json(flag);
+});
+
+router.post('/feature-flags', async (req, res) => {
+  const { name, description } = req.body;
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'name is required' });
+  }
+  try {
+    const flag = await prisma.featureFlag.create({
+      data: {
+        name: String(name).trim(),
+        description: description ? String(description).trim() : null,
+        is_enabled: false,
+      },
+    });
+    invalidateFlagCache();
+    res.json(flag);
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') {
+      return res.status(409).json({ error: 'Feature flag name already exists' });
+    }
+    throw e;
+  }
+});
+
+router.patch('/feature-flags/:name', async (req, res) => {
+  const { is_enabled, description } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (is_enabled !== undefined) updates.is_enabled = Boolean(is_enabled);
+  if (description !== undefined)
+    updates.description = description ? String(description).trim() : null;
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  const flag = await prisma.featureFlag.update({
+    where: { name: req.params.name },
+    data: updates,
+  });
+  invalidateFlagCache();
+  res.json(flag);
+});
+
+router.delete('/feature-flags/:name', async (req, res) => {
+  try {
+    await prisma.featureFlag.delete({
+      where: { name: req.params.name },
+    });
+    invalidateFlagCache();
+    res.json({ success: true });
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'Feature flag not found' });
+    }
+    throw e;
+  }
 });
 
 export default router;

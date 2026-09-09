@@ -375,3 +375,12 @@ model EventDelivery {
   @@unique([destination_id, seq])
   @@map("WebhookDelivery")
 }
+
+model FeatureFlag {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  is_enabled  Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+}
