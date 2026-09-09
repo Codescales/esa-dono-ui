@@ -384,3 +384,11 @@ model FeatureFlag {
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
 }
+
+model Broadcast {
+  id         String   @id @default(cuid())
+  message    String   // The banner message/content
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}

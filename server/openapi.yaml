@@ -128,6 +128,20 @@ paths:
                     properties:
                       value: { type: string }
 
+  /campaign/broadcast:
+    get:
+      tags: [Campaign]
+      summary: Get the active site-wide broadcast banner message, if any
+      responses:
+        '200':
+          description: Active broadcast message, or null if none/inactive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, nullable: true }
+
   # ─── Donor ───
   /donor:
     get:
@@ -1493,6 +1507,125 @@ paths:
       responses:
         '200':
           description: Deleted
+
+  /admin/feature-flags:
+    get:
+      tags: [Admin]
+      summary: List all feature flags
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Feature flags ordered by name
+    post:
+      tags: [Admin]
+      summary: Create a feature flag (disabled by default)
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Flag created
+        '400':
+          description: name is required
+        '409':
+          description: Flag name already exists
+
+  /admin/feature-flags/{name}:
+    get:
+      tags: [Admin]
+      summary: Get a feature flag by name
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Feature flag
+        '404':
+          description: Feature flag not found
+    patch:
+      tags: [Admin]
+      summary: Toggle or update a feature flag
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                is_enabled: { type: boolean }
+                description: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Flag updated
+        '400':
+          description: No fields to update
+    delete:
+      tags: [Admin]
+      summary: Delete a feature flag
+      security: [{ AdminKey: [] }]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Feature flag not found
+
+  /admin/broadcast:
+    get:
+      tags: [Admin]
+      summary: Get the current site-wide broadcast banner
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Current broadcast (empty message/inactive if none set)
+    put:
+      tags: [Admin]
+      summary: Set or clear the site-wide broadcast banner
+      security: [{ AdminKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  description: Banner text; an empty/blank string clears the banner
+      responses:
+        '200':
+          description: Broadcast updated (or cleared)
+        '400':
+          description: message must be a string
+    delete:
+      tags: [Admin]
+      summary: Clear the site-wide broadcast banner
+      security: [{ AdminKey: [] }]
+      responses:
+        '200':
+          description: Cleared
 
   /admin/destinations:
     get:
