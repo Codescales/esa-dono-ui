@@ -11,6 +11,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@dono/shared": "*",
     "@opentelemetry/api": "^1.9.1",

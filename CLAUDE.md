@@ -18,6 +18,9 @@ npm run build
 cd server && npx prisma migrate dev --name <name>
 cd server && npx prisma generate
 
+# DB seed (creates dev moderator/admin accounts + banner with API keys)
+cd server && npx prisma db seed
+
 # DB studio
 cd server && npx prisma studio
 
@@ -89,7 +92,28 @@ Images publish to `ghcr.io/esamarathon/esa-dono-ui/{backend,frontend}` via
 ```bash
 cp .env.example .env   # fill in values
 cd server && npx prisma migrate dev --name init && npx prisma generate && cd ..
+cd server && npx prisma db seed  # creates dev moderator/admin accounts + banner
+cd ..
 npm run dev
+```
+
+### Dev Seed
+
+The seed script creates:
+
+- **Moderator account** (`moderator@localhost`) with role `MODERATOR`
+- **Admin account** (`admin@localhost`) with role `ADMIN`
+- **Banner** at the top of the app displaying the moderator and admin API keys
+
+The banner uses the keys from `MODERATOR_API_KEY` and `ADMIN_API_KEY` env vars (defaults:
+`key_mod_dev-moderator-key` and `key_admin_change-me`). The accounts and banner survive
+restarts and are preserved on staging through daily resets — the banner always displays
+the current API keys from the `.env` file.
+
+To re-run the seed (e.g., after clearing the DB or updating env keys):
+
+```bash
+cd server && npx prisma db seed
 ```
 
 ## Architecture
