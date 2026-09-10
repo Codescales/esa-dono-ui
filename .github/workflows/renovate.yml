@@ -1,0 +1,24 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # weekly
+  workflow_dispatch:
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      security-events: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: renovatebot/github-action@v42.0.0
+        with:
+          configurationFile: renovate.json
+          token: ${{ secrets.RENOVATE_TOKEN || secrets.GITHUB_TOKEN }}
+        env:
+          RENOVATE_AUTODISCOVER: 'true'
+          GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_TOKEN || secrets.GITHUB_TOKEN }}

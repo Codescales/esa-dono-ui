@@ -1,0 +1,10 @@
+# Trivy ignore list.
+#
+# The production backend image is slimmed to production dependencies only
+# (see Dockerfile.backend, `runtime-deps` stage) and no longer ships build/test
+# tooling or the Node base image's bundled npm. Both the backend and frontend
+# runtime images currently scan clean at HIGH/CRITICAL, so no CVEs are ignored.
+#
+# If a new HIGH/CRITICAL finding appears, prefer to fix it by upgrading the
+# offending dependency or slimming it out of the runtime image rather than
+# adding it here.

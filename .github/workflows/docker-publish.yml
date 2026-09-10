@@ -2,6 +2,11 @@ name: Build and Push Docker Images
 
 on:
   push:
+    # Only branches whose images we actually want published & tagged.
+    # (Feature/renovate/worktree branches build via the pull_request trigger
+    # below once opened as a PR against main, tagged pr-<number>.)
+    branches: [main, dev]
+  pull_request:
     branches: [main]
 
 env:
@@ -32,6 +37,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Derive image tags
+        id: tags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          # Docker tags allow only [a-zA-Z0-9_.-]; branch names may contain
+          # slashes (e.g. renovate/foo) or other characters, so sanitize.
+          sanitize() {
+            echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g' | sed -E 's#-+#-#g; s#^-|-$##g' | cut -c1-100
+          }
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            TAG="pr-${PR_NUMBER}"
+            echo "backend_tags=${IMAGE_PREFIX}/backend:${TAG}" >> "$GITHUB_OUTPUT"
+            echo "frontend_tags=${IMAGE_PREFIX}/frontend:${TAG}" >> "$GITHUB_OUTPUT"
+            echo "scan_backend_ref=${IMAGE_PREFIX}/backend:${TAG}" >> "$GITHUB_OUTPUT"
+            echo "scan_frontend_ref=${IMAGE_PREFIX}/frontend:${TAG}" >> "$GITHUB_OUTPUT"
+            echo "run_smoke_test=false" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH_TAG="$(sanitize "$REF_NAME")"
+            # The sha tag is what CI actually verifies (Trivy scan + smoke
+            # test) below, so every push always gets one regardless of branch.
+            BACKEND_TAGS="${IMAGE_PREFIX}/backend:${BRANCH_TAG},${IMAGE_PREFIX}/backend:${SHA}"
+            FRONTEND_TAGS="${IMAGE_PREFIX}/frontend:${BRANCH_TAG},${IMAGE_PREFIX}/frontend:${SHA}"
+            if [ "$REF_NAME" = "main" ]; then
+              BACKEND_TAGS="${BACKEND_TAGS},${IMAGE_PREFIX}/backend:latest"
+              FRONTEND_TAGS="${FRONTEND_TAGS},${IMAGE_PREFIX}/frontend:latest"
+            fi
+            echo "backend_tags=${BACKEND_TAGS}" >> "$GITHUB_OUTPUT"
+            echo "frontend_tags=${FRONTEND_TAGS}" >> "$GITHUB_OUTPUT"
+            echo "scan_backend_ref=${IMAGE_PREFIX}/backend:${SHA}" >> "$GITHUB_OUTPUT"
+            echo "scan_frontend_ref=${IMAGE_PREFIX}/frontend:${SHA}" >> "$GITHUB_OUTPUT"
+            echo "run_smoke_test=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
@@ -40,19 +83,19 @@ jobs:
           target: runtime
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/backend:latest
-            ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.backend_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy scan backend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
+          image-ref: ${{ steps.tags.outputs.scan_backend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
+          trivyignores: .trivyignore
 
       - name: Build and push frontend
         uses: docker/build-push-action@v6
@@ -61,27 +104,31 @@ jobs:
           file: Dockerfile.frontend
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/frontend:latest
-            ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.frontend_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Trivy scan frontend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+          image-ref: ${{ steps.tags.outputs.scan_frontend_ref }}
           format: table
           exit-code: 1
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
+          ignore-unfixed: 'true'
+          trivyignores: .trivyignore
 
       - name: Smoke-test published images
+        if: steps.tags.outputs.run_smoke_test == 'true'
         env:
           ADMIN_API_KEY: smoke-test-key
           FRONTEND_PORT: '18080'
+          BACKEND_IMAGE_TAG: ${{ github.sha }}
+          FRONTEND_IMAGE_TAG: ${{ github.sha }}
         run: |
-          # docker-compose.yml references the :latest tags — pull the amd64
-          # variants just pushed and verify the stack actually runs.
-          docker pull "${IMAGE_PREFIX}/backend:latest"
-          docker pull "${IMAGE_PREFIX}/frontend:latest"
+          # Always smoke-test the sha tag just built/pushed above, not
+          # :latest — that keeps this accurate on every branch, not just main,
+          # and avoids racing a concurrent main build that just moved :latest.
+          docker pull "${IMAGE_PREFIX}/backend:${BACKEND_IMAGE_TAG}"
+          docker pull "${IMAGE_PREFIX}/frontend:${FRONTEND_IMAGE_TAG}"
           ./scripts/smoke-test.sh

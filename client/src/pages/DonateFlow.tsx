@@ -1,0 +1,314 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import { track } from '../lib/tracing';
+import LoadingSpinner from '../components/LoadingSpinner';
+import Modal from '../components/Modal';
+import ShareLinkButton from '../components/ShareLinkButton';
+import { CheckBadgeIcon } from '../components/icons';
+import RewardList from '../components/incentives/RewardList';
+import PollList from '../components/incentives/PollList';
+import GoalList from '../components/incentives/GoalList';
+const TABS = ['rewards', 'polls', 'goals'] as const;
+type Tab = (typeof TABS)[number];
+
+const TAB_LABELS: Record<Tab, string> = {
+  rewards: 'rewards',
+  polls: 'polls',
+  goals: 'fund goals',
+};
+
+/** Map a pathname to the tab it should activate. /donate (and anything else
+ * under the public tree) defaults to rewards — the same default the old
+ * stepper's first step used. */
+function tabFromPathname(pathname: string): Tab {
+  if (pathname.startsWith('/polls')) return 'polls';
+  if (pathname.startsWith('/goals')) return 'goals';
+  return 'rewards';
+}
+
+export default function DonateFlow() {
+  const {
+    loading,
+    openDrawer,
+    hasVisited,
+    channels,
+    selectedChannelId,
+    selectChannel,
+    refreshChannels,
+    pendingChannelId,
+    confirmChannelSwitch,
+    cancelChannelSwitch,
+    prefillFromLink,
+  } = useCart();
+  const location = useLocation();
+
+  const [tab, setTab] = useState<Tab>(() => tabFromPathname(location.pathname));
+  const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const [prefillWarning, setPrefillWarning] = useState<string | null>(null);
+
+  // Refetch the channel list once when the donate flow mounts (the channel
+  // picker at the top of this page), rather than relying solely on the
+  // background poll — CartProvider persists for the app's lifetime, so a
+  // channel opened by an admin while the donor was elsewhere on the site
+  // otherwise wouldn't show until the next poll tick (#46).
+  useEffect(() => {
+    refreshChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Warning shown when "review & checkout" is clicked before every category
+  // has been opened. A second click while it's showing bypasses it and
+  // proceeds anyway — the donor has now been told twice, once by name.
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningAcknowledged, setWarningAcknowledged] = useState(false);
+
+  // /rewards, /polls, /goals, and /donate all render this same component
+  // instance at the same position in the tree, so React won't remount it on
+  // navigation between them — sync the active tab to the URL explicitly
+  // whenever the pathname changes (e.g. a donor clicks a Navbar link while
+  // already on this page).
+  useEffect(() => {
+    setTab(tabFromPathname(location.pathname));
+  }, [location.pathname]);
+
+  // Deep link to a channel (#49): ?channel=<id> selects that channel on load,
+  // the same action as clicking its picker button, so a shared link lands
+  // directly on a channel's incentives without the donor manually picking.
+  // Consumed once via a ref — channels refetches on a background interval
+  // (new tab, new poll, etc.), and without the guard each refetch would
+  // re-select the linked channel even after the donor switched away.
+  const consumedChannelParam = useRef(false);
+  useEffect(() => {
+    if (loading || channels.length === 0 || consumedChannelParam.current) return;
+    const channelParam = new URLSearchParams(location.search).get('channel');
+    if (!channelParam) return;
+    consumedChannelParam.current = true;
+    const channel = channels.find((c) => c.id === channelParam);
+    if (!channel) {
+      setPrefillWarning('That channel is no longer available.');
+      return;
+    }
+    selectChannel(channel.id);
+  }, [loading, channels, location.search, selectChannel]);
+
+  // Apply a shared permalink (e.g. /rewards?reward=<id>) once the incentive
+  // data has loaded. prefillFromLink resolves the target, auto-selects its
+  // channel, adds it to the cart, and opens the drawer; a non-null return is
+  // a warning about a missing/inactive/sold-out target that we surface
+  // instead of silently doing nothing.
+  useEffect(() => {
+    if (loading) return;
+    const warning = prefillFromLink(new URLSearchParams(location.search));
+    if (warning) setPrefillWarning(warning);
+  }, [loading, location.search, prefillFromLink]);
+
+  // A poll-only permalink (/polls?poll=<id>) doesn't prefill a cart item —
+  // it just takes the donor to the polls tab and scrolls to that poll so
+  // they can pick an option and amount themselves.
+  useEffect(() => {
+    if (loading) return;
+    const pollId = new URLSearchParams(location.search).get('poll');
+    if (!pollId) return;
+    setTab('polls');
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`poll-${pollId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [loading, location.search]);
+
+  // Dismiss a lingering warning banner once the donor moves to a different
+  // category — it did its job (or was bypassed) and shouldn't stick around
+  // while they browse.
+  useEffect(() => {
+    setShowWarning(false);
+  }, [tab]);
+
+  const selectTab = (next: Tab) => {
+    const nextIndex = TABS.indexOf(next);
+    const currentIndex = TABS.indexOf(tab);
+    setDirection(nextIndex >= currentIndex ? 'next' : 'prev');
+    setTab(next);
+    track('tab_visit', { tab: next });
+  };
+
+  if (loading) return <LoadingSpinner />;
+
+  const slideClass = direction === 'next' ? 'animate-slide-in-right' : 'animate-slide-in-left';
+  const tabIndex = TABS.indexOf(tab);
+  const unvisited = TABS.filter((t) => !hasVisited(t));
+  const allVisited = unvisited.length === 0;
+
+  // Previous/Next always cycle — rewards -> polls -> goals -> rewards -> ...
+  // — so donors keep circling through every category rather than hitting a
+  // dead end, with "review & checkout" living on its own row as the
+  // separate, deliberate exit from the loop.
+  const goPrevious = () => {
+    setDirection('prev');
+    setTab(TABS[(tabIndex - 1 + TABS.length) % TABS.length]!);
+  };
+
+  const goNext = () => {
+    setDirection('next');
+    setTab(TABS[(tabIndex + 1) % TABS.length]!);
+  };
+
+  const handleReviewClick = () => {
+    if (allVisited || warningAcknowledged) {
+      setShowWarning(false);
+      openDrawer();
+      return;
+    }
+    setShowWarning(true);
+    setWarningAcknowledged(true);
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto p-8">
+      {prefillWarning && (
+        <div className="p-3 mb-6 rounded-sm text-sm" style={{ background: 'rgba(224,90,90,.16)' }}>
+          <p className="font-data" style={{ color: 'var(--red)' }}>
+            {prefillWarning}
+          </p>
+          <p className="font-body text-xs text-off-white/55 mt-1">
+            This link couldn't be fully applied.
+          </p>
+        </div>
+      )}
+
+      {/* Channel picker — required before browsing incentives. Every donation
+          routes to exactly one channel, and incentives tied to a specific
+          channel cannot be mixed with another channel's in the same cart, so
+          the picker filters what's shown below. */}
+      <div className="btrl-panel p-4 mb-6">
+        <p className="font-mono text-[10px] tracking-widest uppercase text-d-yellow mb-2">
+          channel
+        </p>
+        {channels.length === 0 ? (
+          <p className="font-body text-sm text-off-white/55">No channels are open right now.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {channels.map((s) => (
+              <div key={s.id} className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    selectChannel(s.id);
+                    track('channel_select', { 'channel.id': s.id });
+                  }}
+                  className={`font-data font-bold text-sm tracking-wider uppercase px-4 py-2 rounded-sm transition-colors ${
+                    selectedChannelId === s.id
+                      ? 'text-black'
+                      : 'text-off-white/55 hover:text-off-white'
+                  }`}
+                  style={{
+                    background:
+                      selectedChannelId === s.id ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)',
+                  }}
+                >
+                  {s.name}
+                </button>
+                <ShareLinkButton path={`/donate?channel=${s.id}`} />
+              </div>
+            ))}
+          </div>
+        )}
+        {!selectedChannelId && channels.length > 0 && (
+          <p className="font-body text-xs text-off-white/55 mt-2">
+            Select a channel to see its rewards, polls, and fund goals.
+          </p>
+        )}
+      </div>
+
+      {pendingChannelId && (
+        <Modal title="switch channel?" onClose={cancelChannelSwitch}>
+          <p className="font-body text-sm text-off-white/55 mb-4">
+            Your cart has items tied to your current channel. Incentives can't be mixed across
+            channels in one donation — switching will remove those items from your cart (shared
+            items stay).
+          </p>
+          <div className="flex justify-end gap-2">
+            <button onClick={cancelChannelSwitch} className="btrl-button btrl-button-outline">
+              cancel
+            </button>
+            <button onClick={confirmChannelSwitch} className="btrl-button">
+              switch &amp; clear those items
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {!selectedChannelId ? null : (
+        <>
+          {/* Tab bar — still clickable for jumping directly to a category. A
+          checkmark marks any category the donor has already opened. */}
+          <div className="flex justify-center gap-2 mb-8">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => selectTab(t)}
+                className={`flex items-center gap-1.5 font-data font-bold text-sm tracking-wider uppercase px-4 py-2 rounded-sm transition-colors ${
+                  tab === t ? 'text-black' : 'text-off-white/55 hover:text-off-white'
+                }`}
+                style={{ background: tab === t ? 'var(--d-yellow)' : 'rgba(239,238,236,.08)' }}
+              >
+                {t}
+                {hasVisited(t) && (
+                  <CheckBadgeIcon
+                    className="w-3.5 h-3.5 shrink-0"
+                    style={{ color: tab === t ? 'black' : 'var(--green)' }}
+                    data-testid={`visited-check-${t}`}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className={`transition-all duration-300 ${slideClass}`}>
+            {tab === 'rewards' && <RewardList />}
+            {tab === 'polls' && <PollList />}
+            {tab === 'goals' && <GoalList />}
+          </div>
+
+          {/* Previous/Next always available and always cycle through every
+          category — there's no "last" step to fall off of. */}
+          <div className="flex justify-between items-center mt-8">
+            <button onClick={goPrevious} className="btrl-button btrl-button-outline">
+              &larr; previous
+            </button>
+            <button onClick={goNext} className="btrl-button">
+              next &rarr;
+            </button>
+          </div>
+
+          {showWarning && (
+            <div
+              className="mt-4 p-3 rounded-sm text-sm"
+              style={{ background: 'rgba(208,152,70,.16)' }}
+            >
+              <p className="font-data text-d-yellow mb-1">
+                You haven't reviewed {unvisited.map((t) => TAB_LABELS[t]).join(' or ')} yet.
+              </p>
+              <p className="font-body text-xs text-off-white/55">
+                Click "review &amp; checkout" again to skip ahead anyway — your cart is always
+                reachable from the cart button too.
+              </p>
+            </div>
+          )}
+
+          {/* Review/checkout lives on its own row, separate from the Previous/
+          Next loop, so it reads as a deliberate exit rather than another
+          step in the cycle. It's never hard-disabled — clicking it before
+          every category has been reviewed shows the warning above instead
+          of opening the drawer; a second click bypasses that and proceeds. */}
+          <div className="flex justify-center mt-4">
+            <button onClick={handleReviewClick} className="btrl-button text-lg py-3 px-8">
+              review &amp; checkout
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
