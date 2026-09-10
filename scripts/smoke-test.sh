@@ -4,8 +4,8 @@
 #
 # Assumes the backend and frontend images are already built and tagged as the
 # names used in docker-compose.yml:
-#   ghcr.io/codescales/esa-dono-ui/backend:${BACKEND_IMAGE_TAG:-latest}
-#   ghcr.io/codescales/esa-dono-ui/frontend:${FRONTEND_IMAGE_TAG:-latest}
+#   ghcr.io/esamarathon/esa-dono-ui/backend:${BACKEND_IMAGE_TAG:-latest}
+#   ghcr.io/esamarathon/esa-dono-ui/frontend:${FRONTEND_IMAGE_TAG:-latest}
 #
 # Usage:
 #   scripts/smoke-test.sh                 # uses docker compose, FRONTEND_PORT=18080

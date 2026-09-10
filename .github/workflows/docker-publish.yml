@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/codescales/esa-dono-ui
+  IMAGE_PREFIX: ghcr.io/esamarathon/esa-dono-ui
 
 jobs:
   build-and-push:
