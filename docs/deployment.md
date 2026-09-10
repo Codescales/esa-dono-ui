@@ -251,6 +251,24 @@ docker compose start dono-backend
 
 Restore: stop the backend, copy the file back into the volume, restart.
 
+### Seeding data (development / staging)
+
+To create persistent dev accounts (moderator@localhost, admin@localhost) and a
+banner displaying API keys, run the seed script:
+
+```bash
+docker compose exec dono-backend npx prisma db seed --schema ./server/prisma/schema.prisma
+```
+
+This creates:
+- Moderator account (role: MODERATOR, email_verified: true)
+- Admin account (role: ADMIN, email_verified: true)
+- Broadcast banner showing current MODERATOR_API_KEY and ADMIN_API_KEY from .env
+
+The seed is idempotent — running it multiple times updates existing records
+safely. Accounts and banner survive database restarts, including staging's daily
+reset cycle. See `docs/STAGING_SEED.md` for detailed staging instructions.
+
 ### Migrations
 
 Handled automatically by the backend entrypoint (`prisma migrate deploy`). To
